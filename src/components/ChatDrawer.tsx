@@ -45,6 +45,24 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
     // Brief flash after re-sending chat access request
     const [resendFlash, setResendFlash] = useState(false);
 
+    // Track the student's current permission status when teacher/admin views a student DM
+    const [studentPermission, setStudentPermission] = useState<string>('none');
+    useEffect(() => {
+        if ((userRole === 'teacher' || userRole === 'admin') &&
+            activeConvOtherRole === 'student' && activeConvOtherUserId) {
+            fetch(`${import.meta.env.VITE_SERVER_URL || 'http://localhost:3001'}/api/chat/permissions/${activeConvOtherUserId}`)
+                .then(r => r.json())
+                .then((rows: { target_user_id: string; status: string }[]) => {
+                    const row = rows.find(r => r.target_user_id === userId);
+                    setStudentPermission(row?.status ?? 'none');
+                })
+                .catch(() => setStudentPermission('none'));
+        } else {
+            setStudentPermission('none');
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeConvOtherUserId, userRole, userId, activeConvOtherRole]);
+
     // Single-pane mode on phones
     const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
     useEffect(() => {
@@ -410,9 +428,10 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                                 )}
                                 {(userRole === 'teacher' || userRole === 'admin') &&
                                     activeConv?.type === 'dm' &&
-                                    activeConv?.other_user?.user_role === 'student' && (
+                                    activeConv?.other_user?.user_role === 'student' &&
+                                    studentPermission === 'allowed' && (
                                     <button
-                                        onClick={() => handleEndChat(activeConv.other_user!.user_id, userId)}
+                                        onClick={async () => { await handleEndChat(activeConv.other_user!.user_id, userId); setStudentPermission('none'); }}
                                         title="End chat — student must request again"
                                         style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '4px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                                         🚫 End Chat
