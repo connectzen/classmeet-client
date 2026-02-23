@@ -70,7 +70,13 @@ export default function Room({ roomCode, roomId, roomName, name, role, onLeave }
         setAllowingChat(null);
     }, []);
 
-    useEffect(() => { fetchChatRequests(); }, [fetchChatRequests]);
+    useEffect(() => {
+        fetchChatRequests();
+        if (role !== 'teacher') return;
+        // Poll every 8s as fallback in case socket event is missed
+        const timer = setInterval(fetchChatRequests, 8000);
+        return () => clearInterval(timer);
+    }, [fetchChatRequests]);
 
     const copyRoomCode = () => {
         navigator.clipboard.writeText(roomCode).then(() => {

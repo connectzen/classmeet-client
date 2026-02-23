@@ -44,6 +44,10 @@ export function useSocket(options: UseSocketOptions) {
         onSpotlightChanged, onTeacherJoined, onAdminRefresh,
     } = options;
 
+    // Keep a ref so the single registered socket listener always calls the latest callback
+    const onAdminRefreshRef = useRef<typeof onAdminRefresh>(onAdminRefresh);
+    useEffect(() => { onAdminRefreshRef.current = onAdminRefresh; }, [onAdminRefresh]);
+
     const socketRef = useRef<Socket | null>(null);
     const [socketId, setSocketId] = useState('');
     const [connected, setConnected] = useState(false);
@@ -89,7 +93,7 @@ export function useSocket(options: UseSocketOptions) {
             onSpotlightChanged(spotlightSocketId)
         );
         socket.on('teacher-joined', () => onTeacherJoined());
-        if (onAdminRefresh) socket.on('admin:refresh', onAdminRefresh);
+        socket.on('admin:refresh', (data: { type: string }) => { onAdminRefreshRef.current?.(data); });
         socket.on('disconnect', () => setConnected(false));
 
         return () => {
