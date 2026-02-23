@@ -400,6 +400,7 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                                                 </div>
                                             );
                                         }
+                                        return (
                                             <div
                                                 key={msg.id}
                                                 style={{ display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start', marginTop: groupWithPrev ? 2 : 10 }}
