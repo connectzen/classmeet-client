@@ -254,11 +254,11 @@ export default function AdminDashboard() {
                                 <StatCard icon="◆" label="Messages Sent" value={sentMessages.length} accent="#8b5cf6" />
                             </div>
                             <Card title="Quick Actions">
-                                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                                    <Btn onClick={() => setTab('teachers')} color="#6366f1">Manage Teachers</Btn>
-                                    <Btn onClick={() => setTab('students')} color="#22c55e">Manage Students</Btn>
-                                    <Btn onClick={() => setTab('pending')} color="#f59e0b">Pending Approvals {pendingUsers.length > 0 ? `(${pendingUsers.length})` : ''}</Btn>
-                                    <Btn onClick={() => setTab('messages')} color="#8b5cf6">Send Message</Btn>
+                                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 12 }}>
+                                    <BtnFull onClick={() => setTab('teachers')} color="#6366f1">Manage Teachers</BtnFull>
+                                    <BtnFull onClick={() => setTab('students')} color="#22c55e">Manage Students</BtnFull>
+                                    <BtnFull onClick={() => setTab('pending')} color="#f59e0b">Pending {pendingUsers.length > 0 ? `(${pendingUsers.length})` : 'Approvals'}</BtnFull>
+                                    <BtnFull onClick={() => setTab('messages')} color="#8b5cf6">Send Message</BtnFull>
                                 </div>
                             </Card>
                         </div>
@@ -518,6 +518,17 @@ function Btn({ onClick, children, color, textColor, small, disabled }: { onClick
     return (
         <button onClick={onClick} disabled={disabled} style={{ cursor: disabled ? 'not-allowed' : 'pointer', background: color, color: textColor || '#fff', border: 'none', borderRadius: small ? 8 : 10, padding: small ? '6px 14px' : '10px 20px', fontSize: small ? 12 : 13, fontWeight: 600, opacity: disabled ? 0.5 : 1, transition: 'opacity 0.15s, filter 0.15s', whiteSpace: 'nowrap' }}
             onMouseEnter={e => !disabled && ((e.currentTarget as HTMLElement).style.filter = 'brightness(1.15)')}
+            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.filter = 'none')}>
+            {children}
+        </button>
+    );
+}
+
+// Full-width button used in Quick Actions grid
+function BtnFull({ onClick, children, color }: { onClick?: () => void; children: React.ReactNode; color: string }) {
+    return (
+        <button onClick={onClick} style={{ cursor: 'pointer', background: color, color: '#fff', border: 'none', borderRadius: 10, padding: '12px 10px', fontSize: 13, fontWeight: 600, width: '100%', textAlign: 'center', whiteSpace: 'normal', lineHeight: 1.3, transition: 'filter 0.15s' }}
+            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.filter = 'brightness(1.15)')}
             onMouseLeave={e => ((e.currentTarget as HTMLElement).style.filter = 'none')}>
             {children}
         </button>
