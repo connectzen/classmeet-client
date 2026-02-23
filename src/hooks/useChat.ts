@@ -42,6 +42,8 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
     const [typing, setTyping]               = useState<Record<string, string>>({});
     // Per-pair chat permissions: Record<targetUserId, 'allowed'|'pending'|'declined'|'none'>
     const [chatPermissions, setChatPermissions] = useState<Record<string, 'allowed' | 'pending' | 'declined' | 'none'>>({});
+    // true once the initial DB fetch for permissions has resolved (prevents gate flash on load)
+    const [permissionsLoaded, setPermissionsLoaded] = useState(false);
     const socketRef  = useRef<Socket | null>(null);
     const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
@@ -149,17 +151,24 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
 
     // ── Chat permissions init (students only) ─────────────────────────────
     useEffect(() => {
-        if (!userId || userRole !== 'student') return;
+        if (!userId) return;
+        if (userRole !== 'student') {
+            // Non-students have no gate; mark loaded immediately so nothing blocks
+            setPermissionsLoaded(true);
+            return;
+        }
         fetch(`${SERVER_URL}/api/chat/permissions/${userId}`)
             .then(r => r.json())
             .then((rows: { target_user_id: string; status: string }[]) => {
+                if (!Array.isArray(rows)) { setPermissionsLoaded(true); return; }
                 const map: Record<string, 'allowed' | 'pending' | 'declined' | 'none'> = {};
                 for (const row of rows) {
                     map[row.target_user_id] = (row.status as 'allowed' | 'pending' | 'declined' | 'none') || 'none';
                 }
                 setChatPermissions(map);
+                setPermissionsLoaded(true);
             })
-            .catch(() => {});
+            .catch(() => { setPermissionsLoaded(true); }); // fail-open so UI doesn't hang
     }, [userId, userRole]);
 
     // ── Load conversation list ────────────────────────────────────────────
@@ -310,6 +319,7 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
         unreadTotal,
         typing,
         chatPermissions,
+        permissionsLoaded,
         requestChatAccess,
         fetchConversations,
         openConversation,

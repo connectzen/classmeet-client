@@ -22,7 +22,7 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
     const {
         conversations, messages, activeConvId, unreadTotal,
         typing, openConversation, sendMessage, uploadFile, emitTyping, reactToMessage, fetchConversations, startDM, deleteMessage, deleteConversation,
-        chatPermissions, requestChatAccess,
+        chatPermissions, permissionsLoaded, requestChatAccess,
     } = useChat({ userId, userName, userRole });
 
     // Notify parent of unread count changes
@@ -118,7 +118,8 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
     const activeConvPermission = activeConvOtherUserId
         ? (chatPermissions[activeConvOtherUserId] ?? 'none')
         : 'allowed';
-    const showChatGate = userRole === 'student' && activeConvIsTeacherOrAdmin && activeConvPermission !== 'allowed';
+    // Only show the gate once permissions have loaded from the DB — prevents flash-of-gate on refresh
+    const showChatGate = userRole === 'student' && activeConvIsTeacherOrAdmin && permissionsLoaded && activeConvPermission !== 'allowed';
 
     // Track the student's current permission status when teacher/admin views a student DM
     const [studentPermission, setStudentPermission] = useState<string>('none');
