@@ -42,6 +42,8 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
     // Mobile long-press action sheet
     const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [mobileActionMsg, setMobileActionMsg] = useState<{ msgId: string; isMine: boolean; convId: string } | null>(null);
+    // Brief flash after re-sending chat access request
+    const [resendFlash, setResendFlash] = useState(false);
 
     // Single-pane mode on phones
     const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
@@ -105,7 +107,16 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
     // Clear staged file when switching conversation
     useEffect(() => { setStagedFile(null); }, [activeConvId]);
 
+    const handleResendRequest = useCallback(async () => {
+        await requestChatAccess();
+        setResendFlash(true);
+        setTimeout(() => setResendFlash(false), 2000);
+    }, [requestChatAccess]);
+
     const activeConv = conversations.find(c => c.conversation_id === activeConvId);
+    // Gate applies only when the open conversation is with a teacher
+    const activeConvIsTeacher = activeConv?.type === 'dm' && activeConv?.other_user?.user_role === 'teacher';
+    const showChatGate = userRole === 'student' && !chatAllowed && activeConvIsTeacher;
     const activeMessages: ChatMessage[] = activeConvId ? (messages[activeConvId] || []) : [];
 
     const getConvDisplayName = (conv: Conversation) => {
@@ -525,7 +536,7 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                         </div>
 
                         {/* Input Bar / Chat Gate */}
-                        {userRole === 'student' && !chatAllowed ? (
+                        {showChatGate ? (
                             <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontSize: 13 }}>
                                     <span style={{ fontSize: 18 }}>🔒</span>
@@ -537,8 +548,11 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                                         <span>Request pending — awaiting approval</span>
                                     </div>
                                 )}
-                                <button onClick={requestChatAccess}
-                                    style={{ background: chatRequestStatus === 'pending' ? 'var(--surface-2)' : 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: chatRequestStatus === 'pending' ? 'var(--text-muted)' : '#fff', border: chatRequestStatus === 'pending' ? '1px solid var(--border)' : 'none', borderRadius: 10, padding: '9px 24px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                                {resendFlash && (
+                                    <div style={{ fontSize: 12, color: '#22c55e', fontWeight: 600 }}>✓ Request sent again!</div>
+                                )}
+                                <button onClick={handleResendRequest}
+                                    style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', border: 'none', borderRadius: 10, padding: '9px 24px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: resendFlash ? 0.7 : 1, transition: 'opacity 0.2s' }}>
                                     {chatRequestStatus === 'pending' ? '↻ Send Again' : 'Request Chat Access'}
                                 </button>
                             </div>
