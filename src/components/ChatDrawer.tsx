@@ -45,24 +45,6 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
     // Brief flash after re-sending chat access request
     const [resendFlash, setResendFlash] = useState(false);
 
-    // Track the student's current permission status when teacher/admin views a student DM
-    const [studentPermission, setStudentPermission] = useState<string>('none');
-    useEffect(() => {
-        if ((userRole === 'teacher' || userRole === 'admin') &&
-            activeConvOtherRole === 'student' && activeConvOtherUserId) {
-            fetch(`${import.meta.env.VITE_SERVER_URL || 'http://localhost:3001'}/api/chat/permissions/${activeConvOtherUserId}`)
-                .then(r => r.json())
-                .then((rows: { target_user_id: string; status: string }[]) => {
-                    const row = rows.find(r => r.target_user_id === userId);
-                    setStudentPermission(row?.status ?? 'none');
-                })
-                .catch(() => setStudentPermission('none'));
-        } else {
-            setStudentPermission('none');
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeConvOtherUserId, userRole, userId, activeConvOtherRole]);
-
     // Single-pane mode on phones
     const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
     useEffect(() => {
@@ -137,6 +119,23 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
         ? (chatPermissions[activeConvOtherUserId] ?? 'none')
         : 'allowed';
     const showChatGate = userRole === 'student' && activeConvIsTeacherOrAdmin && activeConvPermission !== 'allowed';
+
+    // Track the student's current permission status when teacher/admin views a student DM
+    const [studentPermission, setStudentPermission] = useState<string>('none');
+    useEffect(() => {
+        if ((userRole === 'teacher' || userRole === 'admin') &&
+            activeConvOtherRole === 'student' && activeConvOtherUserId) {
+            fetch(`${import.meta.env.VITE_SERVER_URL || 'http://localhost:3001'}/api/chat/permissions/${activeConvOtherUserId}`)
+                .then(r => r.json())
+                .then((rows: { target_user_id: string; status: string }[]) => {
+                    const row = rows.find(r => r.target_user_id === userId);
+                    setStudentPermission(row?.status ?? 'none');
+                })
+                .catch(() => setStudentPermission('none'));
+        } else {
+            setStudentPermission('none');
+        }
+    }, [activeConvOtherUserId, userRole, userId, activeConvOtherRole]);
 
     const handleResendRequest = useCallback(async () => {
         if (!activeConvOtherUserId) return;
