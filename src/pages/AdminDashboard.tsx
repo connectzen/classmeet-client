@@ -8,7 +8,7 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 interface Teacher { user_id: string; name: string; email: string; created_at: string; room_count: number; }
 interface Student { user_id: string; name: string; email: string; created_at: string; enrollment_count: number; chat_allowed: boolean; }
 interface InboxMsg { id: string; from_name: string; to_user_id: string | null; to_role: string | null; subject: string; body: string; created_at: string; }
-interface ChatRequest { student_id: string; student_name: string; student_email: string; created_at: string; }
+interface ChatRequest { student_id: string; student_name: string; student_email: string; created_at: string; target_user_id: string; }
 type Tab = 'overview' | 'teachers' | 'students' | 'messages' | 'pending';
 
 const NAV_ITEMS: { key: Tab; icon: string; label: string }[] = [
@@ -41,6 +41,8 @@ export default function AdminDashboard() {
 
     const [sentMessages, setSentMessages] = useState<InboxMsg[]>([]);
     const [chatRequests, setChatRequests] = useState<ChatRequest[]>([]);
+    const [allowingChat, setAllowingChat] = useState<string | null>(null);
+    const [decliningChat, setDecliningChat] = useState<string | null>(null);
 
     const displayName = user?.profile?.name || user?.email?.split('@')[0] || 'Admin';
 
@@ -81,14 +83,35 @@ export default function AdminDashboard() {
         try { const r = await fetch(`${SERVER_URL}/api/chat/requests`); if (r.ok) setChatRequests(await r.json()); } catch {}
     }, []);
 
-    const handleAllowChat = async (userId: string) => {
-        await fetch(`${SERVER_URL}/api/chat/allow/${userId}`, { method: 'PUT' });
+    const handleAllowChat = async (studentId: string, targetUserId: string) => {
+        setAllowingChat(studentId);
+        await fetch(`${SERVER_URL}/api/chat/allow/${studentId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ targetUserId }),
+        });
+        setAllowingChat(null);
         fetchStudents(); fetchChatRequests();
     };
 
-    const handleRevokeChat = async (userId: string) => {
+    const handleDeclineChat = async (studentId: string, targetUserId: string) => {
+        setDecliningChat(studentId);
+        await fetch(`${SERVER_URL}/api/chat/decline/${studentId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ targetUserId }),
+        });
+        setDecliningChat(null);
+        fetchChatRequests();
+    };
+
+    const handleRevokeChat = async (studentId: string, targetUserId: string) => {
         if (!confirm('Revoke chat access for this student?')) return;
-        await fetch(`${SERVER_URL}/api/chat/revoke/${userId}`, { method: 'PUT' });
+        await fetch(`${SERVER_URL}/api/chat/revoke/${studentId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ targetUserId }),
+        });
         fetchStudents();
     };
 
@@ -267,12 +290,22 @@ export default function AdminDashboard() {
                                     <div style={{ fontWeight: 700, fontSize: 14, color: '#f59e0b', marginBottom: 10 }}>⏳ Pending Chat Requests ({chatRequests.length})</div>
                                     <div style={{ display: 'grid', gap: 8 }}>
                                         {chatRequests.map(r => (
-                                            <div key={r.student_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                                            <div key={`${r.student_id}-${r.target_user_id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                                                 <div style={{ fontSize: 13 }}>
                                                     <span style={{ fontWeight: 600, color: 'var(--text)' }}>{r.student_name || r.student_email}</span>
                                                     {r.student_email && r.student_name && <span style={{ color: 'var(--text-muted)', marginLeft: 8 }}>{r.student_email}</span>}
+                                                    <span style={{ color: 'var(--text-muted)', marginLeft: 8, fontSize: 11 }}>
+                                                        → {teachers.find(t => t.user_id === r.target_user_id)?.name || 'Teacher/Admin'}
+                                                    </span>
                                                 </div>
-                                                <Btn onClick={() => handleAllowChat(r.student_id)} color="#22c55e" small>✓ Allow Chat</Btn>
+                                                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                                                    <Btn onClick={() => handleAllowChat(r.student_id, r.target_user_id)} color="#22c55e" small disabled={allowingChat === r.student_id || decliningChat === r.student_id}>
+                                                        {allowingChat === r.student_id ? '…' : '✓ Allow'}
+                                                    </Btn>
+                                                    <Btn onClick={() => handleDeclineChat(r.student_id, r.target_user_id)} color="rgba(239,68,68,0.12)" textColor="#ef4444" small disabled={allowingChat === r.student_id || decliningChat === r.student_id}>
+                                                        {decliningChat === r.student_id ? '…' : '✕ Decline'}
+                                                    </Btn>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
@@ -368,12 +401,22 @@ export default function AdminDashboard() {
                                     <div style={{ fontWeight: 700, fontSize: 14, color: '#f59e0b', marginBottom: 10 }}>⏳ Pending Chat Requests ({chatRequests.length})</div>
                                     <div style={{ display: 'grid', gap: 8 }}>
                                         {chatRequests.map(r => (
-                                            <div key={r.student_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                                            <div key={`${r.student_id}-${r.target_user_id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                                                 <div style={{ fontSize: 13 }}>
                                                     <span style={{ fontWeight: 600, color: 'var(--text)' }}>{r.student_name || r.student_email}</span>
                                                     <span style={{ color: 'var(--text-muted)', marginLeft: 8 }}>{r.student_email}</span>
+                                                    <span style={{ color: 'var(--text-muted)', marginLeft: 8, fontSize: 11 }}>
+                                                        → {teachers.find(t => t.user_id === r.target_user_id)?.name || 'Teacher/Admin'}
+                                                    </span>
                                                 </div>
-                                                <Btn onClick={() => handleAllowChat(r.student_id)} color="#22c55e" small>✓ Allow Chat</Btn>
+                                                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                                                    <Btn onClick={() => handleAllowChat(r.student_id, r.target_user_id)} color="#22c55e" small disabled={allowingChat === r.student_id || decliningChat === r.student_id}>
+                                                        {allowingChat === r.student_id ? '…' : '✓ Allow'}
+                                                    </Btn>
+                                                    <Btn onClick={() => handleDeclineChat(r.student_id, r.target_user_id)} color="rgba(239,68,68,0.12)" textColor="#ef4444" small disabled={allowingChat === r.student_id || decliningChat === r.student_id}>
+                                                        {decliningChat === r.student_id ? '…' : '✕ Decline'}
+                                                    </Btn>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
@@ -400,8 +443,8 @@ export default function AdminDashboard() {
                                             </div>
                                             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                                                 {s.chat_allowed
-                                                    ? <Btn onClick={() => handleRevokeChat(s.user_id)} color="rgba(239,68,68,0.12)" textColor="#ef4444" small>🔒 Revoke Chat</Btn>
-                                                    : <Btn onClick={() => handleAllowChat(s.user_id)} color="#22c55e" small>💬 Allow Chat</Btn>
+                                                    ? <Btn onClick={() => handleRevokeChat(s.user_id, user?.id || '')} color="rgba(239,68,68,0.12)" textColor="#ef4444" small>🔒 Revoke Chat</Btn>
+                                                    : <Btn onClick={() => handleAllowChat(s.user_id, user?.id || '')} color="#22c55e" small>💬 Allow Chat</Btn>
                                                 }
                                                 <Btn onClick={() => handleDeleteStudent(s.user_id)} color="#ef444420" textColor="#ef4444" small>Remove</Btn>
                                             </div>

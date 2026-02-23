@@ -22,7 +22,7 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
     const {
         conversations, messages, activeConvId, unreadTotal,
         typing, openConversation, sendMessage, uploadFile, emitTyping, reactToMessage, fetchConversations, startDM, deleteMessage, deleteConversation,
-        chatAllowed, chatRequestStatus, requestChatAccess,
+        chatPermissions, requestChatAccess,
     } = useChat({ userId, userName, userRole });
 
     // Notify parent of unread count changes
@@ -107,21 +107,33 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
     // Clear staged file when switching conversation
     useEffect(() => { setStagedFile(null); }, [activeConvId]);
 
-    const handleResendRequest = useCallback(async () => {
-        await requestChatAccess();
-        setResendFlash(true);
-        setTimeout(() => setResendFlash(false), 2000);
-    }, [requestChatAccess]);
-
-    const handleEndChat = useCallback(async (studentId: string) => {
-        await fetch(`${import.meta.env.VITE_SERVER_URL || 'http://localhost:3001'}/api/chat/revoke/${studentId}`, { method: 'PUT' });
-    }, []);
-
     const activeConv = conversations.find(c => c.conversation_id === activeConvId);
+    // The other user's ID in the active DM (null if not a DM)
+    const activeConvOtherUserId = activeConv?.type === 'dm' ? (activeConv.other_user?.user_id ?? null) : null;
+    const activeConvOtherRole = activeConv?.other_user?.user_role ?? null;
     // Gate applies when the open conversation is with a teacher or admin
     const activeConvIsTeacherOrAdmin = activeConv?.type === 'dm' &&
-        (activeConv?.other_user?.user_role === 'teacher' || activeConv?.other_user?.user_role === 'admin');
-    const showChatGate = userRole === 'student' && !chatAllowed && activeConvIsTeacherOrAdmin;
+        (activeConvOtherRole === 'teacher' || activeConvOtherRole === 'admin');
+    // Per-pair permission for this specific conversation partner
+    const activeConvPermission = activeConvOtherUserId
+        ? (chatPermissions[activeConvOtherUserId] ?? 'none')
+        : 'allowed';
+    const showChatGate = userRole === 'student' && activeConvIsTeacherOrAdmin && activeConvPermission !== 'allowed';
+
+    const handleResendRequest = useCallback(async () => {
+        if (!activeConvOtherUserId) return;
+        await requestChatAccess(activeConvOtherUserId);
+        setResendFlash(true);
+        setTimeout(() => setResendFlash(false), 2000);
+    }, [requestChatAccess, activeConvOtherUserId]);
+
+    const handleEndChat = useCallback(async (studentId: string, byUserId: string) => {
+        await fetch(`${import.meta.env.VITE_SERVER_URL || 'http://localhost:3001'}/api/chat/revoke/${studentId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ targetUserId: byUserId }),
+        });
+    }, []);
     const activeMessages: ChatMessage[] = activeConvId ? (messages[activeConvId] || []) : [];
 
     const getConvDisplayName = (conv: Conversation) => {
@@ -400,7 +412,7 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                                     activeConv?.type === 'dm' &&
                                     activeConv?.other_user?.user_role === 'student' && (
                                     <button
-                                        onClick={() => handleEndChat(activeConv.other_user!.user_id)}
+                                        onClick={() => handleEndChat(activeConv.other_user!.user_id, userId)}
                                         title="End chat — student must request again"
                                         style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '4px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                                         🚫 End Chat
@@ -555,23 +567,47 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                         {/* Input Bar / Chat Gate */}
                         {showChatGate ? (
                             <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontSize: 13 }}>
-                                    <span style={{ fontSize: 18 }}>🔒</span>
-                                    <span>Chat requires permission</span>
-                                </div>
-                                {chatRequestStatus === 'pending' && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '5px 12px', fontSize: 12, color: '#f59e0b', fontWeight: 600 }}>
-                                        <span>⏳</span>
-                                        <span>Request pending — awaiting approval</span>
-                                    </div>
+                                {activeConvPermission === 'declined' ? (
+                                    <>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#ef4444', fontSize: 13, fontWeight: 600 }}>
+                                            <span style={{ fontSize: 18 }}>❌</span>
+                                            <span>Your chat request was declined</span>
+                                        </div>
+                                        {resendFlash && <div style={{ fontSize: 12, color: '#22c55e', fontWeight: 600 }}>✓ Request sent again!</div>}
+                                        <button onClick={handleResendRequest}
+                                            style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', border: 'none', borderRadius: 10, padding: '9px 24px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: resendFlash ? 0.7 : 1, transition: 'opacity 0.2s' }}>
+                                            ↻ Request Again
+                                        </button>
+                                    </>
+                                ) : activeConvPermission === 'pending' ? (
+                                    <>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontSize: 13 }}>
+                                            <span style={{ fontSize: 18 }}>🔒</span>
+                                            <span>Chat requires permission</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '5px 12px', fontSize: 12, color: '#f59e0b', fontWeight: 600 }}>
+                                            <span>⏳</span>
+                                            <span>Request pending — awaiting approval</span>
+                                        </div>
+                                        {resendFlash && <div style={{ fontSize: 12, color: '#22c55e', fontWeight: 600 }}>✓ Request sent again!</div>}
+                                        <button onClick={handleResendRequest}
+                                            style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 10, padding: '9px 24px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: resendFlash ? 0.7 : 1, transition: 'opacity 0.2s' }}>
+                                            ↻ Send Again
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontSize: 13 }}>
+                                            <span style={{ fontSize: 18 }}>🔒</span>
+                                            <span>Chat requires permission from {getConvDisplayName(activeConv!)}</span>
+                                        </div>
+                                        {resendFlash && <div style={{ fontSize: 12, color: '#22c55e', fontWeight: 600 }}>✓ Request sent!</div>}
+                                        <button onClick={handleResendRequest}
+                                            style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', border: 'none', borderRadius: 10, padding: '9px 24px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: resendFlash ? 0.7 : 1, transition: 'opacity 0.2s' }}>
+                                            Request Chat Access
+                                        </button>
+                                    </>
                                 )}
-                                {resendFlash && (
-                                    <div style={{ fontSize: 12, color: '#22c55e', fontWeight: 600 }}>✓ Request sent again!</div>
-                                )}
-                                <button onClick={handleResendRequest}
-                                    style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', border: 'none', borderRadius: 10, padding: '9px 24px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: resendFlash ? 0.7 : 1, transition: 'opacity 0.2s' }}>
-                                    {chatRequestStatus === 'pending' ? '↻ Send Again' : 'Request Chat Access'}
-                                </button>
                             </div>
                         ) : (
                         <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>

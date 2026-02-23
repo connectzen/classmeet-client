@@ -68,23 +68,43 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     // ── Teacher: pending chat access requests ─────────────────────────────
     const [chatRequests, setChatRequests] = useState<{ student_id: string; student_name: string; student_email: string }[]>([]);
     const [allowingChat, setAllowingChat] = useState<string | null>(null);
+    const [decliningChat, setDecliningChat] = useState<string | null>(null);
 
     const fetchChatRequests = useCallback(async () => {
-        if (userRole !== 'teacher') return;
+        if (userRole !== 'teacher' || !user?.id) return;
         try {
-            const r = await fetch(`${SERVER_URL}/api/chat/requests`);
+            const r = await fetch(`${SERVER_URL}/api/chat/requests?targetUserId=${user.id}`);
             if (r.ok) setChatRequests(await r.json());
         } catch { /* ignore */ }
-    }, [userRole]);
+    }, [userRole, user?.id]);
 
     const handleAllowChat = useCallback(async (studentId: string) => {
+        if (!user?.id) return;
         setAllowingChat(studentId);
         try {
-            await fetch(`${SERVER_URL}/api/chat/allow/${studentId}`, { method: 'PUT' });
+            await fetch(`${SERVER_URL}/api/chat/allow/${studentId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetUserId: user.id }),
+            });
             setChatRequests(prev => prev.filter(r => r.student_id !== studentId));
         } catch { /* ignore */ }
         setAllowingChat(null);
-    }, []);
+    }, [user?.id]);
+
+    const handleDeclineChat = useCallback(async (studentId: string) => {
+        if (!user?.id) return;
+        setDecliningChat(studentId);
+        try {
+            await fetch(`${SERVER_URL}/api/chat/decline/${studentId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetUserId: user.id }),
+            });
+            setChatRequests(prev => prev.filter(r => r.student_id !== studentId));
+        } catch { /* ignore */ }
+        setDecliningChat(null);
+    }, [user?.id]);
 
     // Poll every 8 s while teacher is on the landing page
     useEffect(() => {
@@ -488,16 +508,24 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                         ⏳ Pending Chat Requests ({chatRequests.length})
                                     </div>
                                     {chatRequests.map(r => (
-                                        <div key={r.student_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
+                                        <div key={r.student_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
                                             <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>
                                                 {r.student_name || r.student_email || 'Unknown student'}
                                             </span>
-                                            <button
-                                                onClick={() => handleAllowChat(r.student_id)}
-                                                disabled={allowingChat === r.student_id}
-                                                style={{ flexShrink: 0, background: '#22c55e', color: '#fff', border: 'none', borderRadius: 8, padding: '5px 14px', fontSize: 12, fontWeight: 600, cursor: allowingChat === r.student_id ? 'not-allowed' : 'pointer', opacity: allowingChat === r.student_id ? 0.6 : 1 }}>
-                                                {allowingChat === r.student_id ? '…' : '✓ Allow Chat'}
-                                            </button>
+                                            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                                                <button
+                                                    onClick={() => handleAllowChat(r.student_id)}
+                                                    disabled={allowingChat === r.student_id || decliningChat === r.student_id}
+                                                    style={{ background: '#22c55e', color: '#fff', border: 'none', borderRadius: 8, padding: '5px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: allowingChat === r.student_id ? 0.6 : 1 }}>
+                                                    {allowingChat === r.student_id ? '…' : '✓ Allow'}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeclineChat(r.student_id)}
+                                                    disabled={allowingChat === r.student_id || decliningChat === r.student_id}
+                                                    style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '5px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: decliningChat === r.student_id ? 0.6 : 1 }}>
+                                                    {decliningChat === r.student_id ? '…' : '✕ Decline'}
+                                                </button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

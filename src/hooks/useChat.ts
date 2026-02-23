@@ -40,11 +40,8 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
     const [activeConvId, setActiveConvId]   = useState<string | null>(null);
     const [unreadTotal, setUnreadTotal]     = useState(0);
     const [typing, setTyping]               = useState<Record<string, string>>({});
-    // Chat access for students
-    const [chatAllowed, setChatAllowed]           = useState<boolean>(userRole !== 'student');
-    const [chatRequestStatus, setChatRequestStatus] = useState<'none' | 'pending' | 'allowed'>(
-        userRole !== 'student' ? 'allowed' : 'none'
-    );
+    // Per-pair chat permissions: Record<targetUserId, 'allowed'|'pending'|'declined'|'none'>
+    const [chatPermissions, setChatPermissions] = useState<Record<string, 'allowed' | 'pending' | 'declined' | 'none'>>({});
     const socketRef  = useRef<Socket | null>(null);
     const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
@@ -59,14 +56,16 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
             sock.emit('chat:register', userId);
         });
 
-        sock.on('chat:accessGranted', () => {
-            setChatAllowed(true);
-            setChatRequestStatus('allowed');
+        sock.on('chat:accessGranted', ({ by }: { by: string }) => {
+            setChatPermissions(p => ({ ...p, [by]: 'allowed' }));
         });
 
-        sock.on('chat:accessRevoked', () => {
-            setChatAllowed(false);
-            setChatRequestStatus('none');
+        sock.on('chat:accessRevoked', ({ by }: { by: string }) => {
+            setChatPermissions(p => ({ ...p, [by]: 'none' }));
+        });
+
+        sock.on('chat:accessDeclined', ({ by }: { by: string }) => {
+            setChatPermissions(p => ({ ...p, [by]: 'declined' }));
         });
 
         sock.on('chat:message', (msg: ChatMessage) => {
@@ -148,14 +147,17 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
         setUnreadTotal(total);
     }, [conversations]);
 
-    // ── Chat access check (students only) ─────────────────────────────────
+    // ── Chat permissions init (students only) ─────────────────────────────
     useEffect(() => {
         if (!userId || userRole !== 'student') return;
-        fetch(`${SERVER_URL}/api/chat/access/${userId}`)
+        fetch(`${SERVER_URL}/api/chat/permissions/${userId}`)
             .then(r => r.json())
-            .then(d => {
-                setChatAllowed(d.chatAllowed);
-                setChatRequestStatus(d.chatAllowed ? 'allowed' : d.requestStatus === 'pending' ? 'pending' : 'none');
+            .then((rows: { target_user_id: string; status: string }[]) => {
+                const map: Record<string, 'allowed' | 'pending' | 'declined' | 'none'> = {};
+                for (const row of rows) {
+                    map[row.target_user_id] = (row.status as 'allowed' | 'pending' | 'declined' | 'none') || 'none';
+                }
+                setChatPermissions(map);
             })
             .catch(() => {});
     }, [userId, userRole]);
@@ -278,16 +280,18 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
     }, []);
 
     // ── Request chat access (students) ────────────────────────────────────
-    const requestChatAccess = useCallback(async () => {
-        if (!userId) return;
-        setChatRequestStatus('pending');
+    const requestChatAccess = useCallback(async (targetUserId: string) => {
+        if (!userId || !targetUserId) return;
+        setChatPermissions(p => ({ ...p, [targetUserId]: 'pending' }));
         try {
             await fetch(`${SERVER_URL}/api/chat/request-access`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId, userName, email: '' }),
+                body: JSON.stringify({ userId, userName, email: '', targetUserId }),
             });
-        } catch { setChatRequestStatus('none'); }
+        } catch {
+            setChatPermissions(p => ({ ...p, [targetUserId]: 'none' }));
+        }
     }, [userId, userName]);
 
     // ── Delete conversation ────────────────────────────────────────────────
@@ -305,8 +309,7 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
         setActiveConvId,
         unreadTotal,
         typing,
-        chatAllowed,
-        chatRequestStatus,
+        chatPermissions,
         requestChatAccess,
         fetchConversations,
         openConversation,
