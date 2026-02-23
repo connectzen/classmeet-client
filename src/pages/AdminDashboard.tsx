@@ -50,6 +50,30 @@ export default function AdminDashboard() {
         return () => window.removeEventListener('resize', handler);
     }, []);
 
+    // ── Fetch helpers ─────────────────────────────────────────────────────
+    const fetchTeachers = useCallback(async () => {
+        setLoadingTeachers(true);
+        try { const r = await fetch(`${SERVER_URL}/api/teachers`); if (r.ok) setTeachers(await r.json()); } catch {}
+        setLoadingTeachers(false);
+    }, []);
+
+    const fetchStudents = useCallback(async () => {
+        setLoadingStudents(true);
+        try { const r = await fetch(`${SERVER_URL}/api/students`); if (r.ok) setStudents(await r.json()); } catch {}
+        setLoadingStudents(false);
+    }, []);
+
+    const fetchSentMessages = useCallback(async () => {
+        if (!user?.id) return;
+        try { const r = await fetch(`${SERVER_URL}/api/messages/sent/${user.id}`); if (r.ok) setSentMessages(await r.json()); } catch {}
+    }, [user?.id]);
+
+    const fetchPendingUsers = useCallback(async () => {
+        setLoadingPending(true);
+        try { const r = await fetch(`${SERVER_URL}/api/pending-users`); if (r.ok) setPendingUsers(await r.json()); } catch {}
+        setLoadingPending(false);
+    }, []);
+
     // ── Real-time auto-refresh via socket.io ─────────────────────────────
     const refreshCurrentTab = useCallback(() => {
         if (tab === 'overview') { fetchTeachers(); fetchStudents(); fetchPendingUsers(); fetchSentMessages(); }
@@ -73,36 +97,12 @@ export default function AdminDashboard() {
             if (type === 'teachers' || type === 'overview') { fetchTeachers(); fetchStudents(); }
             if (type === 'students') fetchStudents();
             if (type === 'pending')  { fetchPendingUsers(); fetchTeachers(); fetchStudents(); }
-            // Always keep sidebar stats fresh
             fetchTeachers();
             fetchStudents();
             fetchPendingUsers();
         });
         return () => { sock.disconnect(); };
     }, [fetchTeachers, fetchStudents, fetchPendingUsers]);
-
-    const fetchTeachers = useCallback(async () => {
-        setLoadingTeachers(true);
-        try { const r = await fetch(`${SERVER_URL}/api/teachers`); if (r.ok) setTeachers(await r.json()); } catch {}
-        setLoadingTeachers(false);
-    }, []);
-
-    const fetchStudents = useCallback(async () => {
-        setLoadingStudents(true);
-        try { const r = await fetch(`${SERVER_URL}/api/students`); if (r.ok) setStudents(await r.json()); } catch {}
-        setLoadingStudents(false);
-    }, []);
-
-    const fetchSentMessages = useCallback(async () => {
-        if (!user?.id) return;
-        try { const r = await fetch(`${SERVER_URL}/api/messages/sent/${user.id}`); if (r.ok) setSentMessages(await r.json()); } catch {}
-    }, [user?.id]);
-
-    const fetchPendingUsers = useCallback(async () => {
-        setLoadingPending(true);
-        try { const r = await fetch(`${SERVER_URL}/api/pending-users`); if (r.ok) setPendingUsers(await r.json()); } catch {}
-        setLoadingPending(false);
-    }, []);
 
     const handleApproveUser = async (userId: string, name: string, email: string) => {
         setApprovingId(userId); setApproveError('');
