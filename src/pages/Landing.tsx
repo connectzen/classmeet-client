@@ -501,36 +501,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
 
                             {createError && <div className="error-banner" style={{ marginBottom: 12 }}>{createError}</div>}
 
-                            {/* Pending chat access requests banner */}
-                            {chatRequests.length > 0 && (
-                                <div style={{ marginBottom: 16, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 14, padding: '14px 16px' }}>
-                                    <div style={{ fontWeight: 700, fontSize: 13, color: '#f59e0b', marginBottom: 10 }}>
-                                        ⏳ Pending Chat Requests ({chatRequests.length})
-                                    </div>
-                                    {chatRequests.map(r => (
-                                        <div key={r.student_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
-                                            <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>
-                                                {r.student_name || r.student_email || 'Unknown student'}
-                                            </span>
-                                            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                                                <button
-                                                    onClick={() => handleAllowChat(r.student_id)}
-                                                    disabled={allowingChat === r.student_id || decliningChat === r.student_id}
-                                                    style={{ background: '#22c55e', color: '#fff', border: 'none', borderRadius: 8, padding: '5px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: allowingChat === r.student_id ? 0.6 : 1 }}>
-                                                    {allowingChat === r.student_id ? '…' : '✓ Allow'}
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDeclineChat(r.student_id)}
-                                                    disabled={allowingChat === r.student_id || decliningChat === r.student_id}
-                                                    style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '5px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: decliningChat === r.student_id ? 0.6 : 1 }}>
-                                                    {decliningChat === r.student_id ? '…' : '✕ Decline'}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
                             {/* Newly-created class highlight */}
                             {createdClass && (
                                 <div className="created-class-banner">

@@ -40,10 +40,6 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
     const [activeConvId, setActiveConvId]   = useState<string | null>(null);
     const [unreadTotal, setUnreadTotal]     = useState(0);
     const [typing, setTyping]               = useState<Record<string, string>>({});
-    // Per-pair chat permissions: Record<targetUserId, 'allowed'|'pending'|'declined'|'none'>
-    const [chatPermissions, setChatPermissions] = useState<Record<string, 'allowed' | 'pending' | 'declined' | 'none'>>({});
-    // true once the initial DB fetch for permissions has resolved (prevents gate flash on load)
-    const [permissionsLoaded, setPermissionsLoaded] = useState(false);
     const socketRef  = useRef<Socket | null>(null);
     const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
@@ -55,19 +51,6 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
 
         sock.on('connect', () => {
             sock.emit('register-user', userId);
-            sock.emit('chat:register', userId);
-        });
-
-        sock.on('chat:accessGranted', ({ by }: { by: string }) => {
-            setChatPermissions(p => ({ ...p, [by]: 'allowed' }));
-        });
-
-        sock.on('chat:accessRevoked', ({ by }: { by: string }) => {
-            setChatPermissions(p => ({ ...p, [by]: 'none' }));
-        });
-
-        sock.on('chat:accessDeclined', ({ by }: { by: string }) => {
-            setChatPermissions(p => ({ ...p, [by]: 'declined' }));
         });
 
         sock.on('chat:message', (msg: ChatMessage) => {
@@ -148,28 +131,6 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
         const total = conversations.reduce((s, c) => s + (c.unread_count || 0), 0);
         setUnreadTotal(total);
     }, [conversations]);
-
-    // ── Chat permissions init (students only) ─────────────────────────────
-    useEffect(() => {
-        if (!userId) return;
-        if (userRole !== 'student') {
-            // Non-students have no gate; mark loaded immediately so nothing blocks
-            setPermissionsLoaded(true);
-            return;
-        }
-        fetch(`${SERVER_URL}/api/chat/permissions/${userId}`)
-            .then(r => r.json())
-            .then((rows: { target_user_id: string; status: string }[]) => {
-                if (!Array.isArray(rows)) { setPermissionsLoaded(true); return; }
-                const map: Record<string, 'allowed' | 'pending' | 'declined' | 'none'> = {};
-                for (const row of rows) {
-                    map[row.target_user_id] = (row.status as 'allowed' | 'pending' | 'declined' | 'none') || 'none';
-                }
-                setChatPermissions(map);
-                setPermissionsLoaded(true);
-            })
-            .catch(() => { setPermissionsLoaded(true); }); // fail-open so UI doesn't hang
-    }, [userId, userRole]);
 
     // ── Load conversation list ────────────────────────────────────────────
     const fetchConversations = useCallback(async () => {
@@ -288,21 +249,6 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
         socketRef.current?.emit('chat:delete', { messageId, conversationId: convId });
     }, []);
 
-    // ── Request chat access (students) ────────────────────────────────────
-    const requestChatAccess = useCallback(async (targetUserId: string) => {
-        if (!userId || !targetUserId) return;
-        setChatPermissions(p => ({ ...p, [targetUserId]: 'pending' }));
-        try {
-            await fetch(`${SERVER_URL}/api/chat/request-access`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId, userName, email: '', targetUserId }),
-            });
-        } catch {
-            setChatPermissions(p => ({ ...p, [targetUserId]: 'none' }));
-        }
-    }, [userId, userName]);
-
     // ── Delete conversation ────────────────────────────────────────────────
     const deleteConversation = useCallback(async (convId: string) => {
         // Optimistically remove from UI immediately
@@ -318,9 +264,6 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
         setActiveConvId,
         unreadTotal,
         typing,
-        chatPermissions,
-        permissionsLoaded,
-        requestChatAccess,
         fetchConversations,
         openConversation,
         startDM,

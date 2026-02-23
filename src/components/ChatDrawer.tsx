@@ -22,7 +22,6 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
     const {
         conversations, messages, activeConvId, unreadTotal,
         typing, openConversation, sendMessage, uploadFile, emitTyping, reactToMessage, fetchConversations, startDM, deleteMessage, deleteConversation,
-        chatPermissions, permissionsLoaded, requestChatAccess,
     } = useChat({ userId, userName, userRole });
 
     // Notify parent of unread count changes
@@ -42,9 +41,6 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
     // Mobile long-press action sheet
     const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [mobileActionMsg, setMobileActionMsg] = useState<{ msgId: string; isMine: boolean; convId: string } | null>(null);
-    // Brief flash after re-sending chat access request
-    const [resendFlash, setResendFlash] = useState(false);
-
     // Single-pane mode on phones
     const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
     useEffect(() => {
@@ -111,47 +107,6 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
     // The other user's ID in the active DM (null if not a DM)
     const activeConvOtherUserId = activeConv?.type === 'dm' ? (activeConv.other_user?.user_id ?? null) : null;
     const activeConvOtherRole = activeConv?.other_user?.user_role ?? null;
-    // Gate applies when the open conversation is with a teacher or admin
-    const activeConvIsTeacherOrAdmin = activeConv?.type === 'dm' &&
-        (activeConvOtherRole === 'teacher' || activeConvOtherRole === 'admin');
-    // Per-pair permission for this specific conversation partner
-    const activeConvPermission = activeConvOtherUserId
-        ? (chatPermissions[activeConvOtherUserId] ?? 'none')
-        : 'allowed';
-    // Only show the gate once permissions have loaded from the DB — prevents flash-of-gate on refresh
-    const showChatGate = userRole === 'student' && activeConvIsTeacherOrAdmin && permissionsLoaded && activeConvPermission !== 'allowed';
-
-    // Track the student's current permission status when teacher/admin views a student DM
-    const [studentPermission, setStudentPermission] = useState<string>('none');
-    useEffect(() => {
-        if ((userRole === 'teacher' || userRole === 'admin') &&
-            activeConvOtherRole === 'student' && activeConvOtherUserId) {
-            fetch(`${import.meta.env.VITE_SERVER_URL || 'http://localhost:3001'}/api/chat/permissions/${activeConvOtherUserId}`)
-                .then(r => r.json())
-                .then((rows: { target_user_id: string; status: string }[]) => {
-                    const row = rows.find(r => r.target_user_id === userId);
-                    setStudentPermission(row?.status ?? 'none');
-                })
-                .catch(() => setStudentPermission('none'));
-        } else {
-            setStudentPermission('none');
-        }
-    }, [activeConvOtherUserId, userRole, userId, activeConvOtherRole]);
-
-    const handleResendRequest = useCallback(async () => {
-        if (!activeConvOtherUserId) return;
-        await requestChatAccess(activeConvOtherUserId);
-        setResendFlash(true);
-        setTimeout(() => setResendFlash(false), 2000);
-    }, [requestChatAccess, activeConvOtherUserId]);
-
-    const handleEndChat = useCallback(async (studentId: string, byUserId: string) => {
-        await fetch(`${import.meta.env.VITE_SERVER_URL || 'http://localhost:3001'}/api/chat/revoke/${studentId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ targetUserId: byUserId }),
-        });
-    }, []);
     const activeMessages: ChatMessage[] = activeConvId ? (messages[activeConvId] || []) : [];
 
     const getConvDisplayName = (conv: Conversation) => {
@@ -426,17 +381,6 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                                 {typing[activeConvId] && (
                                     <div style={{ fontSize: 12, color: '#6366f1', fontStyle: 'italic' }}>{typing[activeConvId]} is typing…</div>
                                 )}
-                                {(userRole === 'teacher' || userRole === 'admin') &&
-                                    activeConv?.type === 'dm' &&
-                                    activeConv?.other_user?.user_role === 'student' &&
-                                    studentPermission === 'allowed' && (
-                                    <button
-                                        onClick={async () => { await handleEndChat(activeConv.other_user!.user_id, userId); setStudentPermission('none'); }}
-                                        title="End chat — student must request again"
-                                        style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '4px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                        🚫 End Chat
-                                    </button>
-                                )}
                             </div>
                         </div>
 
@@ -583,52 +527,7 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                             <div ref={messagesEndRef} />
                         </div>
 
-                        {/* Input Bar / Chat Gate */}
-                        {showChatGate ? (
-                            <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-                                {activeConvPermission === 'declined' ? (
-                                    <>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#ef4444', fontSize: 13, fontWeight: 600 }}>
-                                            <span style={{ fontSize: 18 }}>❌</span>
-                                            <span>Your chat request was declined</span>
-                                        </div>
-                                        {resendFlash && <div style={{ fontSize: 12, color: '#22c55e', fontWeight: 600 }}>✓ Request sent again!</div>}
-                                        <button onClick={handleResendRequest}
-                                            style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', border: 'none', borderRadius: 10, padding: '9px 24px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: resendFlash ? 0.7 : 1, transition: 'opacity 0.2s' }}>
-                                            ↻ Request Again
-                                        </button>
-                                    </>
-                                ) : activeConvPermission === 'pending' ? (
-                                    <>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontSize: 13 }}>
-                                            <span style={{ fontSize: 18 }}>🔒</span>
-                                            <span>Chat requires permission</span>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '5px 12px', fontSize: 12, color: '#f59e0b', fontWeight: 600 }}>
-                                            <span>⏳</span>
-                                            <span>Request pending — awaiting approval</span>
-                                        </div>
-                                        {resendFlash && <div style={{ fontSize: 12, color: '#22c55e', fontWeight: 600 }}>✓ Request sent again!</div>}
-                                        <button onClick={handleResendRequest}
-                                            style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 10, padding: '9px 24px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: resendFlash ? 0.7 : 1, transition: 'opacity 0.2s' }}>
-                                            ↻ Send Again
-                                        </button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontSize: 13 }}>
-                                            <span style={{ fontSize: 18 }}>🔒</span>
-                                            <span>Chat requires permission from {getConvDisplayName(activeConv!)}</span>
-                                        </div>
-                                        {resendFlash && <div style={{ fontSize: 12, color: '#22c55e', fontWeight: 600 }}>✓ Request sent!</div>}
-                                        <button onClick={handleResendRequest}
-                                            style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', border: 'none', borderRadius: 10, padding: '9px 24px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: resendFlash ? 0.7 : 1, transition: 'opacity 0.2s' }}>
-                                            Request Chat Access
-                                        </button>
-                                    </>
-                                )}
-                            </div>
-                        ) : (
+                        {/* Input Bar */}
                         <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
                             {/* Staged file preview strip */}
                             {stagedFile && (
@@ -671,7 +570,6 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                                 </button>
                             </div>
                         </div>
-                        )}
                     </>
                 )}
             </div>
