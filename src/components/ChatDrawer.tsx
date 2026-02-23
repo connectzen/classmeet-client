@@ -69,11 +69,16 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
             const res = await fetch(`${import.meta.env.VITE_SERVER_URL || 'http://localhost:3001'}/api/all-users`);
             if (res.ok) {
                 const all = await res.json() as { id: string; name: string; email: string; role: string }[];
-                setDmUsers(all.filter(u => u.id !== userId && u.role !== 'pending'));
+                // Students can only DM teachers; admins/teachers see everyone
+                setDmUsers(all.filter(u => {
+                    if (u.id === userId || u.role === 'pending') return false;
+                    if (userRole === 'student') return u.role === 'teacher';
+                    return true;
+                }));
             }
         } catch { /* ignore */ }
         setLoadingDmUsers(false);
-    }, [userId, dmUsers.length]);
+    }, [userId, userRole, dmUsers.length]);
 
     const handleStartDM = useCallback(async (u: { id: string; name: string; role: string }) => {
         setShowNewDM(false);
@@ -185,6 +190,8 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
     }
 
     const filteredConvs = conversations.filter(c => {
+        // Students only see DM conversations (no broadcast/group channels)
+        if (userRole === 'student' && c.type !== 'dm') return false;
         const name = getConvDisplayName(c).toLowerCase();
         return name.includes(searchQ.toLowerCase());
     });
@@ -520,26 +527,20 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                         {/* Input Bar / Chat Gate */}
                         {userRole === 'student' && !chatAllowed ? (
                             <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-                                {chatRequestStatus === 'pending' ? (
-                                    <>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#f59e0b', fontSize: 13 }}>
-                                            <span style={{ fontSize: 18 }}>⏳</span>
-                                            <span style={{ fontWeight: 600 }}>Request sent — awaiting teacher approval</span>
-                                        </div>
-                                        <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>A teacher will review your request shortly</p>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontSize: 13 }}>
-                                            <span style={{ fontSize: 18 }}>🔒</span>
-                                            <span>Chat requires teacher permission</span>
-                                        </div>
-                                        <button onClick={requestChatAccess}
-                                            style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', border: 'none', borderRadius: 10, padding: '9px 24px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                                            Request Chat Access
-                                        </button>
-                                    </>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontSize: 13 }}>
+                                    <span style={{ fontSize: 18 }}>🔒</span>
+                                    <span>Chat requires teacher permission</span>
+                                </div>
+                                {chatRequestStatus === 'pending' && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '5px 12px', fontSize: 12, color: '#f59e0b', fontWeight: 600 }}>
+                                        <span>⏳</span>
+                                        <span>Request pending — awaiting approval</span>
+                                    </div>
                                 )}
+                                <button onClick={requestChatAccess}
+                                    style={{ background: chatRequestStatus === 'pending' ? 'var(--surface-2)' : 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: chatRequestStatus === 'pending' ? 'var(--text-muted)' : '#fff', border: chatRequestStatus === 'pending' ? '1px solid var(--border)' : 'none', borderRadius: 10, padding: '9px 24px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                                    {chatRequestStatus === 'pending' ? '↻ Send Again' : 'Request Chat Access'}
+                                </button>
                             </div>
                         ) : (
                         <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
