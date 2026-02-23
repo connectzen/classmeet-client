@@ -94,11 +94,12 @@ export default function AdminDashboard() {
 
     // ── Real-time auto-refresh via socket.io ─────────────────────────────
     const refreshCurrentTab = useCallback(() => {
+        fetchChatRequests(); // always poll chat requests regardless of active tab
         if (tab === 'overview') { fetchTeachers(); fetchStudents(); fetchPendingUsers(); fetchSentMessages(); }
         else if (tab === 'teachers') fetchTeachers();
         else if (tab === 'students') fetchStudents();
         else if (tab === 'pending')  fetchPendingUsers();
-    }, [tab, fetchTeachers, fetchStudents, fetchPendingUsers, fetchSentMessages]);
+    }, [tab, fetchTeachers, fetchStudents, fetchPendingUsers, fetchSentMessages, fetchChatRequests]);
 
     // 30-second polling for the active tab
     useEffect(() => {
@@ -261,6 +262,22 @@ export default function AdminDashboard() {
                                     <BtnFull onClick={() => setTab('messages')} color="#8b5cf6">Send Message</BtnFull>
                                 </div>
                             </Card>
+                            {chatRequests.length > 0 && (
+                                <div style={{ marginTop: 24, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 14, padding: '14px 18px' }}>
+                                    <div style={{ fontWeight: 700, fontSize: 14, color: '#f59e0b', marginBottom: 10 }}>⏳ Pending Chat Requests ({chatRequests.length})</div>
+                                    <div style={{ display: 'grid', gap: 8 }}>
+                                        {chatRequests.map(r => (
+                                            <div key={r.student_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                                                <div style={{ fontSize: 13 }}>
+                                                    <span style={{ fontWeight: 600, color: 'var(--text)' }}>{r.student_name || r.student_email}</span>
+                                                    {r.student_email && r.student_name && <span style={{ color: 'var(--text-muted)', marginLeft: 8 }}>{r.student_email}</span>}
+                                                </div>
+                                                <Btn onClick={() => handleAllowChat(r.student_id)} color="#22c55e" small>✓ Allow Chat</Btn>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
