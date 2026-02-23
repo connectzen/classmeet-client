@@ -32,6 +32,7 @@ interface UseSocketOptions {
     onTeacherDisconnected: (graceSeconds: number) => void;
     onSpotlightChanged: (spotlightSocketId: string) => void;
     onTeacherJoined: () => void;
+    onAdminRefresh?: (data: { type: string }) => void;
 }
 
 export function useSocket(options: UseSocketOptions) {
@@ -40,7 +41,7 @@ export function useSocket(options: UseSocketOptions) {
         onParticipantJoined, onParticipantLeft,
         onSignal, onChatMessage, onRoomEnded,
         onForceMute, onParticipantMuteChanged, onTeacherDisconnected,
-        onSpotlightChanged, onTeacherJoined,
+        onSpotlightChanged, onTeacherJoined, onAdminRefresh,
     } = options;
 
     const socketRef = useRef<Socket | null>(null);
@@ -88,6 +89,7 @@ export function useSocket(options: UseSocketOptions) {
             onSpotlightChanged(spotlightSocketId)
         );
         socket.on('teacher-joined', () => onTeacherJoined());
+        if (onAdminRefresh) socket.on('admin:refresh', onAdminRefresh);
         socket.on('disconnect', () => setConnected(false));
 
         return () => {

@@ -7,6 +7,8 @@ import { useWebRTC } from '../hooks/useWebRTC';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
+interface ChatRequest { student_id: string; student_name: string; student_email: string; }
+
 interface Props {
     roomCode: string;
     roomId: string;
@@ -44,9 +46,31 @@ export default function Room({ roomCode, roomId, roomName, name, role, onLeave }
     const [activeAudioDeviceId, setActiveAudioDeviceId] = useState<string | null>(null);
     const [teacherGraceCountdown, setTeacherGraceCountdown] = useState<number | null>(null);
     const [codeCopied, setCodeCopied] = useState(false);
+    const [chatRequests, setChatRequests] = useState<ChatRequest[]>([]);
+    const [allowingChat, setAllowingChat] = useState<string | null>(null);
 
     // Always-current ref so spotlight callbacks can normalize without stale closures
     const socketIdRef = useRef<string>('');
+
+    // ── Teacher: fetch pending chat access requests ───────────────────────
+    const fetchChatRequests = useCallback(async () => {
+        if (role !== 'teacher') return;
+        try {
+            const r = await fetch(`${SERVER_URL}/api/chat/requests`);
+            if (r.ok) setChatRequests(await r.json());
+        } catch { /* ignore */ }
+    }, [role]);
+
+    const handleAllowChat = useCallback(async (studentId: string) => {
+        setAllowingChat(studentId);
+        try {
+            await fetch(`${SERVER_URL}/api/chat/allow/${studentId}`, { method: 'PUT' });
+            setChatRequests(prev => prev.filter(r => r.student_id !== studentId));
+        } catch { /* ignore */ }
+        setAllowingChat(null);
+    }, []);
+
+    useEffect(() => { fetchChatRequests(); }, [fetchChatRequests]);
 
     const copyRoomCode = () => {
         navigator.clipboard.writeText(roomCode).then(() => {
@@ -175,6 +199,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, onLeave }
             onTeacherDisconnected: handleTeacherDisconnected,
             onSpotlightChanged: handleSpotlightChanged,
             onTeacherJoined: handleTeacherJoined,
+            onAdminRefresh: role === 'teacher' ? ({ type }) => { if (type === 'chatRequests') fetchChatRequests(); } : undefined,
         });
 
     // Keep ref in sync so callbacks can read current socketId without stale closures
@@ -292,6 +317,33 @@ export default function Room({ roomCode, roomId, roomName, name, role, onLeave }
             {teacherGraceCountdown !== null && (
                 <div className="grace-banner">
                     ⚠️ Teacher not present — class ends in <strong>{teacherGraceCountdown}s</strong> if they don't join
+                </div>
+            )}
+
+            {/* Teacher: pending chat access requests */}
+            {role === 'teacher' && chatRequests.length > 0 && (
+                <div style={{
+                    position: 'fixed', top: 68, left: '50%', transform: 'translateX(-50%)',
+                    zIndex: 200, background: '#1c1a2e', border: '1px solid #f59e0b55',
+                    borderRadius: 14, padding: '12px 18px', minWidth: 280, maxWidth: 400,
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: '#f59e0b', marginBottom: 10 }}>
+                        ⏳ Chat Requests ({chatRequests.length})
+                    </div>
+                    {chatRequests.map(r => (
+                        <div key={r.student_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
+                            <span style={{ fontSize: 13, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {r.student_name || r.student_email}
+                            </span>
+                            <button
+                                onClick={() => handleAllowChat(r.student_id)}
+                                disabled={allowingChat === r.student_id}
+                                style={{ flexShrink: 0, background: '#22c55e', color: '#fff', border: 'none', borderRadius: 8, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: allowingChat === r.student_id ? 0.6 : 1 }}>
+                                {allowingChat === r.student_id ? '…' : '✓ Allow'}
+                            </button>
+                        </div>
+                    ))}
                 </div>
             )}
 
