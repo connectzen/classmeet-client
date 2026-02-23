@@ -6,8 +6,9 @@ import { io } from 'socket.io-client';
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
 interface Teacher { user_id: string; name: string; email: string; created_at: string; room_count: number; }
-interface Student { user_id: string; name: string; email: string; created_at: string; enrollment_count: number; }
+interface Student { user_id: string; name: string; email: string; created_at: string; enrollment_count: number; chat_allowed: boolean; }
 interface InboxMsg { id: string; from_name: string; to_user_id: string | null; to_role: string | null; subject: string; body: string; created_at: string; }
+interface ChatRequest { student_id: string; student_name: string; student_email: string; created_at: string; }
 type Tab = 'overview' | 'teachers' | 'students' | 'messages' | 'pending';
 
 const NAV_ITEMS: { key: Tab; icon: string; label: string }[] = [
@@ -39,11 +40,13 @@ export default function AdminDashboard() {
     const [approveError, setApproveError] = useState<string>('');
 
     const [sentMessages, setSentMessages] = useState<InboxMsg[]>([]);
+    const [chatRequests, setChatRequests] = useState<ChatRequest[]>([]);
 
     const displayName = user?.profile?.name || user?.email?.split('@')[0] || 'Admin';
 
     // Mobile detection (sidebar → bottom tab bar below 640 px)
     const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     useEffect(() => {
         const handler = () => setIsMobile(window.innerWidth < 640);
         window.addEventListener('resize', handler);
@@ -74,6 +77,21 @@ export default function AdminDashboard() {
         setLoadingPending(false);
     }, []);
 
+    const fetchChatRequests = useCallback(async () => {
+        try { const r = await fetch(`${SERVER_URL}/api/chat/requests`); if (r.ok) setChatRequests(await r.json()); } catch {}
+    }, []);
+
+    const handleAllowChat = async (userId: string) => {
+        await fetch(`${SERVER_URL}/api/chat/allow/${userId}`, { method: 'PUT' });
+        fetchStudents(); fetchChatRequests();
+    };
+
+    const handleRevokeChat = async (userId: string) => {
+        if (!confirm('Revoke chat access for this student?')) return;
+        await fetch(`${SERVER_URL}/api/chat/revoke/${userId}`, { method: 'PUT' });
+        fetchStudents();
+    };
+
     // ── Real-time auto-refresh via socket.io ─────────────────────────────
     const refreshCurrentTab = useCallback(() => {
         if (tab === 'overview') { fetchTeachers(); fetchStudents(); fetchPendingUsers(); fetchSentMessages(); }
@@ -97,12 +115,13 @@ export default function AdminDashboard() {
             if (type === 'teachers' || type === 'overview') { fetchTeachers(); fetchStudents(); }
             if (type === 'students') fetchStudents();
             if (type === 'pending')  { fetchPendingUsers(); fetchTeachers(); fetchStudents(); }
+            if (type === 'chatRequests') fetchChatRequests();
             fetchTeachers();
             fetchStudents();
             fetchPendingUsers();
         });
         return () => { sock.disconnect(); };
-    }, [fetchTeachers, fetchStudents, fetchPendingUsers]);
+    }, [fetchTeachers, fetchStudents, fetchPendingUsers, fetchChatRequests]);
 
     const handleApproveUser = async (userId: string, name: string, email: string) => {
         setApprovingId(userId); setApproveError('');
@@ -119,7 +138,7 @@ export default function AdminDashboard() {
     useEffect(() => {
         if (tab === 'overview') { fetchTeachers(); fetchStudents(); fetchSentMessages(); fetchPendingUsers(); }
         if (tab === 'teachers') fetchTeachers();
-        if (tab === 'students') fetchStudents();
+        if (tab === 'students') { fetchStudents(); fetchChatRequests(); }
         if (tab === 'pending')  fetchPendingUsers();
         if (tab === 'messages') { /* ChatDrawer handles its own data */ }
     }, [tab, fetchTeachers, fetchStudents, fetchSentMessages, fetchPendingUsers]);
@@ -129,6 +148,7 @@ export default function AdminDashboard() {
         fetchTeachers();
         fetchStudents();
         fetchPendingUsers();
+        fetchChatRequests();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleAddTeacher = async () => {
@@ -163,6 +183,10 @@ export default function AdminDashboard() {
             {/* ── TOP HEADER ── */}
             <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px', height: 64, background: 'var(--surface)', borderBottom: '1px solid var(--border)', flexShrink: 0, zIndex: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {isMobile && (
+                        <button onClick={() => setMobileSidebarOpen(v => !v)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: 'var(--text)', padding: '4px 6px', lineHeight: 1, marginRight: 4 }}>☰</button>
+                    )}
                     <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>🏫</div>
                     <div>
                         <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.01em' }}>ClassMeet Admin</div>
@@ -173,10 +197,29 @@ export default function AdminDashboard() {
             </header>
 
             {/* ── BODY: sidebar + content ── */}
-            <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+
+                {/* Mobile sidebar backdrop */}
+                {isMobile && mobileSidebarOpen && (
+                    <div onClick={() => setMobileSidebarOpen(false)}
+                        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 40, top: 64 }} />
+                )}
 
                 {/* ── SIDEBAR ── */}
-                <aside style={{ width: 220, background: 'var(--surface)', borderRight: '1px solid var(--border)', display: isMobile ? 'none' : 'flex', flexDirection: 'column', padding: '20px 12px', gap: 4, flexShrink: 0 }}>
+                <aside style={{
+                    width: 220, background: 'var(--surface)', borderRight: '1px solid var(--border)',
+                    display: 'flex', flexDirection: 'column', padding: '20px 12px', gap: 4, flexShrink: 0,
+                    ...(isMobile ? {
+                        position: 'fixed', top: 64, bottom: 0, left: 0, zIndex: 50,
+                        transform: mobileSidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
+                        transition: 'transform 0.25s ease',
+                        boxShadow: mobileSidebarOpen ? '4px 0 20px rgba(0,0,0,0.3)' : 'none',
+                    } : {}),
+                }}>
+                    {isMobile && (
+                        <button onClick={() => setMobileSidebarOpen(false)}
+                            style={{ alignSelf: 'flex-end', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 20, marginBottom: 8, padding: '2px 4px' }}>✕</button>
+                    )}
                     {NAV_ITEMS.map(n => (
                         <button key={n.key} onClick={() => setTab(n.key)} style={{
                             display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none', fontSize: 14, fontWeight: tab === n.key ? 600 : 500, transition: 'all 0.15s',
@@ -301,20 +344,50 @@ export default function AdminDashboard() {
                     {tab === 'students' && (
                         <div>
                             <PageHeader title="Students" subtitle={`${students.length} enrolled`} />
+
+                            {/* Pending chat requests banner */}
+                            {chatRequests.length > 0 && (
+                                <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 14, padding: '14px 18px', marginBottom: 20 }}>
+                                    <div style={{ fontWeight: 700, fontSize: 14, color: '#f59e0b', marginBottom: 10 }}>⏳ Pending Chat Requests ({chatRequests.length})</div>
+                                    <div style={{ display: 'grid', gap: 8 }}>
+                                        {chatRequests.map(r => (
+                                            <div key={r.student_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                                                <div style={{ fontSize: 13 }}>
+                                                    <span style={{ fontWeight: 600, color: 'var(--text)' }}>{r.student_name || r.student_email}</span>
+                                                    <span style={{ color: 'var(--text-muted)', marginLeft: 8 }}>{r.student_email}</span>
+                                                </div>
+                                                <Btn onClick={() => handleAllowChat(r.student_id)} color="#22c55e" small>✓ Allow Chat</Btn>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             {loadingStudents ? <Loading /> : students.length === 0 ? (
                                 <Empty icon="◉" message="No students registered yet." />
                             ) : (
                                 <div style={{ display: 'grid', gap: 10 }}>
                                     {students.map(s => (
-                                        <div key={s.user_id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                                        <div key={s.user_id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                                 <Avatar name={s.name || s.email} color="#22c55e" />
                                                 <div>
                                                     <div style={{ fontWeight: 600, fontSize: 14 }}>{s.name || s.email}</div>
                                                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{s.email} · {s.enrollment_count} enrollment{s.enrollment_count !== 1 ? 's' : ''}</div>
+                                                    <div style={{ marginTop: 4 }}>
+                                                        <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: s.chat_allowed ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.1)', color: s.chat_allowed ? '#4ade80' : '#f87171', border: `1px solid ${s.chat_allowed ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.2)'}` }}>
+                                                            {s.chat_allowed ? '💬 Chat Allowed' : '🔒 Chat Locked'}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <Btn onClick={() => handleDeleteStudent(s.user_id)} color="#ef444420" textColor="#ef4444" small>Remove</Btn>
+                                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                                {s.chat_allowed
+                                                    ? <Btn onClick={() => handleRevokeChat(s.user_id)} color="rgba(239,68,68,0.12)" textColor="#ef4444" small>🔒 Revoke Chat</Btn>
+                                                    : <Btn onClick={() => handleAllowChat(s.user_id)} color="#22c55e" small>💬 Allow Chat</Btn>
+                                                }
+                                                <Btn onClick={() => handleDeleteStudent(s.user_id)} color="#ef444420" textColor="#ef4444" small>Remove</Btn>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

@@ -21,7 +21,8 @@ const EMOJI_LIST = ['👍','❤️','😂','😮','😢','🙏'];
 export default function ChatDrawer({ userId, userName, userRole, inline, open, onClose, onUnreadChange }: Props) {
     const {
         conversations, messages, activeConvId, unreadTotal,
-        typing, openConversation, sendMessage, uploadFile, emitTyping, reactToMessage, fetchConversations, startDM, deleteMessage, deleteConversation
+        typing, openConversation, sendMessage, uploadFile, emitTyping, reactToMessage, fetchConversations, startDM, deleteMessage, deleteConversation,
+        chatAllowed, chatRequestStatus, requestChatAccess,
     } = useChat({ userId, userName, userRole });
 
     // Notify parent of unread count changes
@@ -38,6 +39,9 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
     const [stagedFile, setStagedFile] = useState<{ url: string; name: string; type: string; mediaType: 'image'|'file' } | null>(null);
     const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
     const [pdfViewer, setPdfViewer] = useState<{ url: string; name: string } | null>(null);
+    // Mobile long-press action sheet
+    const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [mobileActionMsg, setMobileActionMsg] = useState<{ msgId: string; isMine: boolean; convId: string } | null>(null);
 
     // Single-pane mode on phones
     const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
@@ -404,8 +408,15 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                                             <div
                                                 key={msg.id}
                                                 style={{ display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start', marginTop: groupWithPrev ? 2 : 10 }}
-                                                onMouseEnter={() => setHoveredMsgId(msg.id)}
-                                                onMouseLeave={() => setHoveredMsgId(null)}
+                                                onMouseEnter={() => !isMobile && setHoveredMsgId(msg.id)}
+                                                onMouseLeave={() => !isMobile && setHoveredMsgId(null)}
+                                                onTouchStart={() => {
+                                                    longPressTimer.current = setTimeout(() => {
+                                                        setMobileActionMsg({ msgId: msg.id, isMine, convId: msg.conversation_id });
+                                                    }, 450);
+                                                }}
+                                                onTouchEnd={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } }}
+                                                onTouchMove={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } }}
                                             >
                                                 {showName && !groupWithPrev && (
                                                     <span style={{ fontSize: 11, fontWeight: 600, color: getBubbleAccent(msg.sender_role), marginBottom: 3, paddingLeft: 12 }}>{msg.sender_name}</span>
@@ -472,8 +483,8 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                                                         )}
                                                     </div>
 
-                                                    {/* Action strip — flex sibling so mouse stays in the hover zone while moving to click */}
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 4, flexShrink: 0, visibility: hoveredMsgId === msg.id ? 'visible' : 'hidden' }}>
+                                                    {/* Action strip — desktop hover only */}
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 4, flexShrink: 0, visibility: (!isMobile && hoveredMsgId === msg.id) ? 'visible' : 'hidden' }}>
                                                         {/* Emoji reaction */}
                                                         <div style={{ position: 'relative' }}>
                                                             <button
@@ -506,7 +517,31 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                             <div ref={messagesEndRef} />
                         </div>
 
-                        {/* Input Bar */}
+                        {/* Input Bar / Chat Gate */}
+                        {userRole === 'student' && !chatAllowed ? (
+                            <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                                {chatRequestStatus === 'pending' ? (
+                                    <>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#f59e0b', fontSize: 13 }}>
+                                            <span style={{ fontSize: 18 }}>⏳</span>
+                                            <span style={{ fontWeight: 600 }}>Request sent — awaiting teacher approval</span>
+                                        </div>
+                                        <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>A teacher will review your request shortly</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontSize: 13 }}>
+                                            <span style={{ fontSize: 18 }}>🔒</span>
+                                            <span>Chat requires teacher permission</span>
+                                        </div>
+                                        <button onClick={requestChatAccess}
+                                            style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', border: 'none', borderRadius: 10, padding: '9px 24px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                                            Request Chat Access
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        ) : (
                         <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
                             {/* Staged file preview strip */}
                             {stagedFile && (
@@ -549,9 +584,36 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                                 </button>
                             </div>
                         </div>
+                        )}
                     </>
                 )}
             </div>
+
+            {/* ── Mobile long-press action sheet ── */}
+            {mobileActionMsg && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}
+                    onClick={() => setMobileActionMsg(null)}>
+                    <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: '20px 20px 0 0', padding: '20px 20px 32px', boxShadow: '0 -8px 40px rgba(0,0,0,0.4)' }}>
+                        {/* Drag handle */}
+                        <div style={{ width: 40, height: 4, background: 'var(--border)', borderRadius: 2, margin: '0 auto 20px' }} />
+                        {/* Emoji reactions */}
+                        <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: 20, padding: '12px 0', background: 'var(--surface-2)', borderRadius: 16 }}>
+                            {EMOJI_LIST.map(e => (
+                                <button key={e} onClick={() => { reactToMessage(mobileActionMsg.msgId, e, mobileActionMsg.convId); setMobileActionMsg(null); }}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 28, padding: '4px 6px' }}>{e}</button>
+                            ))}
+                        </div>
+                        {/* Delete option */}
+                        {(mobileActionMsg.isMine || userRole === 'admin') && (
+                            <button onClick={() => { setConfirmDelete(mobileActionMsg.msgId); setMobileActionMsg(null); }}
+                                style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 14, padding: '14px 18px', cursor: 'pointer', color: '#ef4444', fontSize: 14, fontWeight: 600 }}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                                Delete Message
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 

@@ -40,6 +40,11 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
     const [activeConvId, setActiveConvId]   = useState<string | null>(null);
     const [unreadTotal, setUnreadTotal]     = useState(0);
     const [typing, setTyping]               = useState<Record<string, string>>({});
+    // Chat access for students
+    const [chatAllowed, setChatAllowed]           = useState<boolean>(userRole !== 'student');
+    const [chatRequestStatus, setChatRequestStatus] = useState<'none' | 'pending' | 'allowed'>(
+        userRole !== 'student' ? 'allowed' : 'none'
+    );
     const socketRef  = useRef<Socket | null>(null);
     const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
@@ -52,6 +57,16 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
         sock.on('connect', () => {
             sock.emit('register-user', userId);
             sock.emit('chat:register', userId);
+        });
+
+        sock.on('chat:accessGranted', () => {
+            setChatAllowed(true);
+            setChatRequestStatus('allowed');
+        });
+
+        sock.on('chat:accessRevoked', () => {
+            setChatAllowed(false);
+            setChatRequestStatus('none');
         });
 
         sock.on('chat:message', (msg: ChatMessage) => {
@@ -132,6 +147,18 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
         const total = conversations.reduce((s, c) => s + (c.unread_count || 0), 0);
         setUnreadTotal(total);
     }, [conversations]);
+
+    // ── Chat access check (students only) ─────────────────────────────────
+    useEffect(() => {
+        if (!userId || userRole !== 'student') return;
+        fetch(`${SERVER_URL}/api/chat/access/${userId}`)
+            .then(r => r.json())
+            .then(d => {
+                setChatAllowed(d.chatAllowed);
+                setChatRequestStatus(d.chatAllowed ? 'allowed' : d.requestStatus === 'pending' ? 'pending' : 'none');
+            })
+            .catch(() => {});
+    }, [userId, userRole]);
 
     // ── Load conversation list ────────────────────────────────────────────
     const fetchConversations = useCallback(async () => {
@@ -250,6 +277,19 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
         socketRef.current?.emit('chat:delete', { messageId, conversationId: convId });
     }, []);
 
+    // ── Request chat access (students) ────────────────────────────────────
+    const requestChatAccess = useCallback(async () => {
+        if (!userId) return;
+        setChatRequestStatus('pending');
+        try {
+            await fetch(`${SERVER_URL}/api/chat/request-access`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, userName, email: '' }),
+            });
+        } catch { setChatRequestStatus('none'); }
+    }, [userId, userName]);
+
     // ── Delete conversation ────────────────────────────────────────────────
     const deleteConversation = useCallback(async (convId: string) => {
         // Optimistically remove from UI immediately
@@ -265,6 +305,9 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
         setActiveConvId,
         unreadTotal,
         typing,
+        chatAllowed,
+        chatRequestStatus,
+        requestChatAccess,
         fetchConversations,
         openConversation,
         startDM,
