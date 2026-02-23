@@ -113,10 +113,15 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
         setTimeout(() => setResendFlash(false), 2000);
     }, [requestChatAccess]);
 
+    const handleEndChat = useCallback(async (studentId: string) => {
+        await fetch(`${import.meta.env.VITE_SERVER_URL || 'http://localhost:3001'}/api/chat/revoke/${studentId}`, { method: 'PUT' });
+    }, []);
+
     const activeConv = conversations.find(c => c.conversation_id === activeConvId);
-    // Gate applies only when the open conversation is with a teacher
-    const activeConvIsTeacher = activeConv?.type === 'dm' && activeConv?.other_user?.user_role === 'teacher';
-    const showChatGate = userRole === 'student' && !chatAllowed && activeConvIsTeacher;
+    // Gate applies when the open conversation is with a teacher or admin
+    const activeConvIsTeacherOrAdmin = activeConv?.type === 'dm' &&
+        (activeConv?.other_user?.user_role === 'teacher' || activeConv?.other_user?.user_role === 'admin');
+    const showChatGate = userRole === 'student' && !chatAllowed && activeConvIsTeacherOrAdmin;
     const activeMessages: ChatMessage[] = activeConvId ? (messages[activeConvId] || []) : [];
 
     const getConvDisplayName = (conv: Conversation) => {
@@ -387,9 +392,21 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                                     </div>
                                 </>
                             )}
-                            {typing[activeConvId] && (
-                                <div style={{ marginLeft: 'auto', fontSize: 12, color: '#6366f1', fontStyle: 'italic' }}>{typing[activeConvId]} is typing…</div>
-                            )}
+                            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+                                {typing[activeConvId] && (
+                                    <div style={{ fontSize: 12, color: '#6366f1', fontStyle: 'italic' }}>{typing[activeConvId]} is typing…</div>
+                                )}
+                                {(userRole === 'teacher' || userRole === 'admin') &&
+                                    activeConv?.type === 'dm' &&
+                                    activeConv?.other_user?.user_role === 'student' && (
+                                    <button
+                                        onClick={() => handleEndChat(activeConv.other_user!.user_id)}
+                                        title="End chat — student must request again"
+                                        style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '4px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                        🚫 End Chat
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
                         {/* Messages */}
@@ -540,7 +557,7 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                             <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontSize: 13 }}>
                                     <span style={{ fontSize: 18 }}>🔒</span>
-                                    <span>Chat requires teacher permission</span>
+                                    <span>Chat requires permission</span>
                                 </div>
                                 {chatRequestStatus === 'pending' && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '5px 12px', fontSize: 12, color: '#f59e0b', fontWeight: 600 }}>
