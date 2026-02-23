@@ -37,6 +37,8 @@ export default function AdminDashboard() {
     const [approvingId, setApprovingId] = useState<string | null>(null);
     const [approveError, setApproveError] = useState<string>('');
 
+    const [sentMessages, setSentMessages] = useState<InboxMsg[]>([]);
+
     const displayName = user?.profile?.name || user?.email?.split('@')[0] || 'Admin';
 
     // Mobile detection (sidebar → bottom tab bar below 640 px)
