@@ -37,14 +37,43 @@ export default function AuthModal({ defaultTab, onClose }: Props) {
 
     const switchTab = (t: 'signin' | 'signup') => { setTab(t); resetForm(); setShowPassword(false); };
 
+    const googleLoadingRef = useRef(false);
+
+    // If user hits Back from Google OAuth, reset spinner when page regains focus
+    useEffect(() => {
+        const handleVisibility = () => {
+            if (document.visibilityState === 'visible' && googleLoadingRef.current) {
+                googleLoadingRef.current = false;
+                setLoading(false);
+            }
+        };
+        const handleFocus = () => {
+            if (googleLoadingRef.current) {
+                googleLoadingRef.current = false;
+                setLoading(false);
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibility);
+        window.addEventListener('focus', handleFocus);
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibility);
+            window.removeEventListener('focus', handleFocus);
+        };
+    }, []);
+
     const handleGoogleSignIn = async () => {
         setLoading(true); setError('');
+        googleLoadingRef.current = true;
         const { error: err } = await insforge.auth.signInWithOAuth({
             provider: 'google',
             redirectTo: window.location.origin,
         });
-        if (err) { setError(err.message || 'Google sign-in failed.'); setLoading(false); }
-        // on success the browser redirects automatically
+        if (err) {
+            googleLoadingRef.current = false;
+            setError(err.message || 'Google sign-in failed.');
+            setLoading(false);
+        }
+        // on success the browser redirects away — if user comes back, focus/visibilitychange resets spinner
     };
 
     const handleSignIn = async (e: React.FormEvent) => {
