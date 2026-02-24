@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useUser } from '@insforge/react';
+import { useUser } from '../lib/AuthContext';
 import ChatPanel, { ChatMsg } from '../components/ChatPanel';
 import DevicePicker from '../components/DevicePicker';
 import { useSocket, Participant } from '../hooks/useSocket';

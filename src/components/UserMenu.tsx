@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useUser } from '@insforge/react';
+import { useUser } from '../lib/AuthContext';
 import { insforge } from '../lib/insforge';
 
 export default function UserMenu() {

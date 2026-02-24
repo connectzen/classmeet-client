@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useUser } from '@insforge/react';
+import { useUser } from '../lib/AuthContext';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 

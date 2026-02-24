@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useUser } from '@insforge/react';
+import { useUser } from '../lib/AuthContext';
 import AuthModal from '../components/AuthModal';
 import UserMenu from '../components/UserMenu';
 

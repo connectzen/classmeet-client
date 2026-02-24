@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
-import { InsforgeProvider } from '@insforge/react';
-import { insforge } from './lib/insforge';
+import { AuthProvider } from './lib/AuthContext';
 import Landing from './pages/Landing';
 import Room from './pages/Room';
 import AdminDashboard from './pages/AdminDashboard';
@@ -39,7 +38,7 @@ export default function App() {
     };
 
     return (
-        <InsforgeProvider client={insforge}>
+        <AuthProvider>
             {view === 'landing' && (
                 <Landing
                     onJoinRoom={handleJoinRoom}
@@ -58,6 +57,6 @@ export default function App() {
                     onLeave={handleLeave}
                 />
             )}
-        </InsforgeProvider>
+        </AuthProvider>
     );
 }

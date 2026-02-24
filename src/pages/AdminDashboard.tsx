@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useUser, UserButton } from '@insforge/react';
+import { useUser } from '../lib/AuthContext';
+import UserMenu from '../components/UserMenu';
 import ChatDrawer from '../components/ChatDrawer';
 import { io } from 'socket.io-client';
 
@@ -174,7 +175,7 @@ export default function AdminDashboard() {
                         <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Welcome, {displayName}</div>
                     </div>
                 </div>
-                <UserButton />
+                <UserMenu />
             </header>
 
             {/* ── BODY: sidebar + content ── */}
