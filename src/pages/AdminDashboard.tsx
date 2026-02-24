@@ -7,6 +7,7 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
 interface Teacher { user_id: string; name: string; email: string; created_at: string; room_count: number; }
 interface Student { user_id: string; name: string; email: string; created_at: string; enrollment_count: number; }
+interface InboxMsg { id?: string; [key: string]: unknown; }
 type Tab = 'overview' | 'teachers' | 'students' | 'messages' | 'pending';
 
 const NAV_ITEMS: { key: Tab; icon: string; label: string }[] = [
