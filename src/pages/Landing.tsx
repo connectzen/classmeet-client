@@ -1,6 +1,8 @@
 ﻿import { useState, useEffect, useCallback, useRef } from 'react';
-import { useUser, SignInButton, SignUpButton, UserButton, SignedIn, SignedOut } from '@insforge/react';
+import { useUser } from '@insforge/react';
 import ChatDrawer from '../components/ChatDrawer';
+import AuthModal from '../components/AuthModal';
+import UserMenu from '../components/UserMenu';
 
 interface ResumeSession {
     roomCode: string;
@@ -37,6 +39,7 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
 export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Props) {
     const { user } = useUser();
+    const [authModal, setAuthModal] = useState<'signin' | 'signup' | null>(null);
     const [userRole, setUserRole] = useState<'admin' | 'teacher' | 'student' | 'pending' | null>(null);
     const [resumeSession, setResumeSession] = useState<ResumeSession | null>(null);
 
@@ -294,30 +297,34 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     <span className="landing-nav-brand">ClassMeet</span>
                 </div>
                 <div className="landing-nav-actions">
-                    <SignedOut>
-                        <SignInButton><button className="btn-ghost-nav">Sign In</button></SignInButton>
-                        <SignUpButton><button className="btn-primary-nav">Get Started</button></SignUpButton>
-                    </SignedOut>
-                    <SignedIn>
-                        <div className="nav-user-info">
-                            {userRole === 'admin' && <span className="admin-badge">Admin</span>}
-                            {userRole === 'teacher' && <span className="admin-badge" style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc' }}>Teacher</span>}
-                            {userRole === 'pending' && <span className="admin-badge" style={{ background: 'rgba(234,179,8,0.12)', color: '#f59e0b', border: '1px solid rgba(234,179,8,0.3)' }}>Pending</span>}
-                            <span className="nav-welcome">{displayName}</span>
-                        </div>
-                        {user?.id && userRole && userRole !== 'pending' && userRole !== 'admin' && (
-                            <button onClick={() => setChatOpen(true)} title="Messages"
-                                style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 22, lineHeight: 1, padding: 4 }}>
-                                💬
-                                {unreadChatCount > 0 && (
-                                    <span style={{ position: 'absolute', top: 0, right: 0, background: '#6366f1', color: '#fff', borderRadius: '50%', width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700 }}>
-                                        {unreadChatCount > 9 ? '9+' : unreadChatCount}
-                                    </span>
-                                )}
-                            </button>
-                        )}
-                        <UserButton />
-                    </SignedIn>
+                    {!user && (
+                        <>
+                            <button className="btn-ghost-nav" onClick={() => setAuthModal('signin')}>Sign In</button>
+                            <button className="btn-primary-nav" onClick={() => setAuthModal('signup')}>Get Started</button>
+                        </>
+                    )}
+                    {user && (
+                        <>
+                            <div className="nav-user-info">
+                                {userRole === 'admin' && <span className="admin-badge">Admin</span>}
+                                {userRole === 'teacher' && <span className="admin-badge" style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc' }}>Teacher</span>}
+                                {userRole === 'pending' && <span className="admin-badge" style={{ background: 'rgba(234,179,8,0.12)', color: '#f59e0b', border: '1px solid rgba(234,179,8,0.3)' }}>Pending</span>}
+                                <span className="nav-welcome">{displayName}</span>
+                            </div>
+                            {user?.id && userRole && userRole !== 'pending' && userRole !== 'admin' && (
+                                <button onClick={() => setChatOpen(true)} title="Messages"
+                                    style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 22, lineHeight: 1, padding: 4 }}>
+                                    💬
+                                    {unreadChatCount > 0 && (
+                                        <span style={{ position: 'absolute', top: 0, right: 0, background: '#6366f1', color: '#fff', borderRadius: '50%', width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700 }}>
+                                            {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                                        </span>
+                                    )}
+                                </button>
+                            )}
+                            <UserMenu />
+                        </>
+                    )}
                 </div>
             </nav>
 
@@ -331,17 +338,17 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                         Live · Real-time · Secure
                     </div>
 
-                    <SignedOut>
-                        <h1 className="hero-title">
-                            Start learning with<br />
-                            <span className="hero-title-accent">ClassMeet</span>
-                        </h1>
-                        <p className="hero-subtitle">
-                            Connect with your teacher, join live sessions, and collaborate in real time â€” from anywhere.
-                        </p>
-                        <div className="hero-cta-group">
-                            <SignInButton>
-                                <button className="btn-hero-primary">
+                    {!user && (
+                        <>
+                            <h1 className="hero-title">
+                                Start learning with<br />
+                                <span className="hero-title-accent">ClassMeet</span>
+                            </h1>
+                            <p className="hero-subtitle">
+                                Connect with your teacher, join live sessions, and collaborate in real time – from anywhere.
+                            </p>
+                            <div className="hero-cta-group">
+                                <button className="btn-hero-primary" onClick={() => setAuthModal('signin')}>
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                                         <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
                                         <polyline points="10 17 15 12 10 7" />
@@ -349,9 +356,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     </svg>
                                     Sign In to Join
                                 </button>
-                            </SignInButton>
-                            <SignUpButton>
-                                <button className="btn-hero-secondary">
+                                <button className="btn-hero-secondary" onClick={() => setAuthModal('signup')}>
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                                         <circle cx="12" cy="7" r="4" />
@@ -360,17 +365,18 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     </svg>
                                     Create Account
                                 </button>
-                            </SignUpButton>
-                        </div>
-                        <div className="hero-features">
-                            <div className="feature-chip"><span>🎥</span> HD Video</div>
-                            <div className="feature-chip"><span>💬</span> Live Chat</div>
-                            <div className="feature-chip"><span>🎙️</span> Audio</div>
-                            <div className="feature-chip"><span>👥</span> Up to 5 participants</div>
-                        </div>
-                    </SignedOut>
+                            </div>
+                            <div className="hero-features">
+                                <div className="feature-chip"><span>🎥</span> HD Video</div>
+                                <div className="feature-chip"><span>💬</span> Live Chat</div>
+                                <div className="feature-chip"><span>🎙️</span> Audio</div>
+                                <div className="feature-chip"><span>👥</span> Up to 5 participants</div>
+                            </div>
+                        </>
+                    )}
 
-                    <SignedIn>
+                    {user && (
+                        <>
                         <h1 className="hero-title hero-title-sm">
                             Welcome back,{' '}
                             <span className="hero-title-accent">{displayName || 'there'}</span>
@@ -403,12 +409,14 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                 </div>
                             </div>
                         )}
-                    </SignedIn>
+                        </>
+                    )}
                 </div>
 
                 {/* â”€â”€ Dashboard panels (signed in only) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                <SignedIn>
-                    {/* ══════ PENDING APPROVAL SCREEN ══════ */}
+                {user && (
+                    <>
+                    {/* PENDING APPROVAL SCREEN */}
                     {userRole === 'pending' && (
                         <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 16px' }}>
                             <div style={{
@@ -679,11 +687,12 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             )}
                         </div>
                     )}
-
-                </SignedIn>
+                    </>
+                )}
 
                 <p className="landing-footer">Secure · Real-time · Up to 5 participants per session</p>
             </div>
+            {authModal && <AuthModal defaultTab={authModal} onClose={() => setAuthModal(null)} />}
             {user?.id && userRole && userRole !== 'pending' && userRole !== 'admin' && (
                 <ChatDrawer
                     userId={user.id}

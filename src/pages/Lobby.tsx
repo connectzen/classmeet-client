@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useUser, SignInButton, SignUpButton, UserButton, SignedIn, SignedOut } from '@insforge/react';
+import { useUser } from '@insforge/react';
+import AuthModal from '../components/AuthModal';
+import UserMenu from '../components/UserMenu';
 
 interface Props {
     role: 'teacher' | 'student';
@@ -42,6 +44,7 @@ function TeacherLobby({ onJoinRoom, onBack }: { onJoinRoom: Props['onJoinRoom'];
     const [deletingId, setDeletingId] = useState<string | null>(null);
 
     const displayName = user?.profile?.name || user?.email?.split('@')[0] || 'Teacher';
+    const [authModal, setAuthModal] = useState<'signin' | 'signup' | null>(null);
 
     const fetchClasses = useCallback(async () => {
         if (!user?.id) return;
@@ -101,7 +104,7 @@ function TeacherLobby({ onJoinRoom, onBack }: { onJoinRoom: Props['onJoinRoom'];
                     <button className="back-btn" onClick={onBack}>← Back</button>
                     <div className="lobby-topbar-right">
                         <span className="user-greeting">👋 {displayName}</span>
-                        <UserButton />
+                        <UserMenu />
                     </div>
                 </div>
 
@@ -113,8 +116,8 @@ function TeacherLobby({ onJoinRoom, onBack }: { onJoinRoom: Props['onJoinRoom'];
                 {error && <div className="error-banner">{error}</div>}
 
                 {/* Existing classes */}
-                <SignedIn>
-                    <div className="classes-section">
+                {user ? (
+                    <>
                         {loadingClasses ? (
                             <div className="classes-loading">Loading your classes…</div>
                         ) : classes.length === 0 ? (
@@ -158,7 +161,6 @@ function TeacherLobby({ onJoinRoom, onBack }: { onJoinRoom: Props['onJoinRoom'];
                                 ))}
                             </div>
                         )}
-                    </div>
 
                     {/* Create new class */}
                     {!createdCode ? (
@@ -192,17 +194,17 @@ function TeacherLobby({ onJoinRoom, onBack }: { onJoinRoom: Props['onJoinRoom'];
                             </button>
                         </div>
                     )}
-                </SignedIn>
-
-                <SignedOut>
+                    </>
+                ) : (
                     <div className="auth-prompt">
                         <p className="auth-prompt-text">Sign in to manage your classes</p>
                         <div className="auth-buttons">
-                            <SignInButton><button className="btn btn-primary">Sign In</button></SignInButton>
-                            <SignUpButton><button className="btn btn-outline">Create Account</button></SignUpButton>
+                            <button className="btn btn-primary" onClick={() => setAuthModal('signin')}>Sign In</button>
+                            <button className="btn btn-outline" onClick={() => setAuthModal('signup')}>Create Account</button>
                         </div>
+                        {authModal && <AuthModal defaultTab={authModal} onClose={() => setAuthModal(null)} />}
                     </div>
-                </SignedOut>
+                )}
             </div>
         </div>
     );
@@ -219,6 +221,7 @@ function StudentLobby({ onJoinRoom, onBack }: { onJoinRoom: Props['onJoinRoom'];
     const [lastRefreshed, setLastRefreshed] = useState(0);
 
     const displayName = user?.profile?.name || user?.email?.split('@')[0] || 'Student';
+    const [studentAuthModal, setStudentAuthModal] = useState<'signin' | 'signup' | null>(null);
 
     // Fetch enrolled classes — backend first (by userId), localStorage fallback
     const fetchEnrolledClasses = useCallback(async () => {
@@ -288,10 +291,12 @@ function StudentLobby({ onJoinRoom, onBack }: { onJoinRoom: Props['onJoinRoom'];
                 <div className="lobby-topbar">
                     <button className="back-btn" onClick={onBack}>← Back</button>
                     <div className="lobby-topbar-right">
-                        <SignedIn>
-                            <span className="user-greeting">👋 {displayName}</span>
-                            <UserButton />
-                        </SignedIn>
+                        {user && (
+                            <>
+                                <span className="user-greeting">👋 {displayName}</span>
+                                <UserMenu />
+                            </>
+                        )}
                     </div>
                 </div>
 
@@ -302,17 +307,19 @@ function StudentLobby({ onJoinRoom, onBack }: { onJoinRoom: Props['onJoinRoom'];
 
                 {error && <div className="error-banner">{error}</div>}
 
-                <SignedOut>
+                {!user && (
                     <div className="auth-prompt">
                         <p className="auth-prompt-text">Sign in to join a class</p>
                         <div className="auth-buttons">
-                            <SignInButton><button className="btn btn-primary">Sign In</button></SignInButton>
-                            <SignUpButton><button className="btn btn-outline">Create Account</button></SignUpButton>
+                            <button className="btn btn-primary" onClick={() => setStudentAuthModal('signin')}>Sign In</button>
+                            <button className="btn btn-outline" onClick={() => setStudentAuthModal('signup')}>Create Account</button>
                         </div>
+                        {studentAuthModal && <AuthModal defaultTab={studentAuthModal} onClose={() => setStudentAuthModal(null)} />}
                     </div>
-                </SignedOut>
+                )}
 
-                <SignedIn>
+                {user && (
+                    <>
                     {/* Previously joined / enrolled classes */}
                     {loadingPrev ? (
                         <div className="classes-loading">Checking your classes…</div>
@@ -398,13 +405,14 @@ function StudentLobby({ onJoinRoom, onBack }: { onJoinRoom: Props['onJoinRoom'];
                             </button>
                         </div>
                     </div>
-                </SignedIn>
+                    </>
+                )}
             </div>
         </div>
     );
 }
 
-// ── Export ───────────────────────────────────────────────────────────────
+// ── Export ─────────────────────────────────────────────────────────────────────────────
 export default function Lobby({ role, onJoinRoom, onBack }: Props) {
     if (role === 'teacher') return <TeacherLobby onJoinRoom={onJoinRoom} onBack={onBack} />;
     return <StudentLobby onJoinRoom={onJoinRoom} onBack={onBack} />;
