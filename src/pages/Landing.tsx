@@ -649,12 +649,16 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     position: 'fixed', inset: 0, zIndex: 1000,
                     background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+                    overflowY: 'auto',
                 }} onClick={() => setScheduleMode(false)}>
                     <div style={{
                         background: 'linear-gradient(135deg, #1e1b4b 0%, #1e2a4a 100%)',
                         border: '1px solid rgba(99,102,241,0.4)',
                         borderRadius: 20, padding: '32px 28px', width: '100%', maxWidth: 520,
                         boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+                        margin: 'auto',
+                        maxHeight: '90vh',
+                        overflowY: 'auto',
                     }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
                             <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#f1f5f9' }}>Schedule a Class</h3>
@@ -758,12 +762,16 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     position: 'fixed', inset: 0, zIndex: 1000,
                     background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+                    overflowY: 'auto',
                 }} onClick={() => setEditSessionMode(false)}>
                     <div style={{
                         background: 'linear-gradient(135deg, #1e1b4b 0%, #1e2a4a 100%)',
                         border: '1px solid rgba(99,102,241,0.4)',
                         borderRadius: 20, padding: '32px 28px', width: '100%', maxWidth: 520,
                         boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+                        margin: 'auto',
+                        maxHeight: '90vh',
+                        overflowY: 'auto',
                     }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
                             <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#f1f5f9' }}>Edit Scheduled Class</h3>
