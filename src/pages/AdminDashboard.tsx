@@ -9,17 +9,27 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 interface Teacher { user_id: string; name: string; email: string; created_at: string; room_count: number; }
 interface Student { user_id: string; name: string; email: string; created_at: string; enrollment_count: number; }
 interface InboxMsg { id?: string; [key: string]: unknown; }
-type Tab = 'overview' | 'teachers' | 'students' | 'messages' | 'pending';
+interface Meeting {
+    id: string; room_code: string; room_id: string; title: string; description: string;
+    scheduled_at: string; created_by: string; max_participants: number; is_active: boolean;
+    created_at: string; targets: Array<{ type: string; value: string }>;
+}
+type Tab = 'overview' | 'teachers' | 'students' | 'messages' | 'pending' | 'meetings';
 
 const NAV_ITEMS: { key: Tab; icon: string; label: string }[] = [
     { key: 'overview',  icon: '◈', label: 'Overview'  },
     { key: 'teachers',  icon: '◎', label: 'Teachers'  },
     { key: 'students',  icon: '◉', label: 'Students'  },
     { key: 'pending',   icon: '⏳', label: 'Pending'   },
+    { key: 'meetings',  icon: '📅', label: 'Meetings'  },
     { key: 'messages',  icon: '◆', label: 'Messages'  },
 ];
 
-export default function AdminDashboard() {
+interface Props {
+    onJoinRoom: (roomCode: string, roomId: string, name: string, role: 'teacher' | 'student', roomName: string) => void;
+}
+
+export default function AdminDashboard({ onJoinRoom }: Props) {
     const { user } = useUser();
     const [tab, setTab] = useState<Tab>('overview');
 
@@ -40,6 +50,27 @@ export default function AdminDashboard() {
     const [approveError, setApproveError] = useState<string>('');
 
     const [sentMessages, setSentMessages] = useState<InboxMsg[]>([]);
+
+    // ── Meetings state ────────────────────────────────────────────────────
+    const [meetings, setMeetings] = useState<Meeting[]>([]);
+    const [loadingMeetings, setLoadingMeetings] = useState(false);
+    const [showCreateMeeting, setShowCreateMeeting] = useState(false);
+    const [meetingError, setMeetingError] = useState('');
+    const [endingMeetingId, setEndingMeetingId] = useState<string | null>(null);
+    const [meetingForm, setMeetingForm] = useState({
+        title: '', description: '', scheduledAt: '', maxParticipants: 30,
+    });
+    const [meetingTargets, setMeetingTargets] = useState<{ type: string; value: string; label: string }[]>([]);
+    const [allRooms, setAllRooms] = useState<{ id: string; code: string; name: string; host_id: string }[]>([]);
+    const [allUsers, setAllUsers] = useState<{ id: string; name: string; email: string; role: string }[]>([]);
+    const [userSearch, setUserSearch] = useState('');
+    const [creatingMeeting, setCreatingMeeting] = useState(false);
+    const [editingMeetingId, setEditingMeetingId] = useState<string | null>(null);
+    const [editForm, setEditForm] = useState({ title: '', description: '', scheduledAt: '', maxParticipants: 30 });
+    const [editTargets, setEditTargets] = useState<{ type: string; value: string; label: string }[]>([]);
+    const [editError, setEditError] = useState('');
+    const [savingEdit, setSavingEdit] = useState(false);
+    const [deletingMeetingId, setDeletingMeetingId] = useState<string | null>(null);
 
     const displayName = user?.profile?.name || user?.email?.split('@')[0] || 'Admin';
 
@@ -76,13 +107,28 @@ export default function AdminDashboard() {
         setLoadingPending(false);
     }, []);
 
+    const fetchMeetings = useCallback(async () => {
+        setLoadingMeetings(true);
+        try { const r = await fetch(`${SERVER_URL}/api/admin/meetings`); if (r.ok) setMeetings(await r.json()); } catch {}
+        setLoadingMeetings(false);
+    }, []);
+
+    const fetchAllRooms = useCallback(async () => {
+        try { const r = await fetch(`${SERVER_URL}/api/admin/all-rooms`); if (r.ok) setAllRooms(await r.json()); } catch {}
+    }, []);
+
+    const fetchAllUsers = useCallback(async () => {
+        try { const r = await fetch(`${SERVER_URL}/api/all-users`); if (r.ok) setAllUsers(await r.json()); } catch {}
+    }, []);
+
     // ── Real-time auto-refresh via socket.io ─────────────────────────────
     const refreshCurrentTab = useCallback(() => {
-        if (tab === 'overview') { fetchTeachers(); fetchStudents(); fetchPendingUsers(); fetchSentMessages(); }
+        if (tab === 'overview') { fetchTeachers(); fetchStudents(); fetchPendingUsers(); fetchSentMessages(); fetchMeetings(); }
         else if (tab === 'teachers') fetchTeachers();
         else if (tab === 'students') fetchStudents();
         else if (tab === 'pending')  fetchPendingUsers();
-    }, [tab, fetchTeachers, fetchStudents, fetchPendingUsers, fetchSentMessages]);
+        else if (tab === 'meetings') { fetchMeetings(); fetchAllRooms(); fetchAllUsers(); }
+    }, [tab, fetchTeachers, fetchStudents, fetchPendingUsers, fetchSentMessages, fetchMeetings, fetchAllRooms, fetchAllUsers]);
 
     // 30-second polling for the active tab
     useEffect(() => {
@@ -103,8 +149,13 @@ export default function AdminDashboard() {
             fetchStudents();
             fetchPendingUsers();
         });
+        sock.on('admin:meeting-created', () => fetchMeetings());
+        sock.on('admin:meeting-ended', ({ meetingId }: { meetingId: string }) => {
+            setMeetings(prev => prev.filter(m => m.id !== meetingId));
+        });
+        sock.on('admin:meeting-updated', () => fetchMeetings());
         return () => { sock.disconnect(); };
-    }, [fetchTeachers, fetchStudents, fetchPendingUsers]);
+    }, [fetchTeachers, fetchStudents, fetchPendingUsers, fetchMeetings, setMeetings]);
 
     const handleApproveUser = async (userId: string, name: string, email: string) => {
         setApprovingId(userId); setApproveError('');
@@ -119,12 +170,13 @@ export default function AdminDashboard() {
     };
 
     useEffect(() => {
-        if (tab === 'overview') { fetchTeachers(); fetchStudents(); fetchSentMessages(); fetchPendingUsers(); }
+        if (tab === 'overview') { fetchTeachers(); fetchStudents(); fetchSentMessages(); fetchPendingUsers(); fetchMeetings(); }
         if (tab === 'teachers') fetchTeachers();
         if (tab === 'students') { fetchStudents(); }
         if (tab === 'pending')  fetchPendingUsers();
+        if (tab === 'meetings') { fetchMeetings(); fetchAllRooms(); fetchAllUsers(); }
         if (tab === 'messages') { /* ChatDrawer handles its own data */ }
-    }, [tab, fetchTeachers, fetchStudents, fetchSentMessages, fetchPendingUsers]);
+    }, [tab, fetchTeachers, fetchStudents, fetchSentMessages, fetchPendingUsers, fetchMeetings, fetchAllRooms, fetchAllUsers]);
 
     // Always fetch sidebar stats on mount regardless of starting tab
     useEffect(() => {
@@ -157,6 +209,132 @@ export default function AdminDashboard() {
         if (!confirm('Remove this student? This will delete their account and all enrollments.')) return;
         await fetch(`${SERVER_URL}/api/students/${userId}`, { method: 'DELETE' });
         fetchStudents();
+    };
+
+    const handleCreateMeeting = async () => {
+        setMeetingError('');
+        if (!meetingForm.title.trim()) { setMeetingError('Title is required.'); return; }
+        if (!meetingForm.scheduledAt) { setMeetingError('Scheduled date/time is required.'); return; }
+        if (meetingTargets.length === 0) { setMeetingError('Add at least one target audience.'); return; }
+        if (!user?.id) return;
+        setCreatingMeeting(true);
+        const r = await fetch(`${SERVER_URL}/api/admin/meetings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: meetingForm.title.trim(),
+                description: meetingForm.description.trim(),
+                scheduledAt: new Date(meetingForm.scheduledAt).toISOString(),
+                maxParticipants: meetingForm.maxParticipants,
+                targets: meetingTargets.map(t => ({ type: t.type, value: t.value })),
+                createdBy: user.id,
+            }),
+        });
+        setCreatingMeeting(false);
+        if (r.ok) {
+            setShowCreateMeeting(false);
+            setMeetingForm({ title: '', description: '', scheduledAt: '', maxParticipants: 30 });
+            setMeetingTargets([]);
+            fetchMeetings();
+        } else {
+            const d = await r.json();
+            setMeetingError(d.error || 'Failed to create meeting.');
+        }
+    };
+
+    const handleEndMeeting = async (meetingId: string) => {
+        if (!confirm('End this meeting? The room will be closed and the banner will disappear for all users.')) return;
+        if (!user?.id) return;
+        setEndingMeetingId(meetingId);
+        await fetch(`${SERVER_URL}/api/admin/meetings/${meetingId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adminId: user.id }),
+        });
+        setEndingMeetingId(null);
+        fetchMeetings();
+    };
+
+    const addTargetRole = (role: 'teacher' | 'student') => {
+        const key = `role:${role}`;
+        if (meetingTargets.some(t => t.type === 'role' && t.value === role)) return;
+        setMeetingTargets(prev => [...prev, { type: 'role', value: role, label: `All ${role.charAt(0).toUpperCase() + role.slice(1)}s` }]);
+    };
+
+    const addTargetRoom = (room: { id: string; name: string }) => {
+        if (meetingTargets.some(t => t.type === 'room' && t.value === room.id)) return;
+        setMeetingTargets(prev => [...prev, { type: 'room', value: room.id, label: `Class: ${room.name}` }]);
+    };
+
+    const addTargetUser = (u: { id: string; name: string; email: string }) => {
+        if (meetingTargets.some(t => t.type === 'user' && t.value === u.id)) return;
+        setMeetingTargets(prev => [...prev, { type: 'user', value: u.id, label: `${u.name || u.email}` }]);
+        setUserSearch('');
+    };
+
+    const removeTarget = (idx: number) => setMeetingTargets(prev => prev.filter((_, i) => i !== idx));
+
+    const startEditMeeting = (m: Meeting) => {
+        setEditingMeetingId(m.id);
+        const localDt = new Date(m.scheduled_at);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const localStr = `${localDt.getFullYear()}-${pad(localDt.getMonth() + 1)}-${pad(localDt.getDate())}T${pad(localDt.getHours())}:${pad(localDt.getMinutes())}`;
+        setEditForm({ title: m.title, description: m.description || '', scheduledAt: localStr, maxParticipants: m.max_participants });
+        if (Array.isArray(m.targets)) {
+            setEditTargets(m.targets.map(t => ({
+                type: t.type,
+                value: t.value,
+                label: t.type === 'role'
+                    ? `All ${t.value.charAt(0).toUpperCase() + t.value.slice(1)}s`
+                    : t.type === 'room'
+                    ? `Class: ${allRooms.find(r => r.id === t.value)?.name || t.value}`
+                    : allUsers.find(u => u.id === t.value)?.name || t.value,
+            })));
+        } else {
+            setEditTargets([]);
+        }
+        setEditError('');
+    };
+
+    const handleSaveEdit = async () => {
+        setEditError('');
+        if (!editForm.title.trim()) { setEditError('Title is required.'); return; }
+        if (!editForm.scheduledAt) { setEditError('Scheduled date/time is required.'); return; }
+        if (!user?.id) return;
+        setSavingEdit(true);
+        const r = await fetch(`${SERVER_URL}/api/admin/meetings/${editingMeetingId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                adminId: user.id,
+                title: editForm.title.trim(),
+                description: editForm.description.trim(),
+                scheduledAt: new Date(editForm.scheduledAt).toISOString(),
+                maxParticipants: editForm.maxParticipants,
+                targets: editTargets.map(t => ({ type: t.type, value: t.value })),
+            }),
+        });
+        setSavingEdit(false);
+        if (r.ok) {
+            setEditingMeetingId(null);
+            fetchMeetings();
+        } else {
+            const d = await r.json();
+            setEditError(d.error || 'Failed to save.');
+        }
+    };
+
+    const handleDeleteMeeting = async (meetingId: string, title: string) => {
+        if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
+        if (!user?.id) return;
+        setDeletingMeetingId(meetingId);
+        await fetch(`${SERVER_URL}/api/admin/meetings/${meetingId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adminId: user.id }),
+        });
+        setDeletingMeetingId(null);
+        fetchMeetings();
     };
 
     return (
@@ -219,6 +397,7 @@ export default function AdminDashboard() {
                         <div>{teachers.length} teacher{teachers.length !== 1 ? 's' : ''}</div>
                         <div>{students.length} student{students.length !== 1 ? 's' : ''}</div>
                         {pendingUsers.length > 0 && <div style={{ color: '#f59e0b', marginTop: 2 }}>{pendingUsers.length} pending</div>}
+                        {meetings.filter(m => m.is_active).length > 0 && <div style={{ color: '#a5b4fc', marginTop: 2 }}>{meetings.filter(m => m.is_active).length} active meeting{meetings.filter(m => m.is_active).length !== 1 ? 's' : ''}</div>}
                     </div>
                 </aside>
 
@@ -240,7 +419,7 @@ export default function AdminDashboard() {
                                     <BtnFull onClick={() => setTab('teachers')} color="#6366f1">Manage Teachers</BtnFull>
                                     <BtnFull onClick={() => setTab('students')} color="#22c55e">Manage Students</BtnFull>
                                     <BtnFull onClick={() => setTab('pending')} color="#f59e0b">Pending {pendingUsers.length > 0 ? `(${pendingUsers.length})` : 'Approvals'}</BtnFull>
-                                    <BtnFull onClick={() => setTab('messages')} color="#8b5cf6">Send Message</BtnFull>
+                                    <BtnFull onClick={() => { setTab('meetings'); setShowCreateMeeting(true); }} color="#8b5cf6">+ Create Meeting</BtnFull>
                                 </div>
                             </Card>
                         </div>
@@ -385,6 +564,226 @@ export default function AdminDashboard() {
                                             </div>
                                         </div>
                                     ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* MEETINGS */}
+                    {tab === 'meetings' && (
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+                                <PageHeader title="Admin Meetings" subtitle={`${meetings.filter(m => m.is_active).length} active`} />
+                                <Btn onClick={() => { setShowCreateMeeting(v => !v); setMeetingError(''); }} color="#8b5cf6">
+                                    {showCreateMeeting ? 'Cancel' : '+ Schedule Meeting'}
+                                </Btn>
+                            </div>
+
+                            {showCreateMeeting && (
+                                <Card title="Schedule a New Meeting" style={{ marginBottom: 28 }}>
+                                    <div style={{ display: 'grid', gap: 14 }}>
+                                        <Input placeholder="Meeting subject / title *" value={meetingForm.title}
+                                            onChange={e => setMeetingForm({ ...meetingForm, title: e.target.value })} />
+                                        <textarea placeholder="Short description (optional)"
+                                            value={meetingForm.description}
+                                            onChange={e => setMeetingForm({ ...meetingForm, description: e.target.value })}
+                                            rows={2}
+                                            style={{ background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: 10, padding: '9px 14px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box', resize: 'vertical' }}
+                                        />
+                                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
+                                            <div>
+                                                <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Scheduled Date & Time *</label>
+                                                <input type="datetime-local" value={meetingForm.scheduledAt}
+                                                    onChange={e => setMeetingForm({ ...meetingForm, scheduledAt: e.target.value })}
+                                                    min={new Date().toISOString().slice(0, 16)}
+                                                    style={{ background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: 10, padding: '9px 14px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' }} />
+                                            </div>
+                                            <div>
+                                                <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Max Participants</label>
+                                                <input type="number" min={2} max={200} value={meetingForm.maxParticipants}
+                                                    onChange={e => setMeetingForm({ ...meetingForm, maxParticipants: Number(e.target.value) })}
+                                                    style={{ background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: 10, padding: '9px 14px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' }} />
+                                            </div>
+                                        </div>
+
+                                        {/* Target Audience */}
+                                        <div>
+                                            <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 8 }}>Target Audience</label>
+                                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                                                <Btn onClick={() => addTargetRole('teacher')} color="#6366f120" textColor="#a5b4fc" small>+ All Teachers</Btn>
+                                                <Btn onClick={() => addTargetRole('student')} color="#22c55e20" textColor="#86efac" small>+ All Students</Btn>
+                                                <div style={{ position: 'relative' }}>
+                                                    <select onChange={e => {
+                                                        const r = allRooms.find(x => x.id === e.target.value);
+                                                        if (r) addTargetRoom(r);
+                                                        e.target.value = '';
+                                                    }}
+                                                        style={{ background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 12px', color: 'var(--text)', fontSize: 12, outline: 'none', cursor: 'pointer' }}>
+                                                        <option value="">+ By Class</option>
+                                                        {allRooms.map(r => <option key={r.id} value={r.id}>{r.name} ({r.code})</option>)}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            {/* Individual user search */}
+                                            <div style={{ position: 'relative', marginBottom: 10 }}>
+                                                <input placeholder="Search user by name or email to add individually…"
+                                                    value={userSearch} onChange={e => setUserSearch(e.target.value)}
+                                                    style={{ background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 14px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' }} />
+                                                {userSearch.trim().length > 1 && (
+                                                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, zIndex: 100, maxHeight: 200, overflowY: 'auto', marginTop: 4, boxShadow: '0 8px 24px rgba(0,0,0,0.3)' }}>
+                                                        {allUsers
+                                                            .filter(u => (u.name || u.email || '').toLowerCase().includes(userSearch.toLowerCase()))
+                                                            .slice(0, 8)
+                                                            .map(u => (
+                                                                <div key={u.id} onClick={() => addTargetUser(u)}
+                                                                    style={{ padding: '10px 14px', cursor: 'pointer', fontSize: 13, display: 'flex', gap: 8, alignItems: 'center' }}
+                                                                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(99,102,241,0.1)')}
+                                                                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+                                                                    <span style={{ fontSize: 10, background: u.role === 'teacher' ? 'rgba(99,102,241,0.2)' : 'rgba(34,197,94,0.2)', color: u.role === 'teacher' ? '#a5b4fc' : '#86efac', padding: '2px 8px', borderRadius: 100, fontWeight: 600 }}>{u.role}</span>
+                                                                    <span>{u.name || u.email}</span>
+                                                                    <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{u.email}</span>
+                                                                </div>
+                                                            ))}
+                                                        {allUsers.filter(u => (u.name || u.email || '').toLowerCase().includes(userSearch.toLowerCase())).length === 0 && (
+                                                            <div style={{ padding: '12px 14px', fontSize: 13, color: 'var(--text-muted)' }}>No users found</div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {/* Selected targets chips */}
+                                            {meetingTargets.length > 0 && (
+                                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                                    {meetingTargets.map((t, i) => (
+                                                        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 100, padding: '4px 12px', fontSize: 12, color: '#a5b4fc', fontWeight: 600 }}>
+                                                            {t.label}
+                                                            <button onClick={() => removeTarget(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#a5b4fc', fontSize: 14, lineHeight: 1, padding: 0, display: 'flex' }}>×</button>
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {meetingTargets.length === 0 && (
+                                                <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>No targets selected yet — add at least one above.</div>
+                                            )}
+                                        </div>
+
+                                        {meetingError && <ErrorMsg>{meetingError}</ErrorMsg>}
+                                        <div style={{ display: 'flex', gap: 10 }}>
+                                            <Btn onClick={handleCreateMeeting} color="#8b5cf6" disabled={creatingMeeting}>
+                                                {creatingMeeting ? 'Scheduling…' : '📅 Schedule Meeting'}
+                                            </Btn>
+                                            <Btn onClick={() => { setShowCreateMeeting(false); setMeetingError(''); setMeetingTargets([]); }} color="var(--surface-3)">Cancel</Btn>
+                                        </div>
+                                    </div>
+                                </Card>
+                            )}
+
+                            {loadingMeetings ? <Loading /> : meetings.length === 0 ? (
+                                <Empty icon="📅" message="No meetings scheduled yet. Create one above." />
+                            ) : (
+                                <div style={{ display: 'grid', gap: 14 }}>
+                                    {meetings.map(m => {
+                                        const scheduledDate = new Date(m.scheduled_at);
+                                        const isLive = scheduledDate <= new Date();
+                                        const isActive = m.is_active;
+                                        return (
+                                            <div key={m.id} style={{
+                                                background: isActive
+                                                    ? 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.05))'
+                                                    : 'var(--surface)',
+                                                border: isActive ? '1px solid rgba(99,102,241,0.3)' : '1px solid var(--border)',
+                                                borderRadius: 16, padding: '16px 20px',
+                                                opacity: isActive ? 1 : 0.55,
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                                                            <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>{m.title}</span>
+                                                            {isActive && isLive && <span style={{ fontSize: 10, background: 'rgba(239,68,68,0.2)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 100, padding: '2px 10px', fontWeight: 700 }}>🔴 LIVE</span>}
+                                                            {isActive && !isLive && <span style={{ fontSize: 10, background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 100, padding: '2px 10px', fontWeight: 700 }}>SCHEDULED</span>}
+                                                            {!isActive && <span style={{ fontSize: 10, background: 'var(--surface-3)', color: 'var(--text-muted)', borderRadius: 100, padding: '2px 10px', fontWeight: 600 }}>ENDED</span>}
+                                                        </div>
+                                                        {m.description && <p style={{ margin: '0 0 6px', fontSize: 13, color: 'var(--text-muted)' }}>{m.description}</p>}
+                                                        <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                                                            <span>🗓 {scheduledDate.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                                            <span>👥 Max {m.max_participants}</span>
+                                                            <span>🔑 {m.room_code}</span>
+                                                        </div>
+                                                        {Array.isArray(m.targets) && m.targets.length > 0 && (
+                                                            <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                                                {m.targets.map((t, i) => (
+                                                                    <span key={i} style={{ fontSize: 11, background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 100, padding: '2px 10px', color: '#a5b4fc', fontWeight: 600 }}>
+                                                                        {t.type === 'role' ? `All ${t.value.charAt(0).toUpperCase() + t.value.slice(1)}s` :
+                                                                         t.type === 'room' ? `Class: ${allRooms.find(r => r.id === t.value)?.name || t.value}` :
+                                                                         `${allUsers.find(u => u.id === t.value)?.name || t.value}`}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                                                            {isActive && (
+                                                                <Btn onClick={() => onJoinRoom(m.room_code, m.room_id, displayName, 'teacher', m.title)} color="#6366f1" small>
+                                                                    {isLive ? '▶ Join as Host' : 'Open Room'}
+                                                                </Btn>
+                                                            )}
+                                                            {editingMeetingId !== m.id && (
+                                                                <Btn onClick={() => startEditMeeting(m)} color="rgba(99,102,241,0.15)" textColor="#a5b4fc" small disabled={savingEdit}>
+                                                                    ✏️ Edit
+                                                                </Btn>
+                                                            )}
+                                                            {isActive && (
+                                                                <Btn onClick={() => handleEndMeeting(m.id)} color="#ef444420" textColor="#ef4444" small disabled={endingMeetingId === m.id}>
+                                                                    {endingMeetingId === m.id ? 'Ending…' : '■ End'}
+                                                                </Btn>
+                                                            )}
+                                                            <Btn onClick={() => handleDeleteMeeting(m.id, m.title)} color="#ef444415" textColor="#f87171" small disabled={deletingMeetingId === m.id}>
+                                                                {deletingMeetingId === m.id ? 'Deleting…' : '🗑 Delete'}
+                                                            </Btn>
+                                                        </div>
+                                                </div>
+                                                {/* ── Inline edit form ── */}
+                                                {editingMeetingId === m.id && (
+                                                    <div style={{ marginTop: 16, padding: 16, background: 'rgba(99,102,241,0.07)', borderRadius: 12, border: '1px solid rgba(99,102,241,0.25)' }}>
+                                                        <div style={{ fontWeight: 700, fontSize: 13, color: '#a5b4fc', marginBottom: 12 }}>✏️ Edit Meeting</div>
+                                                        {editError && <p style={{ color: '#f87171', fontSize: 13, margin: '0 0 10px' }}>{editError}</p>}
+                                                        <div style={{ display: 'grid', gap: 10 }}>
+                                                            <input value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} placeholder="Title" style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 14 }} />
+                                                            <textarea value={editForm.description} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} placeholder="Description (optional)" rows={2} style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 14, resize: 'vertical' }} />
+                                                            <input type="datetime-local" value={editForm.scheduledAt} onChange={e => setEditForm(p => ({ ...p, scheduledAt: e.target.value }))} style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 14 }} />
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Max participants:</span>
+                                                                <input type="number" min={2} max={100} value={editForm.maxParticipants} onChange={e => setEditForm(p => ({ ...p, maxParticipants: Number(e.target.value) }))} style={{ width: 80, padding: '6px 10px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 14 }} />
+                                                            </div>
+                                                            {/* Target audience for edit */}
+                                                            <div>
+                                                                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Target audience:</div>
+                                                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
+                                                                    {editTargets.map((t, i) => (
+                                                                        <span key={i} style={{ fontSize: 12, background: 'rgba(99,102,241,0.18)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 100, padding: '3px 10px', color: '#a5b4fc', display: 'flex', alignItems: 'center', gap: 5 }}>
+                                                                            {t.label}
+                                                                            <button onClick={() => setEditTargets(prev => prev.filter((_, x) => x !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                                                    {(['teacher', 'student'] as const).map(role => (
+                                                                        <button key={role} onClick={() => { if (!editTargets.some(t => t.type === 'role' && t.value === role)) setEditTargets(prev => [...prev, { type: 'role', value: role, label: `All ${role.charAt(0).toUpperCase() + role.slice(1)}s` }]); }} style={{ fontSize: 12, padding: '4px 12px', borderRadius: 100, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer' }}>+ All {role.charAt(0).toUpperCase() + role.slice(1)}s</button>
+                                                                    ))}
+                                                                    {allRooms.map(room => (
+                                                                        <button key={room.id} onClick={() => { if (!editTargets.some(t => t.type === 'room' && t.value === room.id)) setEditTargets(prev => [...prev, { type: 'room', value: room.id, label: `Class: ${room.name}` }]); }} style={{ fontSize: 12, padding: '4px 12px', borderRadius: 100, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer' }}>+ {room.name}</button>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                                                            <Btn onClick={handleSaveEdit} color="#6366f1" disabled={savingEdit}>{savingEdit ? 'Saving…' : '💾 Save Changes'}</Btn>
+                                                            <Btn onClick={() => setEditingMeetingId(null)} color="transparent" textColor="var(--text-muted)">Cancel</Btn>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>

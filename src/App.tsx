@@ -46,7 +46,7 @@ export default function App() {
                     onAdminView={handleAdminView}
                 />
             )}
-            {view === 'admin' && <AdminDashboard />}
+            {view === 'admin' && <AdminDashboard onJoinRoom={handleJoinRoom} />}
             {view === 'room' && session && (
                 <Room
                     roomCode={session.roomCode}

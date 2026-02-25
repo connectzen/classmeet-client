@@ -1,8 +1,10 @@
 ﻿import { useState, useEffect, useCallback, useRef } from 'react';
+import { io } from 'socket.io-client';
 import { useUser } from '../lib/AuthContext';
 import ChatDrawer from '../components/ChatDrawer';
 import AuthModal from '../components/AuthModal';
 import UserMenu from '../components/UserMenu';
+import MeetingBanner, { AdminMeeting } from '../components/MeetingBanner';
 
 interface ResumeSession {
     roomCode: string;
@@ -68,55 +70,33 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [chatOpen, setChatOpen] = useState(false);
     const [unreadChatCount, setUnreadChatCount] = useState(0);
 
-    // ── Teacher: pending chat access requests ─────────────────────────────
-    const [chatRequests, setChatRequests] = useState<{ student_id: string; student_name: string; student_email: string }[]>([]);
-    const [allowingChat, setAllowingChat] = useState<string | null>(null);
-    const [decliningChat, setDecliningChat] = useState<string | null>(null);
+    // ── Admin Meetings (banners shown to targeted users) ─────────────────
+    const [adminMeetings, setAdminMeetings] = useState<AdminMeeting[]>([]);
 
-    const fetchChatRequests = useCallback(async () => {
-        if (userRole !== 'teacher' || !user?.id) return;
+    const fetchAdminMeetings = useCallback(async () => {
+        if (!user?.id || !userRole || userRole === 'pending') return;
         try {
-            const r = await fetch(`${SERVER_URL}/api/chat/requests?targetUserId=${user.id}`);
-            if (r.ok) setChatRequests(await r.json());
+            const r = await fetch(`${SERVER_URL}/api/admin/meetings/for-user/${user.id}`);
+            if (r.ok) setAdminMeetings(await r.json());
         } catch { /* ignore */ }
-    }, [userRole, user?.id]);
+    }, [user?.id, userRole]);
 
-    const handleAllowChat = useCallback(async (studentId: string) => {
-        if (!user?.id) return;
-        setAllowingChat(studentId);
-        try {
-            await fetch(`${SERVER_URL}/api/chat/allow/${studentId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ targetUserId: user.id }),
-            });
-            setChatRequests(prev => prev.filter(r => r.student_id !== studentId));
-        } catch { /* ignore */ }
-        setAllowingChat(null);
-    }, [user?.id]);
-
-    const handleDeclineChat = useCallback(async (studentId: string) => {
-        if (!user?.id) return;
-        setDecliningChat(studentId);
-        try {
-            await fetch(`${SERVER_URL}/api/chat/decline/${studentId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ targetUserId: user.id }),
-            });
-            setChatRequests(prev => prev.filter(r => r.student_id !== studentId));
-        } catch { /* ignore */ }
-        setDecliningChat(null);
-    }, [user?.id]);
-
-    // Poll every 8 s while teacher is on the landing page
+    // Fetch meetings on mount and every 30s; also subscribe to socket events
     useEffect(() => {
-        if (userRole !== 'teacher') return;
-        fetchChatRequests();
-        const timer = setInterval(fetchChatRequests, 8000);
-        return () => clearInterval(timer);
-    }, [fetchChatRequests, userRole]);
-
+        if (!user?.id || !userRole || userRole === 'pending') return;
+        fetchAdminMeetings();
+        const pollId = setInterval(fetchAdminMeetings, 30_000);
+        const sock = io(SERVER_URL, { transports: ['websocket'] });
+        sock.on('admin:meeting-created', () => fetchAdminMeetings());
+        sock.on('admin:meeting-ended', ({ meetingId }: { meetingId: string }) => {
+            setAdminMeetings(prev => prev.filter(m => m.id !== meetingId));
+        });
+        sock.on('admin:meeting-updated', () => fetchAdminMeetings());
+        return () => {
+            clearInterval(pollId);
+            sock.disconnect();
+        };
+    }, [user?.id, userRole, fetchAdminMeetings]);
 
     // Role check — redirect to AdminDashboard if role is admin
     useEffect(() => {
@@ -416,6 +396,21 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                 {/* â”€â”€ Dashboard panels (signed in only) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 {user && (
                     <>
+                    {/* ── Admin Meeting Banners ─────────────────────────────────── */}
+                    {adminMeetings.length > 0 && userRole && userRole !== 'pending' && (
+                        <div style={{ padding: '0 24px', maxWidth: 860, margin: '0 auto', width: '100%' }}>
+                            {adminMeetings.map(m => (
+                                <MeetingBanner
+                                    key={m.id}
+                                    meeting={m}
+                                    displayName={displayName}
+                                    userRole={userRole as 'teacher' | 'student' | 'admin'}
+                                    onJoin={(code, id, name, role, title) => onJoinRoom(code, id, name, role, title)}
+                                />
+                            ))}
+                        </div>
+                    )}
+
                     {/* PENDING APPROVAL SCREEN */}
                     {userRole === 'pending' && (
                         <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 16px' }}>
