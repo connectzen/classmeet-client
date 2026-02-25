@@ -122,6 +122,16 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [scheduleError, setScheduleError] = useState('');
     const [loadingStudentsList, setLoadingStudentsList] = useState(false);
 
+    // Edit session state
+    const [editSessionMode, setEditSessionMode] = useState(false);
+    const [editingSession, setEditingSession] = useState<AdminMeeting | null>(null);
+    const [editSessionTitle, setEditSessionTitle] = useState('');
+    const [editSessionDesc, setEditSessionDesc] = useState('');
+    const [editSessionDateTime, setEditSessionDateTime] = useState('');
+    const [editTargetStudentIds, setEditTargetStudentIds] = useState<string[]>([]);
+    const [updatingSession, setUpdatingSession] = useState(false);
+    const [updateSessionError, setUpdateSessionError] = useState('');
+
     const fetchTeacherSessions = useCallback(async () => {
         if (!user?.id || userRole !== 'teacher') return;
         try {
@@ -386,6 +396,56 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             });
             setTeacherSessions(prev => prev.filter(s => s.id !== session.id));
         } catch { /* ignore */ }
+    };
+
+    const handleEditSession = async (session: AdminMeeting) => {
+        setEditingSession(session);
+        setEditSessionTitle(session.title);
+        setEditSessionDesc(session.description || '');
+        setEditSessionDateTime(new Date(session.scheduled_at).toISOString().slice(0, 16));
+        setUpdateSessionError('');
+        
+        // Fetch current targets
+        try {
+            const res = await fetch(`${SERVER_URL}/api/teacher/sessions/${session.id}/targets`);
+            if (res.ok) {
+                const targets = await res.json();
+                setEditTargetStudentIds(targets.map((t: any) => t.target_user_id));
+            }
+        } catch { /* ignore */ }
+        
+        // Fetch all students
+        await fetchAllStudents();
+        setEditSessionMode(true);
+    };
+
+    const handleUpdateSession = async () => {
+        if (!editSessionTitle.trim() || !editSessionDateTime || !user?.id || !editingSession) return;
+        setUpdatingSession(true); setUpdateSessionError('');
+        try {
+            const res = await fetch(`${SERVER_URL}/api/teacher/sessions/${editingSession.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    teacherId: user.id,
+                    title: editSessionTitle.trim(),
+                    description: editSessionDesc.trim(),
+                    scheduledAt: new Date(editSessionDateTime).toISOString(),
+                    targetStudentIds: editTargetStudentIds,
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) { setUpdateSessionError(data.error || 'Failed to update session'); setUpdatingSession(false); return; }
+            setEditSessionMode(false);
+            fetchTeacherSessions();
+        } catch { setUpdateSessionError('Server unreachable'); }
+        setUpdatingSession(false);
+    };
+
+    const toggleEditTargetStudent = (id: string) => {
+        setEditTargetStudentIds(prev =>
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
     };
 
     const toggleTargetStudent = (id: string) => {
@@ -662,16 +722,26 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                 sessionType="teacher"
                                                 onJoin={(code, id, name, role, title) => onJoinRoom(code, id, name, role, title)}
                                             />
-                                            <button
-                                                onClick={() => handleDeleteSession(s)}
-                                                title="Delete session"
-                                                style={{
-                                                    position: 'absolute', top: 14, right: 14,
-                                                    background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)',
-                                                    borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 600,
-                                                    color: '#fca5a5', cursor: 'pointer',
-                                                }}
-                                            >Delete</button>
+                                            <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', gap: 6 }}>
+                                                <button
+                                                    onClick={() => handleEditSession(s)}
+                                                    title="Edit session"
+                                                    style={{
+                                                        background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.35)',
+                                                        borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 600,
+                                                        color: '#a5b4fc', cursor: 'pointer',
+                                                    }}
+                                                >Edit</button>
+                                                <button
+                                                    onClick={() => handleDeleteSession(s)}
+                                                    title="Delete session"
+                                                    style={{
+                                                        background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)',
+                                                        borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 600,
+                                                        color: '#fca5a5', cursor: 'pointer',
+                                                    }}
+                                                >Delete</button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -936,6 +1006,115 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                 disabled={scheduling || !sessionTitle.trim() || !sessionDateTime}
                             >
                                 {scheduling ? 'Scheduling…' : 'Schedule Class'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Session Modal */}
+            {editSessionMode && editingSession && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 1000,
+                    background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+                }} onClick={() => setEditSessionMode(false)}>
+                    <div style={{
+                        background: 'linear-gradient(135deg, #1e1b4b 0%, #1e2a4a 100%)',
+                        border: '1px solid rgba(99,102,241,0.4)',
+                        borderRadius: 20, padding: '32px 28px', width: '100%', maxWidth: 520,
+                        boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+                    }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+                            <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#f1f5f9' }}>Edit Scheduled Class</h3>
+                            <button onClick={() => setEditSessionMode(false)} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
+                        </div>
+
+                        {updateSessionError && <div className="error-banner" style={{ marginBottom: 16 }}>{updateSessionError}</div>}
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Class Title *</label>
+                                <input
+                                    className="form-input"
+                                    type="text"
+                                    placeholder="e.g. Math 101 — Chapter 5"
+                                    value={editSessionTitle}
+                                    onChange={e => setEditSessionTitle(e.target.value)}
+                                    style={{ width: '100%', boxSizing: 'border-box' }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Description (optional)</label>
+                                <textarea
+                                    className="form-input"
+                                    placeholder="What will be covered in this class?"
+                                    value={editSessionDesc}
+                                    onChange={e => setEditSessionDesc(e.target.value)}
+                                    rows={2}
+                                    style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical' }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Date & Time *</label>
+                                <input
+                                    className="form-input"
+                                    type="datetime-local"
+                                    value={editSessionDateTime}
+                                    onChange={e => setEditSessionDateTime(e.target.value)}
+                                    style={{ width: '100%', boxSizing: 'border-box', colorScheme: 'dark' }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                    Target Students {editTargetStudentIds.length > 0 && <span style={{ color: '#818cf8' }}>({editTargetStudentIds.length} selected)</span>}
+                                </label>
+                                {loadingStudentsList ? (
+                                    <div style={{ fontSize: 13, color: '#64748b' }}>Loading students…</div>
+                                ) : allStudents.length === 0 ? (
+                                    <div style={{ fontSize: 13, color: '#64748b' }}>No approved students found.</div>
+                                ) : (
+                                    <div style={{
+                                        maxHeight: 180, overflowY: 'auto',
+                                        border: '1px solid rgba(99,102,241,0.3)', borderRadius: 10,
+                                        background: 'rgba(99,102,241,0.05)',
+                                    }}>
+                                        {allStudents.map(s => (
+                                            <label key={s.user_id} style={{
+                                                display: 'flex', alignItems: 'center', gap: 10,
+                                                padding: '8px 12px', cursor: 'pointer',
+                                                borderBottom: '1px solid rgba(99,102,241,0.1)',
+                                                background: editTargetStudentIds.includes(s.user_id) ? 'rgba(99,102,241,0.15)' : 'transparent',
+                                            }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={editTargetStudentIds.includes(s.user_id)}
+                                                    onChange={() => toggleEditTargetStudent(s.user_id)}
+                                                    style={{ accentColor: '#6366f1' }}
+                                                />
+                                                <div>
+                                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{s.name || s.email}</div>
+                                                    {s.name && <div style={{ fontSize: 11, color: '#64748b' }}>{s.email}</div>}
+                                                </div>
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 24 }}>
+                            <button
+                                className="btn-ghost btn-sm"
+                                onClick={() => setEditSessionMode(false)}
+                                disabled={updatingSession}
+                            >Cancel</button>
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleUpdateSession}
+                                disabled={updatingSession || !editSessionTitle.trim() || !editSessionDateTime}
+                            >
+                                {updatingSession ? 'Updating…' : 'Update Class'}
                             </button>
                         </div>
                     </div>
