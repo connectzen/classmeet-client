@@ -10,6 +10,7 @@ export interface AdminMeeting {
     created_by: string;
     max_participants: number;
     is_active: boolean;
+    session_image_url?: string;
 }
 
 interface TimeLeft {
@@ -47,14 +48,9 @@ interface Props {
     /** Visual theme — 'admin' = indigo/purple, 'teacher' = violet/blue */
     sessionType?: 'admin' | 'teacher';
     onJoin: (code: string, id: string, name: string, role: 'teacher' | 'student', title: string) => void;
-    /** Teacher profile data for display */
-    teacherProfile?: {
-        name: string;
-        avatar_url?: string;
-    };
 }
 
-export default function MeetingBanner({ meeting, displayName, userRole, isCreator = false, sessionType = 'admin', onJoin, teacherProfile }: Props) {
+export default function MeetingBanner({ meeting, displayName, userRole, isCreator = false, sessionType = 'admin', onJoin }: Props) {
     const [timeLeft, setTimeLeft] = useState<TimeLeft>(() => calcTimeLeft(meeting.scheduled_at));
     const [lockedWarning, setLockedWarning] = useState(false);
 
@@ -100,11 +96,6 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
         ? `Starts in ${timeLeft.hours}h ${pad(timeLeft.minutes)}m`
         : `Starts in ${pad(timeLeft.minutes)}m ${pad(timeLeft.seconds)}s`;
 
-    // Calculate initials for teacher avatar fallback
-    const teacherInitials = teacherProfile?.name
-        ? teacherProfile.name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()
-        : '👤';
-
     return (
         <div style={{
             position: 'relative',
@@ -128,8 +119,8 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
 
             <div style={{ position: 'relative' }}>
 
-                {/* ── Row 1: badge (left) ──────────────────────────────────── */}
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+                {/* ── Row 1: Badge (left) + Date/Time (center-right) ────────── */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, paddingRight: isCreator ? 110 : 0 }}>
                     <span style={{
                         display: 'inline-flex', alignItems: 'center', gap: 4,
                         background: accentBg, border: `1px solid ${accentBorder}`,
@@ -139,91 +130,7 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                         <span style={{ width: 4, height: 4, borderRadius: '50%', background: accentColor, flexShrink: 0 }} />
                         {badgeLabel}
                     </span>
-                </div>
 
-                {/* ── Row 2: title + description ────────────────────────────── */}
-                <div style={{ marginBottom: 14 }}>
-                    <h3 style={{
-                        margin: '0 0 4px', fontSize: 17, fontWeight: 800, color: '#f1f5f9',
-                        letterSpacing: '-0.02em', lineHeight: 1.2,
-                    }}>
-                        {meeting.title}
-                    </h3>
-                    {meeting.description && (
-                        <p style={{
-                            margin: 0, fontSize: 11, color: '#94a3b8', lineHeight: 1.5,
-                            display: '-webkit-box', WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                        }}>
-                            {meeting.description}
-                        </p>
-                    )}
-                </div>
-
-                {/* ── Row 3: Teacher Profile (centered) ────────────────────── */}
-                {teacherProfile && (
-                    <div style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: 6,
-                        marginBottom: 14,
-                    }}>
-                        {teacherProfile.avatar_url ? (
-                            <img
-                                src={teacherProfile.avatar_url}
-                                alt={teacherProfile.name}
-                                style={{
-                                    width: 120,
-                                    height: 155,
-                                    borderRadius: 10,
-                                    objectFit: 'cover',
-                                    border: '2px solid rgba(99,102,241,0.5)',
-                                    boxShadow: '0 4px 16px rgba(99,102,241,0.25)',
-                                }}
-                            />
-                        ) : (
-                            <div style={{
-                                width: 120,
-                                height: 155,
-                                borderRadius: 10,
-                                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: '#fff',
-                                fontWeight: 700,
-                                fontSize: 42,
-                                border: '2px solid rgba(99,102,241,0.5)',
-                                boxShadow: '0 4px 16px rgba(99,102,241,0.25)',
-                            }}>
-                                {teacherInitials}
-                            </div>
-                        )}
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ 
-                                fontSize: 12,
-                                fontWeight: 700,
-                                color: '#e2e8f0',
-                                marginBottom: 2,
-                            }}>
-                                {teacherProfile.name}
-                            </div>
-                            <div style={{
-                                fontSize: 9,
-                                color: '#94a3b8',
-                                fontWeight: 600,
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.06em',
-                            }}>
-                                Instructor
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* ── Row 4: Date/Time CENTERED ────────────────────────────── */}
-                <div style={{ textAlign: 'center', marginBottom: 13 }}>
                     <div style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -231,8 +138,8 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                         background: 'rgba(99,102,241,0.15)',
                         border: '1px solid rgba(99,102,241,0.3)',
                         borderRadius: 8,
-                        padding: '8px 16px',
-                        fontSize: 12,
+                        padding: '6px 14px',
+                        fontSize: 11,
                         fontWeight: 600,
                         color: '#cbd5e1',
                     }}>
@@ -243,7 +150,60 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                     </div>
                 </div>
 
-                {/* ── Row 5: HERO countdown (centered) ──────────────────────── */}
+                {/* ── Row 2: Horizontal layout with image + content ──────────── */}
+                <div style={{ display: 'flex', gap: 16, marginBottom: 14 }}>
+                    {/* Session Image */}
+                    {meeting.session_image_url ? (
+                        <img
+                            src={meeting.session_image_url}
+                            alt={meeting.title}
+                            style={{
+                                width: 130,
+                                height: 165,
+                                borderRadius: 10,
+                                objectFit: 'cover',
+                                border: '2px solid rgba(99,102,241,0.3)',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                                flexShrink: 0,
+                            }}
+                        />
+                    ) : (
+                        <div style={{
+                            width: 130,
+                            height: 165,
+                            borderRadius: 10,
+                            background: 'linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(139,92,246,0.2) 100%)',
+                            border: '2px solid rgba(99,102,241,0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                        }}>
+                            <div style={{ fontSize: 48, opacity: 0.5 }}>📚</div>
+                        </div>
+                    )}
+
+                    {/* Title + Description */}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
+                        <h3 style={{
+                            margin: '0 0 6px', fontSize: 18, fontWeight: 800, color: '#f1f5f9',
+                            letterSpacing: '-0.02em', lineHeight: 1.2,
+                        }}>
+                            {meeting.title}
+                        </h3>
+                        {meeting.description && (
+                            <p style={{
+                                margin: 0, fontSize: 12, color: '#94a3b8', lineHeight: 1.5,
+                                display: '-webkit-box', WebkitLineClamp: 3,
+                                WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                            }}>
+                                {meeting.description}
+                            </p>
+                        )}
+                    </div>
+                </div>
+
+                {/* ── Row 3: HERO countdown (centered) ──────────────────────── */}
                 <div style={{ textAlign: 'center', marginBottom: 13 }}>
                     {timeLeft.isLive ? (
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>

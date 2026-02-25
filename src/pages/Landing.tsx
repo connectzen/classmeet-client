@@ -118,6 +118,9 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [sessionTitle, setSessionTitle] = useState('');
     const [sessionDesc, setSessionDesc] = useState('');
     const [sessionDateTime, setSessionDateTime] = useState('');
+    const [sessionImageUrl, setSessionImageUrl] = useState('');
+    const [sessionImageFile, setSessionImageFile] = useState<File | null>(null);
+    const [uploadingSessionImage, setUploadingSessionImage] = useState(false);
     const [targetStudentIds, setTargetStudentIds] = useState<string[]>([]);
     const [allStudents, setAllStudents] = useState<{ user_id: string; name: string; email: string }[]>([]);
     const [scheduling, setScheduling] = useState(false);
@@ -130,6 +133,9 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [editSessionTitle, setEditSessionTitle] = useState('');
     const [editSessionDesc, setEditSessionDesc] = useState('');
     const [editSessionDateTime, setEditSessionDateTime] = useState('');
+    const [editSessionImageUrl, setEditSessionImageUrl] = useState('');
+    const [editSessionImageFile, setEditSessionImageFile] = useState<File | null>(null);
+    const [uploadingEditSessionImage, setUploadingEditSessionImage] = useState(false);
     const [editTargetStudentIds, setEditTargetStudentIds] = useState<string[]>([]);
     const [updatingSession, setUpdatingSession] = useState(false);
     const [updateSessionError, setUpdateSessionError] = useState('');
@@ -257,12 +263,14 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     maxParticipants: 30,
                     targetStudentIds,
                     createdBy: user.id,
+                    sessionImageUrl,
                 }),
             });
             const data = await res.json();
             if (!res.ok) { setScheduleError(data.error || 'Failed to schedule session'); setScheduling(false); return; }
             setScheduleMode(false);
             setSessionTitle(''); setSessionDesc(''); setSessionDateTime(''); setTargetStudentIds([]);
+            setSessionImageUrl(''); setSessionImageFile(null);
             fetchTeacherSessions();
         } catch { setScheduleError('Server unreachable'); }
         setScheduling(false);
@@ -285,6 +293,8 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         setEditSessionTitle(session.title);
         setEditSessionDesc(session.description || '');
         setEditSessionDateTime(new Date(session.scheduled_at).toISOString().slice(0, 16));
+        setEditSessionImageUrl(session.session_image_url || '');
+        setEditSessionImageFile(null);
         setUpdateSessionError('');
         
         // Fetch current targets
@@ -314,6 +324,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     teacherId: user.id,
                     title: editSessionTitle.trim(),
                     description: editSessionDesc.trim(),
+                    sessionImageUrl: editSessionImageUrl,
                     scheduledAt: new Date(editSessionDateTime).toISOString(),
                     targetStudentIds: editTargetStudentIds,
                 }),
@@ -493,7 +504,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     displayName={displayName}
                                     userRole={userRole as 'teacher' | 'student' | 'admin'}                                    isCreator={userRole === 'admin'}
                                     sessionType="admin"                                    onJoin={(code, id, name, role, title) => onJoinRoom(code, id, name, role, title)}
-                                    teacherProfile={teacherProfiles[m.created_by]}
                                 />
                             ))}
                         </div>
@@ -583,7 +593,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                 isCreator={true}
                                                 sessionType="teacher"
                                                 onJoin={(code, id, name, role, title) => onJoinRoom(code, id, name, role, title)}
-                                                teacherProfile={teacherProfiles[s.created_by]}
                                             />
                                             <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', gap: 6, zIndex: 10 }}>
                                                 <button
@@ -635,7 +644,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                             isCreator={false}
                                             sessionType="teacher"
                                             onJoin={(code, id, name, role, title) => onJoinRoom(code, id, name, role, title)}
-                                            teacherProfile={teacherProfiles[s.created_by]}
                                         />
                                     ))}
                                 </div>
@@ -694,6 +702,41 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     rows={2}
                                     style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical' }}
                                 />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Session Image (optional)</label>
+                                {(sessionImageUrl || sessionImageFile) && (
+                                    <div style={{ marginBottom: 10 }}>
+                                        <img
+                                            src={sessionImageUrl || (sessionImageFile ? URL.createObjectURL(sessionImageFile) : '')}
+                                            alt="Session preview"
+                                            style={{
+                                                width: '100%',
+                                                maxHeight: 180,
+                                                objectFit: 'cover',
+                                                borderRadius: 12,
+                                                border: '2px solid rgba(99,102,241,0.3)',
+                                            }}
+                                        />
+                                    </div>
+                                )}
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleSessionImageUpload}
+                                    disabled={uploadingSessionImage}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        background: 'rgba(99,102,241,0.1)',
+                                        border: '1px solid rgba(99,102,241,0.3)',
+                                        borderRadius: 10,
+                                        color: '#e2e8f0',
+                                        fontSize: 13,
+                                        cursor: uploadingSessionImage ? 'wait' : 'pointer',
+                                    }}
+                                />
+                                {uploadingSessionImage && <div style={{ fontSize: 12, color: '#818cf8', marginTop: 6 }}>Uploading...</div>}
                             </div>
                             <div>
                                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Date & Time *</label>
@@ -807,6 +850,41 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     rows={2}
                                     style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical' }}
                                 />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Session Image (optional)</label>
+                                {(editSessionImageUrl || editSessionImageFile) && (
+                                    <div style={{ marginBottom: 10 }}>
+                                        <img
+                                            src={editSessionImageUrl || (editSessionImageFile ? URL.createObjectURL(editSessionImageFile) : '')}
+                                            alt="Session preview"
+                                            style={{
+                                                width: '100%',
+                                                maxHeight: 180,
+                                                objectFit: 'cover',
+                                                borderRadius: 12,
+                                                border: '2px solid rgba(99,102,241,0.3)',
+                                            }}
+                                        />
+                                    </div>
+                                )}
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleEditSessionImageUpload}
+                                    disabled={uploadingEditSessionImage}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        background: 'rgba(99,102,241,0.1)',
+                                        border: '1px solid rgba(99,102,241,0.3)',
+                                        borderRadius: 10,
+                                        color: '#e2e8f0',
+                                        fontSize: 13,
+                                        cursor: uploadingEditSessionImage ? 'wait' : 'pointer',
+                                    }}
+                                />
+                                {uploadingEditSessionImage && <div style={{ fontSize: 12, color: '#818cf8', marginTop: 6 }}>Uploading...</div>}
                             </div>
                             <div>
                                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Date & Time *</label>
