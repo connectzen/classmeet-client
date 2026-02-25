@@ -128,9 +128,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [sessionTitle, setSessionTitle] = useState('');
     const [sessionDesc, setSessionDesc] = useState('');
     const [sessionDateTime, setSessionDateTime] = useState('');
-    const [sessionImageUrl, setSessionImageUrl] = useState('');
-    const [sessionImageFile, setSessionImageFile] = useState<File | null>(null);
-    const [uploadingSessionImage, setUploadingSessionImage] = useState(false);
     const [targetStudentIds, setTargetStudentIds] = useState<string[]>([]);
     const [allStudents, setAllStudents] = useState<{ user_id: string; name: string; email: string }[]>([]);
     const [scheduling, setScheduling] = useState(false);
@@ -143,9 +140,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [editSessionTitle, setEditSessionTitle] = useState('');
     const [editSessionDesc, setEditSessionDesc] = useState('');
     const [editSessionDateTime, setEditSessionDateTime] = useState('');
-    const [editSessionImageUrl, setEditSessionImageUrl] = useState('');
-    const [editSessionImageFile, setEditSessionImageFile] = useState<File | null>(null);
-    const [uploadingEditSessionImage, setUploadingEditSessionImage] = useState(false);
     const [editTargetStudentIds, setEditTargetStudentIds] = useState<string[]>([]);
     const [updatingSession, setUpdatingSession] = useState(false);
     const [updateSessionError, setUpdateSessionError] = useState('');
@@ -259,84 +253,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
 
     const dismissResume = () => { localStorage.removeItem('classmeet_last_room'); setResumeSession(null); };
 
-    const handleSessionImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        if (!file.type.startsWith('image/')) {
-            alert('Please select an image file');
-            return;
-        }
-
-        if (file.size > 5 * 1024 * 1024) {
-            alert('File size must be less than 5MB');
-            return;
-        }
-
-        setUploadingSessionImage(true);
-        setSessionImageFile(file); // show local preview immediately
-
-        try {
-            const { data, error } = await insforge.storage
-                .from('avatars')
-                .uploadAuto(file);
-
-            if (error || !data?.url) {
-                console.error('Upload error:', error);
-                alert('Failed to upload image. Please try again.');
-                setSessionImageFile(null);
-                return;
-            }
-
-            setSessionImageUrl(data.url);
-        } catch (err) {
-            console.error('Upload error:', err);
-            alert('Failed to upload image. Please try again.');
-            setSessionImageFile(null);
-        } finally {
-            setUploadingSessionImage(false);
-        }
-    };
-
-    const handleEditSessionImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        if (!file.type.startsWith('image/')) {
-            alert('Please select an image file');
-            return;
-        }
-
-        if (file.size > 5 * 1024 * 1024) {
-            alert('File size must be less than 5MB');
-            return;
-        }
-
-        setUploadingEditSessionImage(true);
-        setEditSessionImageFile(file); // show local preview immediately
-
-        try {
-            const { data, error } = await insforge.storage
-                .from('avatars')
-                .uploadAuto(file);
-
-            if (error || !data?.url) {
-                console.error('Upload error:', error);
-                alert('Failed to upload image. Please try again.');
-                setEditSessionImageFile(null);
-                return;
-            }
-
-            setEditSessionImageUrl(data.url);
-        } catch (err) {
-            console.error('Upload error:', err);
-            alert('Failed to upload image. Please try again.');
-            setEditSessionImageFile(null);
-        } finally {
-            setUploadingEditSessionImage(false);
-        }
-    };
-
     const handleScheduleSession = async () => {
         if (!sessionTitle.trim() || !sessionDateTime || !user?.id) return;
         setScheduling(true); setScheduleError('');
@@ -351,14 +267,13 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     maxParticipants: 30,
                     targetStudentIds,
                     createdBy: user.id,
-                    sessionImageUrl,
+                    sessionImageUrl: user?.profile?.avatar_url || null,
                 }),
             });
             const data = await res.json();
             if (!res.ok) { setScheduleError(data.error || 'Failed to schedule session'); setScheduling(false); return; }
             setScheduleMode(false);
             setSessionTitle(''); setSessionDesc(''); setSessionDateTime(''); setTargetStudentIds([]);
-            setSessionImageUrl(''); setSessionImageFile(null);
             fetchTeacherSessions();
         } catch { setScheduleError('Server unreachable'); }
         setScheduling(false);
@@ -390,8 +305,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         const minutes = String(date.getMinutes()).padStart(2, '0');
         setEditSessionDateTime(`${year}-${month}-${day}T${hours}:${minutes}`);
         
-        setEditSessionImageUrl(session.session_image_url || '');
-        setEditSessionImageFile(null);
         setUpdateSessionError('');
         
         // Fetch current targets
@@ -421,7 +334,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     teacherId: user.id,
                     title: editSessionTitle.trim(),
                     description: editSessionDesc.trim(),
-                    sessionImageUrl: editSessionImageUrl,
+                    sessionImageUrl: user?.profile?.avatar_url || editingSession?.session_image_url || null,
                     scheduledAt: new Date(editSessionDateTime).toISOString(),
                     targetStudentIds: editTargetStudentIds,
                 }),
@@ -667,7 +580,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                         <div key={s.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%' }}>
                                             <MeetingBanner
                                                 key={s.id}
-                                                meeting={s}
+                                                meeting={{ ...s, session_image_url: teacherProfiles[s.created_by]?.avatar_url || s.session_image_url }}
                                                 displayName={displayName}
                                                 userRole="teacher"
                                                 isCreator={true}
@@ -720,7 +633,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     {studentTeacherSessions.map(s => (
                                         <MeetingBanner
                                             key={s.id}
-                                            meeting={s}
+                                            meeting={{ ...s, session_image_url: teacherProfiles[s.created_by]?.avatar_url || s.session_image_url }}
                                             displayName={displayName}
                                             userRole="student"
                                             isCreator={false}
@@ -774,41 +687,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     onChange={e => setSessionTitle(e.target.value)}
                                     style={{ width: '100%', boxSizing: 'border-box' }}
                                 />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Session Image (optional)</label>
-                                {(sessionImageUrl || sessionImageFile) && (
-                                    <div style={{ marginBottom: 10 }}>
-                                        <img
-                                            src={sessionImageUrl || (sessionImageFile ? URL.createObjectURL(sessionImageFile) : '')}
-                                            alt="Session preview"
-                                            style={{
-                                                width: '100%',
-                                                maxHeight: 180,
-                                                objectFit: 'cover',
-                                                borderRadius: 12,
-                                                border: '2px solid rgba(99,102,241,0.3)',
-                                            }}
-                                        />
-                                    </div>
-                                )}
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handleSessionImageUpload}
-                                    disabled={uploadingSessionImage}
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px',
-                                        background: 'rgba(99,102,241,0.1)',
-                                        border: '1px solid rgba(99,102,241,0.3)',
-                                        borderRadius: 10,
-                                        color: '#e2e8f0',
-                                        fontSize: 13,
-                                        cursor: uploadingSessionImage ? 'wait' : 'pointer',
-                                    }}
-                                />
-                                {uploadingSessionImage && <div style={{ fontSize: 12, color: '#818cf8', marginTop: 6 }}>Uploading...</div>}
                             </div>
                             <div>
                                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Date & Time *</label>
@@ -911,41 +789,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     onChange={e => setEditSessionTitle(e.target.value)}
                                     style={{ width: '100%', boxSizing: 'border-box' }}
                                 />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Session Image (optional)</label>
-                                {(editSessionImageUrl || editSessionImageFile) && (
-                                    <div style={{ marginBottom: 10 }}>
-                                        <img
-                                            src={editSessionImageUrl || (editSessionImageFile ? URL.createObjectURL(editSessionImageFile) : '')}
-                                            alt="Session preview"
-                                            style={{
-                                                width: '100%',
-                                                maxHeight: 180,
-                                                objectFit: 'cover',
-                                                borderRadius: 12,
-                                                border: '2px solid rgba(99,102,241,0.3)',
-                                            }}
-                                        />
-                                    </div>
-                                )}
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handleEditSessionImageUpload}
-                                    disabled={uploadingEditSessionImage}
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px',
-                                        background: 'rgba(99,102,241,0.1)',
-                                        border: '1px solid rgba(99,102,241,0.3)',
-                                        borderRadius: 10,
-                                        color: '#e2e8f0',
-                                        fontSize: 13,
-                                        cursor: uploadingEditSessionImage ? 'wait' : 'pointer',
-                                    }}
-                                />
-                                {uploadingEditSessionImage && <div style={{ fontSize: 12, color: '#818cf8', marginTop: 6 }}>Uploading...</div>}
                             </div>
                             <div>
                                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Date & Time *</label>
