@@ -298,7 +298,9 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         
         // Fetch all students
         await fetchAllStudents();
-        setEditSessionMode(true);
+        
+        // Open modal after state is set (let React batching complete)
+        setTimeout(() => setEditSessionMode(true), 0);
     };
 
     const handleUpdateSession = async () => {
