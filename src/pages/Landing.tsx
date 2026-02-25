@@ -143,10 +143,10 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             try {
                 // Fetch user profile from InsForge
                 const { data, error } = await insforge.auth.getProfile(teacherId);
-                if (!error && data) {
+                if (!error && data && data.profile) {
                     profilesMap[teacherId] = {
-                        name: data.name || 'Teacher',
-                        avatar_url: data.avatar_url,
+                        name: (data.profile as any).name || 'Teacher',
+                        avatar_url: (data.profile as any).avatar_url,
                     };
                 }
             } catch (err) {
