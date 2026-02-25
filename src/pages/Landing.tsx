@@ -80,6 +80,16 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [chatOpen, setChatOpen] = useState(false);
     const [unreadChatCount, setUnreadChatCount] = useState(0);
 
+    // ── Get time-based greeting ────────────────────────────────────────
+    const getGreeting = () => {
+        const hour = new Date().getHours();
+        if (hour >= 5 && hour < 12) return { text: 'Good morning', emoji: '🌅' };
+        if (hour >= 12 && hour < 17) return { text: 'Good afternoon', emoji: '☀️' };
+        if (hour >= 17 && hour < 21) return { text: 'Good evening', emoji: '🌆' };
+        return { text: 'Good night', emoji: '🌙' };
+    };
+    const greeting = getGreeting();
+
     // ── Admin Meetings (banners shown to targeted users) ─────────────────
     const [adminMeetings, setAdminMeetings] = useState<AdminMeeting[]>([]);
 
@@ -487,6 +497,13 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     </svg>
                     <span className="landing-nav-brand">ClassMeet</span>
                 </div>
+                {user && (
+                    <div className="landing-nav-center">
+                        <span className="nav-greeting">
+                            {greeting.emoji} {greeting.text}, {displayName || 'there'}
+                        </span>
+                    </div>
+                )}
                 <div className="landing-nav-actions">
                     {!user && (
                         <>
@@ -494,28 +511,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             <button className="btn-primary-nav" onClick={() => setAuthModal('signup')}>Get Started</button>
                         </>
                     )}
-                    {user && (
-                        <>
-                            <div className="nav-user-info">
-                                {userRole === 'admin' && <span className="admin-badge">Admin</span>}
-                                {userRole === 'teacher' && <span className="admin-badge" style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc' }}>Teacher</span>}
-                                {userRole === 'pending' && <span className="admin-badge" style={{ background: 'rgba(234,179,8,0.12)', color: '#f59e0b', border: '1px solid rgba(234,179,8,0.3)' }}>Pending</span>}
-                                <span className="nav-welcome">{displayName}</span>
-                            </div>
-                            {user?.id && userRole && userRole !== 'pending' && userRole !== 'admin' && (
-                                <button onClick={() => setChatOpen(true)} title="Messages"
-                                    style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 22, lineHeight: 1, padding: 4 }}>
-                                    💬
-                                    {unreadChatCount > 0 && (
-                                        <span style={{ position: 'absolute', top: 0, right: 0, background: '#6366f1', color: '#fff', borderRadius: '50%', width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700 }}>
-                                            {unreadChatCount > 9 ? '9+' : unreadChatCount}
-                                        </span>
-                                    )}
-                                </button>
-                            )}
-                            <UserMenu />
-                        </>
-                    )}
+                    {user && <UserMenu />}
                 </div>
             </nav>
 
@@ -568,10 +564,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
 
                     {user && (
                         <>
-                        <h1 className="hero-title hero-title-sm">
-                            Welcome back,{' '}
-                            <span className="hero-title-accent">{displayName || 'there'}</span>
-                        </h1>
                         <p className="hero-subtitle">
                             {userRole === 'teacher'
                                 ? 'Manage your classes below, or create a new one.'
@@ -1049,14 +1041,28 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
 
             {authModal && <AuthModal defaultTab={authModal} onClose={() => setAuthModal(null)} />}
             {user?.id && userRole && userRole !== 'pending' && userRole !== 'admin' && (
-                <ChatDrawer
-                    userId={user.id}
-                    userName={displayName}
-                    userRole={userRole}
-                    open={chatOpen}
-                    onClose={() => setChatOpen(false)}
-                    onUnreadChange={setUnreadChatCount}
-                />
+                <>
+                    <button
+                        className="chat-fab"
+                        onClick={() => setChatOpen(true)}
+                        title="Messages"
+                    >
+                        💬
+                        {unreadChatCount > 0 && (
+                            <span className="chat-fab-badge">
+                                {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                            </span>
+                        )}
+                    </button>
+                    <ChatDrawer
+                        userId={user.id}
+                        userName={displayName}
+                        userRole={userRole}
+                        open={chatOpen}
+                        onClose={() => setChatOpen(false)}
+                        onUnreadChange={setUnreadChatCount}
+                    />
+                </>
             )}
         </div>
     );
