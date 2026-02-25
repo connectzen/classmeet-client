@@ -98,6 +98,66 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         };
     }, [user?.id, userRole, fetchAdminMeetings]);
 
+    // ── Teacher Sessions ──────────────────────────────────────────────────
+    const [teacherSessions, setTeacherSessions] = useState<AdminMeeting[]>([]);
+    const [studentTeacherSessions, setStudentTeacherSessions] = useState<AdminMeeting[]>([]);
+
+    // Schedule modal state
+    const [scheduleMode, setScheduleMode] = useState(false);
+    const [sessionTitle, setSessionTitle] = useState('');
+    const [sessionDesc, setSessionDesc] = useState('');
+    const [sessionDateTime, setSessionDateTime] = useState('');
+    const [targetStudentIds, setTargetStudentIds] = useState<string[]>([]);
+    const [allStudents, setAllStudents] = useState<{ user_id: string; name: string; email: string }[]>([]);
+    const [scheduling, setScheduling] = useState(false);
+    const [scheduleError, setScheduleError] = useState('');
+    const [loadingStudentsList, setLoadingStudentsList] = useState(false);
+
+    const fetchTeacherSessions = useCallback(async () => {
+        if (!user?.id || userRole !== 'teacher') return;
+        try {
+            const r = await fetch(`${SERVER_URL}/api/teacher/sessions/by-host/${user.id}`);
+            if (r.ok) setTeacherSessions(await r.json());
+        } catch { /* ignore */ }
+    }, [user?.id, userRole]);
+
+    const fetchStudentTeacherSessions = useCallback(async () => {
+        if (!user?.id || userRole !== 'student') return;
+        try {
+            const r = await fetch(`${SERVER_URL}/api/teacher/sessions/for-student/${user.id}`);
+            if (r.ok) setStudentTeacherSessions(await r.json());
+        } catch { /* ignore */ }
+    }, [user?.id, userRole]);
+
+    const fetchAllStudents = useCallback(async () => {
+        if (userRole !== 'teacher') return;
+        setLoadingStudentsList(true);
+        try {
+            const r = await fetch(`${SERVER_URL}/api/students`);
+            if (r.ok) setAllStudents(await r.json());
+        } catch { /* ignore */ }
+        setLoadingStudentsList(false);
+    }, [userRole]);
+
+    useEffect(() => {
+        if (!user?.id || !userRole || userRole === 'pending') return;
+        fetchTeacherSessions();
+        fetchStudentTeacherSessions();
+        const pollIdT = setInterval(fetchTeacherSessions, 30_000);
+        const pollIdS = setInterval(fetchStudentTeacherSessions, 30_000);
+        const sock2 = io(SERVER_URL, { transports: ['websocket'] });
+        sock2.on('teacher:session-created', () => { fetchTeacherSessions(); fetchStudentTeacherSessions(); });
+        sock2.on('teacher:session-ended', ({ sessionId }: { sessionId: string }) => {
+            setTeacherSessions(prev => prev.filter(s => s.id !== sessionId));
+            setStudentTeacherSessions(prev => prev.filter(s => s.id !== sessionId));
+        });
+        return () => {
+            clearInterval(pollIdT);
+            clearInterval(pollIdS);
+            sock2.disconnect();
+        };
+    }, [user?.id, userRole, fetchTeacherSessions, fetchStudentTeacherSessions]);
+
     // Role check — redirect to AdminDashboard if role is admin
     useEffect(() => {
         if (!user?.id) { setUserRole(null); return; }
@@ -225,6 +285,49 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             setCreateError('Server unreachable — could not delete class');
         }
         setDeletingId(null);
+    };
+
+    const handleScheduleSession = async () => {
+        if (!sessionTitle.trim() || !sessionDateTime || !user?.id) return;
+        setScheduling(true); setScheduleError('');
+        try {
+            const res = await fetch(`${SERVER_URL}/api/teacher/sessions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: sessionTitle.trim(),
+                    description: sessionDesc.trim(),
+                    scheduledAt: new Date(sessionDateTime).toISOString(),
+                    maxParticipants: 30,
+                    targetStudentIds,
+                    createdBy: user.id,
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) { setScheduleError(data.error || 'Failed to schedule session'); setScheduling(false); return; }
+            setScheduleMode(false);
+            setSessionTitle(''); setSessionDesc(''); setSessionDateTime(''); setTargetStudentIds([]);
+            fetchTeacherSessions();
+        } catch { setScheduleError('Server unreachable'); }
+        setScheduling(false);
+    };
+
+    const handleDeleteSession = async (session: AdminMeeting) => {
+        if (!user?.id) return;
+        try {
+            await fetch(`${SERVER_URL}/api/teacher/sessions/${session.id}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ teacherId: user.id }),
+            });
+            setTeacherSessions(prev => prev.filter(s => s.id !== session.id));
+        } catch { /* ignore */ }
+    };
+
+    const toggleTargetStudent = (id: string) => {
+        setTargetStudentIds(prev =>
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
     };
 
     const saveEnrollment = async (roomId: string, roomCode: string, roomName: string) => {
@@ -404,8 +507,8 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     key={m.id}
                                     meeting={m}
                                     displayName={displayName}
-                                    userRole={userRole as 'teacher' | 'student' | 'admin'}
-                                    onJoin={(code, id, name, role, title) => onJoinRoom(code, id, name, role, title)}
+                                    userRole={userRole as 'teacher' | 'student' | 'admin'}                                    isCreator={userRole === 'admin'}
+                                    sessionType="admin"                                    onJoin={(code, id, name, role, title) => onJoinRoom(code, id, name, role, title)}
                                 />
                             ))}
                         </div>
@@ -461,223 +564,54 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     <h2 className="dashboard-panel-title">Your Classes</h2>
                                 </div>
 
-                                {/* New Class button â†” inline create form */}
-                                {!createMode ? (
-                                    <button
-                                        className="btn-dashboard-create"
-                                        onClick={() => { setCreateMode(true); setCreateError(''); setCreatedClass(null); }}
-                                    >
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                                            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-                                        </svg>
-                                        New Class
-                                    </button>
-                                ) : (
-                                    <div className="dashboard-inline-form">
-                                        <input
-                                            ref={createInputRef}
-                                            className="form-input form-input-inline"
-                                            type="text"
-                                            placeholder="Class name, e.g. Math 101"
-                                            value={newClassName}
-                                            onChange={(e) => setNewClassName(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') handleCreateClass();
-                                                if (e.key === 'Escape') { setCreateMode(false); setNewClassName(''); }
-                                            }}
-                                            disabled={creating}
-                                        />
-                                        <button
-                                            className="btn btn-primary btn-sm"
-                                            onClick={handleCreateClass}
-                                            disabled={creating || !newClassName.trim()}
-                                        >
-                                            {creating ? 'â€¦' : 'Create'}
-                                        </button>
-                                        <button
-                                            className="btn-icon-close"
-                                            onClick={() => { setCreateMode(false); setNewClassName(''); setCreateError(''); }}
-                                        >Cancel</button>
-                                    </div>
-                                )}
+                                {/* Schedule Class button */}
+                                <button
+                                    className="btn-dashboard-create"
+                                    onClick={() => {
+                                        setScheduleMode(true);
+                                        setScheduleError('');
+                                        setSessionTitle('');
+                                        setSessionDesc('');
+                                        setSessionDateTime('');
+                                        setTargetStudentIds([]);
+                                        fetchAllStudents();
+                                    }}
+                                >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                        <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                                    </svg>
+                                    Schedule Class
+                                </button>
                             </div>
 
-                            {createError && <div className="error-banner" style={{ marginBottom: 12 }}>{createError}</div>}
-
-                            {/* Newly-created class highlight */}
-                            {createdClass && (
-                                <div className="created-class-banner">
-                                    <div className="created-class-info">
-                                        <span className="created-class-name">✅ {createdClass.name}</span>
-                                        <span className="created-class-share">Share this code with students:</span>
-                                        <span className="code-chip">{createdClass.code}</span>
-                                    </div>
-                                    <button
-                                        className="btn btn-primary btn-sm"
-                                        onClick={() => onJoinRoom(createdClass.code, createdClass.id, displayName || 'Teacher', 'teacher', createdClass.name)}
-                                    >
-                                        Start Class →
-                                    </button>
-                                </div>
-                            )}
-
-                            {/* Classes grid */}
-                            {loadingTeacher ? (
-                                <div className="classes-loading">Loading your classesâ€¦</div>
-                            ) : teacherClasses.length === 0 ? (
-                                <div className="classes-empty">
-                                    <div className="classes-empty-icon">📋</div>
-                                    <p>No active classes yet. Click <strong>New Class</strong> to create one.</p>
-                                </div>
-                            ) : (
-                                <div className="classes-grid">
-                                    {teacherClasses.map((cls) => (
-                                        <div key={cls.id} className={`class-card ${cls.teacherPresent ? 'class-card-live' : ''}`}>
-                                            {cls.teacherPresent && (
-                                                <div className="live-now-banner"><span className="live-dot" /> LIVE NOW</div>
-                                            )}
-                                            <div className="class-card-header">
-                                                <div>
-                                                    <div className="class-card-name">{cls.name}</div>
-                                                    <div className="class-card-code">🔑 {cls.code}</div>
-                                                </div>
-                                                <div className={`class-presence-dot ${cls.teacherPresent ? 'presence-live' : 'presence-idle'}`} />
-                                            </div>
-                                            <div className="class-card-meta">
-                                                <span>👥 {cls.currentParticipants} / {cls.max_participants}</span>
-                                                <span className={cls.teacherPresent ? 'status-live' : 'status-idle'}>
-                                                    {cls.teacherPresent ? '🔴 Live' : '⚪ Idle'}
-                                                </span>
-                                            </div>
-                                            <div className="class-card-actions">
-                                                <button
-                                                    className="btn btn-primary btn-sm"
-                                                    onClick={() => onJoinRoom(cls.code, cls.id, displayName || 'Teacher', 'teacher', cls.name)}
-                                                >
-                                                    {cls.teacherPresent ? 'Rejoin ↗' : 'Start Class →'}
-                                                </button>
-                                                <button
-                                                    className="btn btn-danger btn-sm"
-                                                    onClick={() => handleDeleteClass(cls)}
-                                                    disabled={deletingId === cls.id}
-                                                >
-                                                    {deletingId === cls.id ? 'Deleting...' : 'Delete'}
-                                                </button>
-                                            </div>
+                            {/* Teacher-owned session banners */}
+                            {teacherSessions.length > 0 && (
+                                <div style={{ marginBottom: 8 }}>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Scheduled Sessions</div>
+                                    {teacherSessions.map(s => (
+                                        <div key={s.id} style={{ position: 'relative' }}>
+                                            <MeetingBanner
+                                                meeting={s}
+                                                displayName={displayName}
+                                                userRole="teacher"
+                                                isCreator={true}
+                                                sessionType="teacher"
+                                                onJoin={(code, id, name, role, title) => onJoinRoom(code, id, name, role, title)}
+                                            />
+                                            <button
+                                                onClick={() => handleDeleteSession(s)}
+                                                title="Delete session"
+                                                style={{
+                                                    position: 'absolute', top: 14, right: 14,
+                                                    background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)',
+                                                    borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 600,
+                                                    color: '#fca5a5', cursor: 'pointer',
+                                                }}
+                                            >Delete</button>
                                         </div>
                                     ))}
                                 </div>
                             )}
-                        </div>
-                    )}
-
-                    {/* â•â•â•â• STUDENT DASHBOARD â•â•â•â• */}
-                    {userRole === 'student' && (
-                        <div className="dashboard-panel">
-                            <div className="dashboard-panel-header">
-                                <div className="dashboard-panel-title-group">
-                                    <span className="role-badge badge-student">📚 Student</span>
-                                    <h2 className="dashboard-panel-title">Your Classes</h2>
-                                </div>
-
-                                {/* Join button â†” inline code form */}
-                                {!joinMode ? (
-                                    <button
-                                        className="btn-dashboard-create"
-                                        onClick={() => { setJoinMode(true); setJoinError(''); }}
-                                    >
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                            <polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" />
-                                        </svg>
-                                        Join a Class
-                                    </button>
-                                ) : (
-                                    <div className="dashboard-inline-form">
-                                        <input
-                                            ref={joinInputRef}
-                                            className="form-input form-input-inline form-input-code"
-                                            type="text"
-                                            placeholder="Class code, e.g. A1B2C3"
-                                            value={joinCode}
-                                            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') handleJoinByCode();
-                                                if (e.key === 'Escape') { setJoinMode(false); setJoinCode(''); }
-                                            }}
-                                            maxLength={8}
-                                            disabled={joining}
-                                        />
-                                        <button
-                                            className="btn btn-primary btn-sm"
-                                            onClick={handleJoinByCode}
-                                            disabled={joining || joinCode.length < 4}
-                                        >
-                                            {joining ? '…' : 'Join →'}
-                                        </button>
-                                        <button
-                                            className="btn-icon-close"
-                                            onClick={() => { setJoinMode(false); setJoinCode(''); setJoinError(''); }}
-                                        >Cancel</button>
-                                    </div>
-                                )}
-                            </div>
-
-                            {joinError && <div className="error-banner" style={{ marginBottom: 12 }}>{joinError}</div>}
-
-                            {/* Enrolled classes */}
-                            {loadingStudent ? (
-                                <div className="classes-loading">Checking your classes…</div>
-                            ) : studentClasses.length === 0 ? (
-                                <div className="classes-empty">
-                                    <div className="classes-empty-icon">📚</div>
-                                    <p>No classes yet. Click <strong>Join a Class</strong> to enter with a code.</p>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="classes-grid">
-                                        {studentClasses.map((cls) => (
-                                            <div key={cls.id} className={`class-card ${cls.teacherPresent ? 'class-card-live' : 'class-card-no-teacher'}`}>
-                                                {cls.teacherPresent && (
-                                                    <div className="live-now-banner"><span className="live-dot" /> LIVE NOW</div>
-                                                )}
-                                                <div className="class-card-header">
-                                                    <div>
-                                                        <div className="class-card-name">{cls.name}</div>
-                                        <div className="class-card-code">🔑 {cls.code}</div>
-                                                    </div>
-                                                    <div className={`class-presence-dot ${cls.teacherPresent ? 'presence-live' : 'presence-idle'}`} />
-                                                </div>
-                                                <div className="class-card-meta">
-                                                    <span>👥 {cls.currentParticipants} / {cls.max_participants}</span>
-                                                    <span className={cls.teacherPresent ? 'status-live' : 'status-idle'}>
-                                                        {cls.teacherPresent ? '🔴 Teacher is live' : '⚪ No teacher yet'}
-                                                    </span>
-                                                </div>
-                                                <div className="class-card-actions">
-                                                    <button
-                                                        className={`btn btn-sm ${cls.teacherPresent ? 'btn-live' : 'btn-primary'}`}
-                                                        onClick={async () => {
-                                                            await saveEnrollment(cls.id, cls.code, cls.name);
-                                                            onJoinRoom(cls.code, cls.id, displayName || 'Student', 'student', cls.name);
-                                                        }}
-                                                    >
-                                                        {cls.teacherPresent ? '▶ Join Live Class' : 'Enter & Wait →'}
-                                                    </button>
-                                                </div>
-                                                {!cls.teacherPresent && (
-                                                    <div className="no-teacher-warning">⚠️ Teacher hasn't started yet. 30s grace period on join.</div>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className="dashboard-refresh-row">
-                                        <button className="btn-refresh" onClick={fetchStudentClasses}>↻ Refresh</button>
-                                        {lastRefreshed > 0 && (
-                                            <span className="last-refreshed">
-                                                Last checked {new Date(lastRefreshed).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })} · auto-refreshes every 30s
-                                            </span>
-                                        )}
-                                    </div>
                                 </>
                             )}
                         </div>
@@ -687,6 +621,114 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
 
                 <p className="landing-footer">Secure · Real-time · Up to 5 participants per session</p>
             </div>
+            {/* Schedule Class Modal */}
+            {scheduleMode && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 1000,
+                    background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+                }} onClick={() => setScheduleMode(false)}>
+                    <div style={{
+                        background: 'linear-gradient(135deg, #1e1b4b 0%, #1e2a4a 100%)',
+                        border: '1px solid rgba(99,102,241,0.4)',
+                        borderRadius: 20, padding: '32px 28px', width: '100%', maxWidth: 520,
+                        boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+                    }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+                            <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#f1f5f9' }}>Schedule a Class</h3>
+                            <button onClick={() => setScheduleMode(false)} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
+                        </div>
+
+                        {scheduleError && <div className="error-banner" style={{ marginBottom: 16 }}>{scheduleError}</div>}
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Class Title *</label>
+                                <input
+                                    className="form-input"
+                                    type="text"
+                                    placeholder="e.g. Math 101 — Chapter 5"
+                                    value={sessionTitle}
+                                    onChange={e => setSessionTitle(e.target.value)}
+                                    style={{ width: '100%', boxSizing: 'border-box' }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Description (optional)</label>
+                                <textarea
+                                    className="form-input"
+                                    placeholder="What will be covered in this class?"
+                                    value={sessionDesc}
+                                    onChange={e => setSessionDesc(e.target.value)}
+                                    rows={2}
+                                    style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical' }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Date & Time *</label>
+                                <input
+                                    className="form-input"
+                                    type="datetime-local"
+                                    value={sessionDateTime}
+                                    onChange={e => setSessionDateTime(e.target.value)}
+                                    style={{ width: '100%', boxSizing: 'border-box', colorScheme: 'dark' }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                    Target Students {targetStudentIds.length > 0 && <span style={{ color: '#818cf8' }}>({targetStudentIds.length} selected)</span>}
+                                </label>
+                                {loadingStudentsList ? (
+                                    <div style={{ fontSize: 13, color: '#64748b' }}>Loading students…</div>
+                                ) : allStudents.length === 0 ? (
+                                    <div style={{ fontSize: 13, color: '#64748b' }}>No approved students found.</div>
+                                ) : (
+                                    <div style={{
+                                        maxHeight: 180, overflowY: 'auto',
+                                        border: '1px solid rgba(99,102,241,0.3)', borderRadius: 10,
+                                        background: 'rgba(99,102,241,0.05)',
+                                    }}>
+                                        {allStudents.map(s => (
+                                            <label key={s.user_id} style={{
+                                                display: 'flex', alignItems: 'center', gap: 10,
+                                                padding: '8px 12px', cursor: 'pointer',
+                                                borderBottom: '1px solid rgba(99,102,241,0.1)',
+                                                background: targetStudentIds.includes(s.user_id) ? 'rgba(99,102,241,0.15)' : 'transparent',
+                                            }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={targetStudentIds.includes(s.user_id)}
+                                                    onChange={() => toggleTargetStudent(s.user_id)}
+                                                    style={{ accentColor: '#6366f1' }}
+                                                />
+                                                <div>
+                                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{s.name || s.email}</div>
+                                                    {s.name && <div style={{ fontSize: 11, color: '#64748b' }}>{s.email}</div>}
+                                                </div>
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 24 }}>
+                            <button
+                                className="btn-ghost btn-sm"
+                                onClick={() => setScheduleMode(false)}
+                                disabled={scheduling}
+                            >Cancel</button>
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleScheduleSession}
+                                disabled={scheduling || !sessionTitle.trim() || !sessionDateTime}
+                            >
+                                {scheduling ? 'Scheduling…' : 'Schedule Class'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {authModal && <AuthModal defaultTab={authModal} onClose={() => setAuthModal(null)} />}
             {user?.id && userRole && userRole !== 'pending' && userRole !== 'admin' && (
                 <ChatDrawer
