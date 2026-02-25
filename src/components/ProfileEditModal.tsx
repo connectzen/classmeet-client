@@ -88,11 +88,15 @@ export default function ProfileEditModal({ onClose }: ProfileEditModalProps) {
             // Sync the updated name to user_roles table so it reflects everywhere
             if (user?.id) {
                 try {
-                    await fetch(`${SERVER_URL}/api/profile/sync-name`, {
+                    const syncRes = await fetch(`${SERVER_URL}/api/profile/sync-name`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ userId: user.id, name: name.trim() }),
                     });
+                    if (!syncRes.ok) {
+                        const syncErr = await syncRes.json().catch(() => ({}));
+                        console.warn('[profile] name sync failed:', syncErr);
+                    }
                 } catch (syncErr) {
                     console.warn('[profile] name sync to user_roles failed (non-critical):', syncErr);
                 }

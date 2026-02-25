@@ -274,33 +274,20 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         }
 
         setUploadingSessionImage(true);
+        setSessionImageFile(file); // show local preview immediately
 
         try {
-            // Create preview
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setSessionImageFile(file);
-            };
-            reader.readAsDataURL(file);
+            const { data, error } = await insforge.storage
+                .from('avatars')
+                .uploadAuto(file);
 
-            // Upload to backend
-            const formData = new FormData();
-            formData.append('file', file);
-
-            const res = await fetch(`${SERVER_URL}/api/teacher/upload-session-image`, {
-                method: 'POST',
-                body: formData,
-            });
-
-            if (!res.ok) {
-                const err = await res.json();
-                console.error('Upload error:', err);
+            if (error || !data?.url) {
+                console.error('Upload error:', error);
                 alert('Failed to upload image. Please try again.');
                 setSessionImageFile(null);
                 return;
             }
 
-            const data = await res.json();
             setSessionImageUrl(data.url);
         } catch (err) {
             console.error('Upload error:', err);
@@ -326,33 +313,20 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         }
 
         setUploadingEditSessionImage(true);
+        setEditSessionImageFile(file); // show local preview immediately
 
         try {
-            // Create preview
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setEditSessionImageFile(file);
-            };
-            reader.readAsDataURL(file);
+            const { data, error } = await insforge.storage
+                .from('avatars')
+                .uploadAuto(file);
 
-            // Upload to backend
-            const formData = new FormData();
-            formData.append('file', file);
-
-            const res = await fetch(`${SERVER_URL}/api/teacher/upload-session-image`, {
-                method: 'POST',
-                body: formData,
-            });
-
-            if (!res.ok) {
-                const err = await res.json();
-                console.error('Upload error:', err);
+            if (error || !data?.url) {
+                console.error('Upload error:', error);
                 alert('Failed to upload image. Please try again.');
                 setEditSessionImageFile(null);
                 return;
             }
 
-            const data = await res.json();
             setEditSessionImageUrl(data.url);
         } catch (err) {
             console.error('Upload error:', err);
