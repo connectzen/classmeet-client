@@ -134,6 +134,29 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [updatingSession, setUpdatingSession] = useState(false);
     const [updateSessionError, setUpdateSessionError] = useState('');
 
+    // Fetch teacher profiles - must be declared first since other functions depend on it
+    const fetchTeacherProfiles = useCallback(async (sessions: AdminMeeting[]) => {
+        const uniqueTeacherIds = Array.from(new Set(sessions.map(s => s.created_by)));
+        const profilesMap: Record<string, { name: string; avatar_url?: string }> = {};
+        
+        for (const teacherId of uniqueTeacherIds) {
+            try {
+                // Fetch user profile from InsForge
+                const { data, error } = await insforge.auth.getProfile(teacherId);
+                if (!error && data) {
+                    profilesMap[teacherId] = {
+                        name: data.name || 'Teacher',
+                        avatar_url: data.avatar_url,
+                    };
+                }
+            } catch (err) {
+                console.error('Error fetching teacher profile:', err);
+            }
+        }
+        
+        setTeacherProfiles(prev => ({ ...prev, ...profilesMap }));
+    }, []);
+
     const fetchTeacherSessions = useCallback(async () => {
         if (!user?.id || userRole !== 'teacher') return;
         try {
@@ -159,28 +182,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             }
         } catch { /* ignore */ }
     }, [user?.id, userRole, fetchTeacherProfiles]);
-
-    const fetchTeacherProfiles = useCallback(async (sessions: AdminMeeting[]) => {
-        const uniqueTeacherIds = Array.from(new Set(sessions.map(s => s.created_by)));
-        const profilesMap: Record<string, { name: string; avatar_url?: string }> = {};
-        
-        for (const teacherId of uniqueTeacherIds) {
-            try {
-                // Fetch user profile from InsForge
-                const { data, error } = await insforge.auth.getProfile(teacherId);
-                if (!error && data) {
-                    profilesMap[teacherId] = {
-                        name: data.name || 'Teacher',
-                        avatar_url: data.avatar_url,
-                    };
-                }
-            } catch (err) {
-                console.error('Error fetching teacher profile:', err);
-            }
-        }
-        
-        setTeacherProfiles(prev => ({ ...prev, ...profilesMap }));
-    }, []);
 
     const fetchAllStudents = useCallback(async () => {
         if (userRole !== 'teacher') return;
