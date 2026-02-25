@@ -231,6 +231,16 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             .then((d) => {
                 setUserRole(d.role);
                 if (d.role === 'admin') onAdminView();
+                // Auto-sync latest InsForge profile name → user_roles on every load.
+                // This ensures Google OAuth random names and manual profile changes
+                // always stay in sync with what teachers/admins see.
+                if (d.role !== 'pending' && user?.profile?.name) {
+                    fetch(`${SERVER_URL}/api/profile/sync-name`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: user.id, name: user.profile.name }),
+                    }).catch(() => { /* non-critical */ });
+                }
             })
             .catch(() => setUserRole('pending'));
     }, [user?.id, onAdminView]);
