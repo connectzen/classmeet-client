@@ -384,7 +384,16 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         setEditingSession(session);
         setEditSessionTitle(session.title);
         setEditSessionDesc(session.description || '');
-        setEditSessionDateTime(new Date(session.scheduled_at).toISOString().slice(0, 16));
+        
+        // Format datetime for datetime-local input (keep local timezone)
+        const date = new Date(session.scheduled_at);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        setEditSessionDateTime(`${year}-${month}-${day}T${hours}:${minutes}`);
+        
         setEditSessionImageUrl(session.session_image_url || '');
         setEditSessionImageFile(null);
         setUpdateSessionError('');
@@ -785,17 +794,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                 />
                             </div>
                             <div>
-                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Description (optional)</label>
-                                <textarea
-                                    className="form-input"
-                                    placeholder="What will be covered in this class?"
-                                    value={sessionDesc}
-                                    onChange={e => setSessionDesc(e.target.value)}
-                                    rows={2}
-                                    style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical' }}
-                                />
-                            </div>
-                            <div>
                                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Session Image (optional)</label>
                                 {(sessionImageUrl || sessionImageFile) && (
                                     <div style={{ marginBottom: 10 }}>
@@ -944,18 +942,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                 />
                             </div>
                             <div>
-                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Session Image (optional)</label>
-                                {(editSessionImageUrl || editSessionImageFile) && (
-                                    <div style={{ marginBottom: 10 }}>
-                                        <img
-                                            src={editSessionImageUrl || (editSessionImageFile ? URL.createObjectURL(editSessionImageFile) : '')}
-                                            alt="Session preview"
-                                            style={{
-                                                width: '100%',
-                                                maxHeight: 180,
-                                                objectFit: 'cover',
-                                                borderRadius: 12,
-                                                border: '2px solid rgba(99,102,241,0.3)',
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                                             }}
                                         />
                                     </div>

@@ -119,7 +119,7 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
 
             <div style={{ position: 'relative' }}>
 
-                {/* ── Row 1: Badge (left) + Date/Time (center-right) ────────── */}
+                {/* ── Row 1: Badge (left) + Title (center-right) ────────── */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, paddingRight: isCreator ? 110 : 0 }}>
                     <span style={{
                         display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -131,23 +131,15 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                         {badgeLabel}
                     </span>
 
-                    <div style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        background: 'rgba(99,102,241,0.15)',
-                        border: '1px solid rgba(99,102,241,0.3)',
-                        borderRadius: 8,
-                        padding: '6px 14px',
-                        fontSize: 11,
-                        fontWeight: 600,
-                        color: '#cbd5e1',
+                    <h3 style={{
+                        margin: 0,
+                        fontSize: 16,
+                        fontWeight: 800,
+                        color: '#f1f5f9',
+                        letterSpacing: '-0.02em',
                     }}>
-                        🗓️ {new Date(meeting.scheduled_at).toLocaleString([], {
-                            weekday: 'short', month: 'short', day: 'numeric',
-                            hour: '2-digit', minute: '2-digit',
-                        })}
-                    </div>
+                        {meeting.title}
+                    </h3>
                 </div>
 
                 {/* ── Row 2: Horizontal layout with image + content ──────────── */}
@@ -183,18 +175,12 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                         </div>
                     )}
 
-                    {/* Title + Description */}
+                    {/* Description only */}
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
-                        <h3 style={{
-                            margin: '0 0 6px', fontSize: 18, fontWeight: 800, color: '#f1f5f9',
-                            letterSpacing: '-0.02em', lineHeight: 1.2,
-                        }}>
-                            {meeting.title}
-                        </h3>
                         {meeting.description && (
                             <p style={{
-                                margin: 0, fontSize: 12, color: '#94a3b8', lineHeight: 1.5,
-                                display: '-webkit-box', WebkitLineClamp: 3,
+                                margin: 0, fontSize: 13, color: '#cbd5e1', lineHeight: 1.6,
+                                display: '-webkit-box', WebkitLineClamp: 4,
                                 WebkitBoxOrient: 'vertical', overflow: 'hidden',
                             }}>
                                 {meeting.description}
