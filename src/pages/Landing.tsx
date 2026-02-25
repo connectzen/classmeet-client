@@ -56,7 +56,16 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const createInputRef = useRef<HTMLInputElement>(null);
 
-    // â”€â”€ Student state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Edit class state
+    const [editMode, setEditMode] = useState(false);
+    const [editingClass, setEditingClass] = useState<ClassInfo | null>(null);
+    const [editClassName, setEditClassName] = useState('');
+    const [editEnrolledStudents, setEditEnrolledStudents] = useState<string[]>([]);
+    const [allStudentsForEdit, setAllStudentsForEdit] = useState<{ user_id: string; name: string; email: string }[]>([]);
+    const [updating, setUpdating] = useState(false);
+    const [updateError, setUpdateError] = useState('');
+    const [loadingEditStudents, setLoadingEditStudents] = useState(false);
+
     const [studentClasses, setStudentClasses] = useState<ClassInfo[]>([]);
     const [loadingStudent, setLoadingStudent] = useState(false);
     const [joinMode, setJoinMode] = useState(false);
@@ -286,6 +295,60 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             setCreateError('Server unreachable — could not delete class');
         }
         setDeletingId(null);
+    };
+
+    // Edit class functions
+    const fetchAllStudentsForEdit = async () => {
+        setLoadingEditStudents(true);
+        try {
+            const r = await fetch(`${SERVER_URL}/api/students`);
+            if (r.ok) setAllStudentsForEdit(await r.json());
+        } catch { /* ignore */ }
+        setLoadingEditStudents(false);
+    };
+
+    const handleEditClass = async (cls: ClassInfo) => {
+        setEditingClass(cls);
+        setEditClassName(cls.name);
+        setUpdateError('');
+        // Fetch currently enrolled students
+        try {
+            const r = await fetch(`${SERVER_URL}/api/enrollments/class/${cls.id}`);
+            if (r.ok) {
+                const enrollments = await r.json();
+                setEditEnrolledStudents(enrollments.map((e: { user_id: string }) => e.user_id));
+            }
+        } catch { /* ignore */ }
+        await fetchAllStudentsForEdit();
+        setEditMode(true);
+    };
+
+    const handleUpdateClass = async () => {
+        if (!editingClass || !user?.id || !editClassName.trim()) return;
+        setUpdating(true); setUpdateError('');
+        try {
+            const res = await fetch(`${SERVER_URL}/api/rooms/${editingClass.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: editClassName.trim(),
+                    enrolledStudentIds: editEnrolledStudents,
+                    hostId: user.id,
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) { setUpdateError(data.error || 'Failed to update class'); setUpdating(false); return; }
+            setEditMode(false);
+            setEditingClass(null);
+            fetchTeacherClasses();
+        } catch { setUpdateError('Server unreachable'); }
+        setUpdating(false);
+    };
+
+    const toggleEditStudent = (userId: string) => {
+        setEditEnrolledStudents(prev =>
+            prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+        );
     };
 
     const handleScheduleSession = async () => {
@@ -669,6 +732,17 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                     {cls.teacherPresent ? 'Rejoin ↗' : 'Start Class →'}
                                                 </button>
                                                 <button
+                                                    className="btn btn-sm"
+                                                    onClick={() => handleEditClass(cls)}
+                                                    style={{
+                                                        background: 'var(--surface-3)',
+                                                        color: 'var(--text-1)',
+                                                        border: '1px solid var(--surface-4)',
+                                                    }}
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
                                                     className="btn btn-danger btn-sm"
                                                     onClick={() => handleDeleteClass(cls)}
                                                     disabled={deletingId === cls.id}
@@ -795,6 +869,107 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     </div>
                 </div>
             )}
+
+            {/* Edit Class Modal */}
+            {editMode && editingClass && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 1000,
+                    background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+                }} onClick={() => setEditMode(false)}>
+                    <div style={{
+                        background: 'linear-gradient(135deg, #1e1b4b 0%, #1e2a4a 100%)',
+                        border: '1px solid rgba(99,102,241,0.4)',
+                        borderRadius: 20, padding: '32px 28px', width: '100%', maxWidth: 520,
+                        boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+                    }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+                            <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#f1f5f9' }}>Edit Class</h3>
+                            <button onClick={() => setEditMode(false)} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
+                        </div>
+
+                        {updateError && <div className="error-banner" style={{ marginBottom: 16 }}>{updateError}</div>}
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Class Name *</label>
+                                <input
+                                    className="form-input"
+                                    type="text"
+                                    placeholder="e.g. Math 101 — Period 3"
+                                    value={editClassName}
+                                    onChange={e => setEditClassName(e.target.value)}
+                                    style={{ width: '100%', boxSizing: 'border-box' }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                    Class Code (read-only)
+                                </label>
+                                <input
+                                    className="form-input"
+                                    type="text"
+                                    value={editingClass.code}
+                                    readOnly
+                                    style={{ width: '100%', boxSizing: 'border-box', opacity: 0.6, cursor: 'not-allowed' }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                    Enrolled Students {editEnrolledStudents.length > 0 && <span style={{ color: '#818cf8' }}>({editEnrolledStudents.length} selected)</span>}
+                                </label>
+                                {loadingEditStudents ? (
+                                    <div style={{ fontSize: 13, color: '#64748b' }}>Loading students…</div>
+                                ) : allStudentsForEdit.length === 0 ? (
+                                    <div style={{ fontSize: 13, color: '#64748b' }}>No students found.</div>
+                                ) : (
+                                    <div style={{
+                                        maxHeight: 200, overflowY: 'auto',
+                                        border: '1px solid rgba(99,102,241,0.3)', borderRadius: 10,
+                                        background: 'rgba(99,102,241,0.05)',
+                                    }}>
+                                        {allStudentsForEdit.map(s => (
+                                            <label key={s.user_id} style={{
+                                                display: 'flex', alignItems: 'center', gap: 10,
+                                                padding: '8px 12px', cursor: 'pointer',
+                                                borderBottom: '1px solid rgba(99,102,241,0.1)',
+                                                background: editEnrolledStudents.includes(s.user_id) ? 'rgba(99,102,241,0.15)' : 'transparent',
+                                            }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={editEnrolledStudents.includes(s.user_id)}
+                                                    onChange={() => toggleEditStudent(s.user_id)}
+                                                    style={{ accentColor: '#6366f1' }}
+                                                />
+                                                <div>
+                                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{s.name || s.email}</div>
+                                                    {s.name && <div style={{ fontSize: 11, color: '#64748b' }}>{s.email}</div>}
+                                                </div>
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 24 }}>
+                            <button
+                                className="btn-ghost btn-sm"
+                                onClick={() => setEditMode(false)}
+                                disabled={updating}
+                            >Cancel</button>
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleUpdateClass}
+                                disabled={updating || !editClassName.trim()}
+                            >
+                                {updating ? 'Updating…' : 'Update Class'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {authModal && <AuthModal defaultTab={authModal} onClose={() => setAuthModal(null)} />}
             {user?.id && userRole && userRole !== 'pending' && userRole !== 'admin' && (
                 <ChatDrawer
