@@ -161,7 +161,8 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     // Role check — redirect to AdminDashboard if role is admin
     useEffect(() => {
         if (!user?.id) { setUserRole(null); return; }
-        fetch(`${SERVER_URL}/api/user-role/${user.id}`)
+        const emailParam = user.email ? `?email=${encodeURIComponent(user.email)}` : '';
+        fetch(`${SERVER_URL}/api/user-role/${user.id}${emailParam}`)
             .then((r) => r.json())
             .then((d) => {
                 setUserRole(d.role);
