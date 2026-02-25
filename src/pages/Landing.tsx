@@ -500,7 +500,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                 {user && (
                     <div className="landing-nav-center">
                         <span className="nav-greeting">
-                            {greeting.emoji} {greeting.text}, {displayName || 'there'}
+                            {greeting.emoji} {greeting.text}, <span className="nav-greeting-name">{displayName || 'there'}</span>
                         </span>
                     </div>
                 )}

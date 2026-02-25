@@ -432,6 +432,7 @@ input, textarea, select {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .btn-ghost-nav {
@@ -482,12 +483,21 @@ input, textarea, select {
 }
 
 .nav-greeting {
-  font-size: 0.9rem;
+  font-size: clamp(0.68rem, 1.8vw, 0.92rem);
   color: var(--text);
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.nav-greeting-name {
+  background: linear-gradient(135deg, #6366f1, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 700;
 }
 
 /* ── Floating Chat Button ─────────────────────────────────── */
@@ -714,10 +724,10 @@ input, textarea, select {
 /* ── 640 px — phones (single-column, touch-friendly) ─────── */
 @media (max-width: 640px) {
   /* Nav bar */
-  .landing-nav { padding: 10px 14px; gap: 6px; }
+  .landing-nav { padding: 10px 14px; gap: 4px; }
   .landing-nav-actions { gap: 6px; }
   .nav-welcome { display: none; }
-  .landing-nav-center { display: none; }
+  .landing-nav-center { padding: 0 8px; }
 
   /* Scroll body — still leave room for fixed nav */
   .landing-scroll-body { padding-top: 80px; }
