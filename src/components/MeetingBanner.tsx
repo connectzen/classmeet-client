@@ -121,21 +121,21 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
 
             <div style={{ position: 'relative' }}>
 
-                {/* ── Row 1: Title (top, aligns with Edit/Delete overlay buttons) ── */}
+                {/* ── Row 1: Title — left, padded right so it sits level with Edit/Delete overlay ── */}
                 <h3 style={{
-                    margin: '0 0 10px 0',
+                    margin: '0 0 6px 0',
                     fontSize: 17,
                     fontWeight: 800,
                     color: '#f1f5f9',
                     letterSpacing: '-0.02em',
-                    paddingRight: isCreator ? 158 : 0,
                     lineHeight: 1.25,
+                    paddingRight: isCreator ? 158 : 100,
                 }}>
                     {meeting.title}
                 </h3>
 
-                {/* ── Row 2: Badge ────────── */}
-                <div style={{ marginBottom: 14 }}>
+                {/* ── Row 2: Badge below title ────────── */}
+                <div style={{ marginBottom: 18 }}>
                     <span style={{
                         display: 'inline-flex', alignItems: 'center', gap: 4,
                         background: accentBg, border: `1px solid ${accentBorder}`,
@@ -147,63 +147,63 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                     </span>
                 </div>
 
-                {/* ── Row 3: Full-width Image ──────────── */}
-                <div style={{ marginBottom: 10 }}>
+                {/* ── Row 3: Square centered profile photo ──────────── */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 10 }}>
                     {meeting.session_image_url ? (
                         <img
                             src={meeting.session_image_url}
-                            alt={meeting.title}
+                            alt={teacherName || meeting.title}
                             style={{
-                                width: '100%',
-                                height: 210,
-                                borderRadius: 12,
+                                width: 150,
+                                height: 150,
+                                borderRadius: 16,
                                 objectFit: 'cover',
-                                border: '2px solid rgba(99,102,241,0.3)',
-                                boxShadow: '0 4px 16px rgba(0,0,0,0.35)',
+                                objectPosition: 'center top',
+                                border: '3px solid rgba(99,102,241,0.45)',
+                                boxShadow: '0 6px 24px rgba(0,0,0,0.45)',
                                 display: 'block',
                             }}
                         />
                     ) : (
                         <div style={{
-                            width: '100%',
-                            height: 210,
-                            borderRadius: 12,
-                            background: 'linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(139,92,246,0.2) 100%)',
-                            border: '2px solid rgba(99,102,241,0.3)',
+                            width: 150,
+                            height: 150,
+                            borderRadius: 16,
+                            background: 'linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(139,92,246,0.25) 100%)',
+                            border: '3px solid rgba(99,102,241,0.35)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
+                            boxShadow: '0 6px 24px rgba(0,0,0,0.3)',
                         }}>
-                            <div style={{ fontSize: 56, opacity: 0.5 }}>📚</div>
+                            <div style={{ fontSize: 52, opacity: 0.6 }}>📚</div>
+                        </div>
+                    )}
+
+                    {/* ── Teacher name centered under the photo ── */}
+                    {teacherName && (
+                        <div style={{
+                            marginTop: 10,
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: '#e2e8f0',
+                            letterSpacing: '0.01em',
+                            textAlign: 'center',
+                        }}>
+                            {teacherName}
                         </div>
                     )}
                 </div>
 
-                {/* ── Row 4: Teacher name under image ──────────── */}
-                {teacherName && (
-                    <div style={{
-                        display: 'flex', alignItems: 'center', gap: 6,
-                        marginBottom: 14, paddingLeft: 2,
-                    }}>
-                        <span style={{ fontSize: 12, color: '#94a3b8' }}>👤</span>
-                        <span style={{
-                            fontSize: 12, fontWeight: 600,
-                            color: '#cbd5e1', letterSpacing: '0.01em',
-                        }}>
-                            {teacherName}
-                        </span>
-                    </div>
-                )}
-
-                {/* ── Row 5: Description ──────────── */}
+                {/* ── Description ──────────── */}
                 {meeting.description && (
-                    <p style={{ margin: '0 0 14px 0', fontSize: 13, color: '#94a3b8', lineHeight: 1.5 }}>
+                    <p style={{ margin: '0 0 14px 0', fontSize: 12, color: '#94a3b8', lineHeight: 1.5, textAlign: 'center' }}>
                         {meeting.description}
                     </p>
                 )}
 
                 {/* ── Row 6: HERO countdown (centered) ──────────────────────── */}
-                <div style={{ textAlign: 'center', marginBottom: 13 }}>
+                <div style={{ textAlign: 'center', marginTop: 16, marginBottom: 13 }}>
                     {timeLeft.isLive ? (
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
                             <span style={{
