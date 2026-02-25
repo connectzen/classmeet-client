@@ -931,18 +931,18 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                 />
                             </div>
                             <div>
-                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Description (optional)</label>
-                                <textarea
-                                    className="form-input"
-                                    placeholder="What will be covered in this class?"
-                                    value={editSessionDesc}
-                                    onChange={e => setEditSessionDesc(e.target.value)}
-                                    rows={2}
-                                    style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical' }}
-                                />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Session Image (optional)</label>
+                                {(editSessionImageUrl || editSessionImageFile) && (
+                                    <div style={{ marginBottom: 10 }}>
+                                        <img
+                                            src={editSessionImageUrl || (editSessionImageFile ? URL.createObjectURL(editSessionImageFile) : '')}
+                                            alt="Session preview"
+                                            style={{
+                                                width: '100%',
+                                                maxHeight: 180,
+                                                objectFit: 'cover',
+                                                borderRadius: 12,
+                                                border: '2px solid rgba(99,102,241,0.3)',
                                             }}
                                         />
                                     </div>
