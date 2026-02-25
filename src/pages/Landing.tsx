@@ -273,18 +273,24 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             };
             reader.readAsDataURL(file);
 
-            // Upload to InsForge Storage
-            const { data, error } = await insforge.storage
-                .from('avatars')
-                .uploadAuto(file);
+            // Upload to backend
+            const formData = new FormData();
+            formData.append('file', file);
 
-            if (error || !data) {
-                console.error('Upload error:', error);
+            const res = await fetch(`${SERVER_URL}/api/teacher/upload-session-image`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                console.error('Upload error:', err);
                 alert('Failed to upload image. Please try again.');
                 setSessionImageFile(null);
                 return;
             }
 
+            const data = await res.json();
             setSessionImageUrl(data.url);
         } catch (err) {
             console.error('Upload error:', err);
@@ -319,18 +325,24 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             };
             reader.readAsDataURL(file);
 
-            // Upload to InsForge Storage
-            const { data, error } = await insforge.storage
-                .from('avatars')
-                .uploadAuto(file);
+            // Upload to backend
+            const formData = new FormData();
+            formData.append('file', file);
 
-            if (error || !data) {
-                console.error('Upload error:', error);
+            const res = await fetch(`${SERVER_URL}/api/teacher/upload-session-image`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                console.error('Upload error:', err);
                 alert('Failed to upload image. Please try again.');
                 setEditSessionImageFile(null);
                 return;
             }
 
+            const data = await res.json();
             setEditSessionImageUrl(data.url);
         } catch (err) {
             console.error('Upload error:', err);
@@ -686,7 +698,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Scheduled Sessions</div>
                                     <div className={`session-grid ${teacherSessions.length > 1 ? 'session-grid-multi' : ''}`}>
                                     {teacherSessions.map(s => (
-                                        <div key={s.id} style={{ position: 'relative' }}>
+                                        <div key={s.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%' }}>
                                             <MeetingBanner
                                                 key={s.id}
                                                 meeting={s}
