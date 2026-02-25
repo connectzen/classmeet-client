@@ -585,6 +585,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                 userRole="teacher"
                                                 isCreator={true}
                                                 sessionType="teacher"
+                                                teacherName={teacherProfiles[s.created_by]?.name || displayName}
                                                 onJoin={(code, id, name, role, title) => onJoinRoom(code, id, name, role, title)}
                                             />
                                             <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', gap: 6, zIndex: 10 }}>
@@ -638,6 +639,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                             userRole="student"
                                             isCreator={false}
                                             sessionType="teacher"
+                                            teacherName={teacherProfiles[s.created_by]?.name}
                                             onJoin={(code, id, name, role, title) => onJoinRoom(code, id, name, role, title)}
                                         />
                                     ))}

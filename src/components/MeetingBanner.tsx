@@ -47,10 +47,12 @@ interface Props {
     isCreator?: boolean;
     /** Visual theme — 'admin' = indigo/purple, 'teacher' = violet/blue */
     sessionType?: 'admin' | 'teacher';
+    /** Teacher's display name shown under the image */
+    teacherName?: string;
     onJoin: (code: string, id: string, name: string, role: 'teacher' | 'student', title: string) => void;
 }
 
-export default function MeetingBanner({ meeting, displayName, userRole, isCreator = false, sessionType = 'admin', onJoin }: Props) {
+export default function MeetingBanner({ meeting, displayName, userRole, isCreator = false, sessionType = 'admin', teacherName, onJoin }: Props) {
     const [timeLeft, setTimeLeft] = useState<TimeLeft>(() => calcTimeLeft(meeting.scheduled_at));
     const [lockedWarning, setLockedWarning] = useState(false);
 
@@ -119,8 +121,21 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
 
             <div style={{ position: 'relative' }}>
 
-                {/* ── Row 1: Badge (left aligned) ────────── */}
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14, paddingRight: isCreator ? 110 : 0 }}>
+                {/* ── Row 1: Title (top, aligns with Edit/Delete overlay buttons) ── */}
+                <h3 style={{
+                    margin: '0 0 10px 0',
+                    fontSize: 17,
+                    fontWeight: 800,
+                    color: '#f1f5f9',
+                    letterSpacing: '-0.02em',
+                    paddingRight: isCreator ? 158 : 0,
+                    lineHeight: 1.25,
+                }}>
+                    {meeting.title}
+                </h3>
+
+                {/* ── Row 2: Badge ────────── */}
+                <div style={{ marginBottom: 14 }}>
                     <span style={{
                         display: 'inline-flex', alignItems: 'center', gap: 4,
                         background: accentBg, border: `1px solid ${accentBorder}`,
@@ -132,62 +147,62 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                     </span>
                 </div>
 
-                {/* ── Row 2: Centered Title ────────── */}
-                <h3 style={{
-                    margin: '0 0 14px 0',
-                    fontSize: 16,
-                    fontWeight: 800,
-                    color: '#f1f5f9',
-                    letterSpacing: '-0.02em',
-                    textAlign: 'center',
-                }}>
-                    {meeting.title}
-                </h3>
-
-                {/* ── Row 2: Centered Image + Description ──────────── */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                    {/* Session Image (Centered) */}
+                {/* ── Row 3: Full-width Image ──────────── */}
+                <div style={{ marginBottom: 10 }}>
                     {meeting.session_image_url ? (
                         <img
                             src={meeting.session_image_url}
                             alt={meeting.title}
                             style={{
-                                width: 130,
-                                height: 165,
-                                borderRadius: 10,
+                                width: '100%',
+                                height: 210,
+                                borderRadius: 12,
                                 objectFit: 'cover',
                                 border: '2px solid rgba(99,102,241,0.3)',
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                                boxShadow: '0 4px 16px rgba(0,0,0,0.35)',
+                                display: 'block',
                             }}
                         />
                     ) : (
                         <div style={{
-                            width: 130,
-                            height: 165,
-                            borderRadius: 10,
+                            width: '100%',
+                            height: 210,
+                            borderRadius: 12,
                             background: 'linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(139,92,246,0.2) 100%)',
                             border: '2px solid rgba(99,102,241,0.3)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                         }}>
-                            <div style={{ fontSize: 48, opacity: 0.5 }}>📚</div>
+                            <div style={{ fontSize: 56, opacity: 0.5 }}>📚</div>
                         </div>
                     )}
-
-                    {/* Description (Centered) */}
-                    <div style={{ width: '100%', textAlign: 'center' }}>
-                        {meeting.description && (
-                            <p style={{
-                                margin: 0, fontSize: 13, color: '#cbd5e1', lineHeight: 1.6,
-                            }}>
-                                {meeting.description}
-                            </p>
-                        )}
-                    </div>
                 </div>
 
-                {/* ── Row 3: HERO countdown (centered) ──────────────────────── */}
+                {/* ── Row 4: Teacher name under image ──────────── */}
+                {teacherName && (
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        marginBottom: 14, paddingLeft: 2,
+                    }}>
+                        <span style={{ fontSize: 12, color: '#94a3b8' }}>👤</span>
+                        <span style={{
+                            fontSize: 12, fontWeight: 600,
+                            color: '#cbd5e1', letterSpacing: '0.01em',
+                        }}>
+                            {teacherName}
+                        </span>
+                    </div>
+                )}
+
+                {/* ── Row 5: Description ──────────── */}
+                {meeting.description && (
+                    <p style={{ margin: '0 0 14px 0', fontSize: 13, color: '#94a3b8', lineHeight: 1.5 }}>
+                        {meeting.description}
+                    </p>
+                )}
+
+                {/* ── Row 6: HERO countdown (centered) ──────────────────────── */}
                 <div style={{ textAlign: 'center', marginBottom: 13 }}>
                     {timeLeft.isLive ? (
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
@@ -207,7 +222,7 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                         </div>
                     ) : (
                         <>
-                            <div style={{ fontSize: 9, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+                            <div style={{ fontSize: 10, color: '#60a5fa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
                                 Starts in
                             </div>
                             <div style={{ display: 'inline-flex', gap: 7, alignItems: 'flex-end', justifyContent: 'center' }}>
@@ -222,7 +237,7 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                     )}
                 </div>
 
-                {/* ── Row 6: Join button ─────────────────────────────────────── */}
+                {/* ── Row 7: Join button ─────────────────────────────────────── */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                     <button
                         onClick={handleJoinClick}
