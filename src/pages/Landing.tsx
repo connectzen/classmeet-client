@@ -756,8 +756,150 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             )}
                         </div>
                     )}
+
+                    {/* STUDENT DASHBOARD */}
+                    {userRole === 'student' && (
+                        <div className="dashboard-panel">
+                            <div className="dashboard-panel-header">
+                                <div className="dashboard-panel-title-group">
+                                    <span className="role-badge badge-student">📚 Student Dashboard</span>
+                                    <h2 className="dashboard-panel-title">Your Classes</h2>
+                                </div>
+                            </div>
+
+                            {/* Student scheduled sessions (teacher sessions they're targeted for) */}
+                            {studentTeacherSessions.length > 0 && (
+                                <div style={{ marginBottom: 8 }}>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Scheduled Sessions</div>
+                                    {studentTeacherSessions.map(s => (
+                                        <MeetingBanner
+                                            key={s.id}
+                                            meeting={s}
+                                            displayName={displayName}
+                                            userRole="student"
+                                            isCreator={false}
+                                            sessionType="teacher"
+                                            onJoin={(code, id, name, role, title) => onJoinRoom(code, id, name, role, title)}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+
+                            {joinError && <div className="error-banner" style={{ marginBottom: 12 }}>{joinError}</div>}
+
+                            {/* Enrolled classes grid */}
+                            {loadingStudent ? (
+                                <div className="classes-loading">Loading your classes…</div>
+                            ) : studentClasses.length === 0 ? (
+                                <div className="classes-empty">
+                                    <div className="classes-empty-icon">📋</div>
+                                    <p>No enrolled classes yet.</p>
+                                    <button
+                                        className="btn btn-primary btn-sm"
+                                        style={{ marginTop: 12 }}
+                                        onClick={() => setJoinMode(true)}
+                                    >
+                                        Join with Code
+                                    </button>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="classes-grid">
+                                        {studentClasses.map((cls) => (
+                                            <div key={cls.id} className={`class-card ${cls.teacherPresent ? 'class-card-live' : ''}`}>
+                                                {cls.teacherPresent && (
+                                                    <div className="live-now-banner"><span className="live-dot" /> LIVE NOW</div>
+                                                )}
+                                                <div className="class-card-header">
+                                                    <div>
+                                                        <div className="class-card-name">{cls.name}</div>
+                                                        <div className="class-card-code">🔑 {cls.code}</div>
+                                                    </div>
+                                                    <div className={`class-presence-dot ${cls.teacherPresent ? 'presence-live' : 'presence-idle'}`} />
+                                                </div>
+                                                <div className="class-card-meta">
+                                                    <span>👥 {cls.currentParticipants} / {cls.max_participants}</span>
+                                                    <span className={cls.teacherPresent ? 'status-live' : 'status-idle'}>
+                                                        {cls.teacherPresent ? '🔴 Live' : '⚪ Idle'}
+                                                    </span>
+                                                </div>
+                                                <div className="class-card-actions">
+                                                    <button
+                                                        className="btn btn-primary btn-sm"
+                                                        onClick={() => onJoinRoom(cls.code, cls.id, displayName || 'Student', 'student', cls.name)}
+                                                    >
+                                                        {cls.teacherPresent ? 'Join Now →' : 'Join Class'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <button
+                                        className="btn btn-outline btn-sm"
+                                        style={{ marginTop: 16, width: '100%' }}
+                                        onClick={() => setJoinMode(true)}
+                                    >
+                                        + Join Another Class
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    )}
                     </>
                 )}
+
+                {/* Join Class Modal (for students) */}
+                {joinMode && (
+                    <div style={{
+                        position: 'fixed', inset: 0, zIndex: 1000,
+                        background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+                    }} onClick={() => setJoinMode(false)}>
+                        <div style={{
+                            background: 'linear-gradient(135deg, #1e1b4b 0%, #1e2a4a 100%)',
+                            border: '1px solid rgba(99,102,241,0.4)',
+                            borderRadius: 20, padding: '32px 28px', width: '100%', maxWidth: 420,
+                            boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+                        }} onClick={e => e.stopPropagation()}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+                                <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#f1f5f9' }}>Join a Class</h3>
+                                <button onClick={() => setJoinMode(false)} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
+                            </div>
+
+                            {joinError && <div className="error-banner" style={{ marginBottom: 16 }}>{joinError}</div>}
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Class Code *</label>
+                                <input
+                                    className="form-input"
+                                    type="text"
+                                    placeholder="e.g. ABC123"
+                                    value={joinCode}
+                                    onChange={e => setJoinCode(e.target.value.toUpperCase())}
+                                    onKeyDown={e => e.key === 'Enter' && handleJoinByCode()}
+                                    style={{ width: '100%', boxSizing: 'border-box', textTransform: 'uppercase' }}
+                                    autoFocus
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 24 }}>
+                                <button
+                                    className="btn-ghost btn-sm"
+                                    onClick={() => setJoinMode(false)}
+                                    disabled={joining}
+                                >Cancel</button>
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={handleJoinByCode}
+                                    disabled={joining || !joinCode.trim()}
+                                >
+                                    {joining ? 'Joining…' : 'Join Class'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
 
                 <p className="landing-footer">Secure · Real-time · Up to 5 participants per session</p>
             </div>
