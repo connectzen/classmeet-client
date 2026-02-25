@@ -154,9 +154,9 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                             src={meeting.session_image_url}
                             alt={teacherName || meeting.title}
                             style={{
-                                width: 150,
-                                height: 150,
-                                borderRadius: 16,
+                                width: 220,
+                                height: 220,
+                                borderRadius: 20,
                                 objectFit: 'cover',
                                 objectPosition: 'center top',
                                 border: '3px solid rgba(99,102,241,0.45)',
@@ -166,9 +166,9 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                         />
                     ) : (
                         <div style={{
-                            width: 150,
-                            height: 150,
-                            borderRadius: 16,
+                            width: 220,
+                            height: 220,
+                            borderRadius: 20,
                             background: 'linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(139,92,246,0.25) 100%)',
                             border: '3px solid rgba(99,102,241,0.35)',
                             display: 'flex',
@@ -176,7 +176,7 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                             justifyContent: 'center',
                             boxShadow: '0 6px 24px rgba(0,0,0,0.3)',
                         }}>
-                            <div style={{ fontSize: 52, opacity: 0.6 }}>📚</div>
+                            <div style={{ fontSize: 64, opacity: 0.6 }}>📚</div>
                         </div>
                     )}
 
