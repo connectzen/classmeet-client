@@ -543,9 +543,9 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                 sessionType="teacher"
                                                 onJoin={(code, id, name, role, title) => onJoinRoom(code, id, name, role, title)}
                                             />
-                                            <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', gap: 6 }}>
+                                            <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', gap: 6, zIndex: 10 }}>
                                                 <button
-                                                    onClick={() => handleEditSession(s)}
+                                                    onClick={(e) => { e.stopPropagation(); handleEditSession(s); }}
                                                     title="Edit session"
                                                     style={{
                                                         background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.35)',
@@ -554,7 +554,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                     }}
                                                 >Edit</button>
                                                 <button
-                                                    onClick={() => handleDeleteSession(s)}
+                                                    onClick={(e) => { e.stopPropagation(); handleDeleteSession(s); }}
                                                     title="Delete session"
                                                     style={{
                                                         background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)',
