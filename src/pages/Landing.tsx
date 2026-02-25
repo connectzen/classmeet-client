@@ -612,7 +612,72 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     ))}
                                 </div>
                             )}
-                                </>
+
+                            {createError && <div className="error-banner" style={{ marginBottom: 12 }}>{createError}</div>}
+
+                            {/* Newly-created class highlight */}
+                            {createdClass && (
+                                <div className="created-class-banner">
+                                    <div className="created-class-info">
+                                        <span className="created-class-name">✅ {createdClass.name}</span>
+                                        <span className="created-class-share">Share this code with students:</span>
+                                        <span className="code-chip">{createdClass.code}</span>
+                                    </div>
+                                    <button
+                                        className="btn btn-primary btn-sm"
+                                        onClick={() => onJoinRoom(createdClass.code, createdClass.id, displayName || 'Teacher', 'teacher', createdClass.name)}
+                                    >
+                                        Start Class →
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Classes grid */}
+                            {loadingTeacher ? (
+                                <div className="classes-loading">Loading your classes…</div>
+                            ) : teacherClasses.length === 0 ? (
+                                <div className="classes-empty">
+                                    <div className="classes-empty-icon">📋</div>
+                                    <p>No active classes yet. Click <strong>Schedule Class</strong> to create one.</p>
+                                </div>
+                            ) : (
+                                <div className="classes-grid">
+                                    {teacherClasses.map((cls) => (
+                                        <div key={cls.id} className={`class-card ${cls.teacherPresent ? 'class-card-live' : ''}`}>
+                                            {cls.teacherPresent && (
+                                                <div className="live-now-banner"><span className="live-dot" /> LIVE NOW</div>
+                                            )}
+                                            <div className="class-card-header">
+                                                <div>
+                                                    <div className="class-card-name">{cls.name}</div>
+                                                    <div className="class-card-code">🔑 {cls.code}</div>
+                                                </div>
+                                                <div className={`class-presence-dot ${cls.teacherPresent ? 'presence-live' : 'presence-idle'}`} />
+                                            </div>
+                                            <div className="class-card-meta">
+                                                <span>👥 {cls.currentParticipants} / {cls.max_participants}</span>
+                                                <span className={cls.teacherPresent ? 'status-live' : 'status-idle'}>
+                                                    {cls.teacherPresent ? '🔴 Live' : '⚪ Idle'}
+                                                </span>
+                                            </div>
+                                            <div className="class-card-actions">
+                                                <button
+                                                    className="btn btn-primary btn-sm"
+                                                    onClick={() => onJoinRoom(cls.code, cls.id, displayName || 'Teacher', 'teacher', cls.name)}
+                                                >
+                                                    {cls.teacherPresent ? 'Rejoin ↗' : 'Start Class →'}
+                                                </button>
+                                                <button
+                                                    className="btn btn-danger btn-sm"
+                                                    onClick={() => handleDeleteClass(cls)}
+                                                    disabled={deletingId === cls.id}
+                                                >
+                                                    {deletingId === cls.id ? 'Deleting...' : 'Delete'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             )}
                         </div>
                     )}
