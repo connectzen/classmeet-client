@@ -109,6 +109,7 @@ export default function ProfileEditModal({ onClose }: ProfileEditModalProps) {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 padding: 20,
                 animation: 'fadeIn 0.2s ease',
+                overflowY: 'auto',
             }}
             onClick={(e) => {
                 if (e.target === e.currentTarget) onClose();
@@ -121,9 +122,12 @@ export default function ProfileEditModal({ onClose }: ProfileEditModalProps) {
                 borderRadius: 20,
                 width: '100%',
                 maxWidth: 450,
+                maxHeight: '90vh',
+                overflowY: 'auto',
                 boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
                 border: '1px solid rgba(99,102,241,0.2)',
                 animation: 'scaleIn 0.2s ease',
+                margin: 'auto',
             }}>
                 <style>{`@keyframes scaleIn{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}`}</style>
 
