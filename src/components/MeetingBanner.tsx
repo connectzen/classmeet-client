@@ -60,8 +60,11 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
 
     // Immediately recalculate when scheduled_at changes
     useEffect(() => {
-        setTimeLeft(calcTimeLeft(meeting.scheduled_at));
-    }, [meeting.scheduled_at]);
+        console.log('🔄 scheduled_at changed for', meeting.title, ':', meeting.scheduled_at);
+        const newTimeLeft = calcTimeLeft(meeting.scheduled_at);
+        console.log('⏱️ Calculated:', newTimeLeft.isLive ? 'LIVE' : `${newTimeLeft.hours}h ${newTimeLeft.minutes}m ${newTimeLeft.seconds}s`);
+        setTimeLeft(newTimeLeft);
+    }, [meeting.scheduled_at, meeting.id, meeting.title]);
 
     // Update countdown every second
     useEffect(() => {
@@ -107,11 +110,11 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
             position: 'relative',
             background: gradientBg,
             border: `1px solid ${accentBorder}`,
-            borderRadius: 20,
-            padding: '24px 28px',
-            marginBottom: 16,
+            borderRadius: 16,
+            padding: '18px 22px',
+            marginBottom: 14,
             overflow: 'hidden',
-            boxShadow: '0 8px 32px rgba(99,102,241,0.25), 0 2px 8px rgba(0,0,0,0.3)',
+            boxShadow: '0 6px 24px rgba(99,102,241,0.2), 0 2px 6px rgba(0,0,0,0.25)',
         }}>
             {/* Decorative glow blobs */}
             <div style={{
@@ -126,20 +129,20 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
             <div style={{ position: 'relative' }}>
 
                 {/* ── Row 1: badge (left) ──────────────────────────────────── */}
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
                     <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        display: 'inline-flex', alignItems: 'center', gap: 5,
                         background: accentBg, border: `1px solid ${accentBorder}`,
-                        borderRadius: 100, padding: '4px 14px', fontSize: 11, fontWeight: 700,
+                        borderRadius: 100, padding: '3px 12px', fontSize: 10, fontWeight: 700,
                         color: accentColor, letterSpacing: '0.06em', textTransform: 'uppercase',
                     }}>
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: accentColor, flexShrink: 0 }} />
+                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: accentColor, flexShrink: 0 }} />
                         {badgeLabel}
                     </span>
                 </div>
 
                 {/* ── Row 2: title + description ────────────────────────────── */}
-                <div style={{ marginBottom: 24 }}>
+                <div style={{ marginBottom: 16 }}>
                     <h3 style={{
                         margin: '0 0 6px', fontSize: 20, fontWeight: 800, color: '#f1f5f9',
                         letterSpacing: '-0.02em', lineHeight: 1.2,
@@ -163,16 +166,16 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
-                        gap: 8,
-                        marginBottom: 20,
+                        gap: 7,
+                        marginBottom: 16,
                     }}>
                         {teacherProfile.avatar_url ? (
                             <img
                                 src={teacherProfile.avatar_url}
                                 alt={teacherProfile.name}
                                 style={{
-                                    width: 90,
-                                    height: 120,
+                                    width: 100,
+                                    height: 130,
                                     borderRadius: 10,
                                     objectFit: 'cover',
                                     border: '2px solid rgba(99,102,241,0.5)',
@@ -181,8 +184,8 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                             />
                         ) : (
                             <div style={{
-                                width: 90,
-                                height: 120,
+                                width: 100,
+                                height: 130,
                                 borderRadius: 10,
                                 background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                                 display: 'flex',
@@ -190,7 +193,7 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                                 justifyContent: 'center',
                                 color: '#fff',
                                 fontWeight: 700,
-                                fontSize: 36,
+                                fontSize: 38,
                                 border: '2px solid rgba(99,102,241,0.5)',
                                 boxShadow: '0 4px 16px rgba(99,102,241,0.25)',
                             }}>
@@ -207,7 +210,7 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                                 {teacherProfile.name}
                             </div>
                             <div style={{
-                                fontSize: 10,
+                                fontSize: 9,
                                 color: '#94a3b8',
                                 fontWeight: 600,
                                 textTransform: 'uppercase',
@@ -220,16 +223,16 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                 )}
 
                 {/* ── Row 4: Date/Time CENTERED ────────────────────────────── */}
-                <div style={{ textAlign: 'center', marginBottom: 22 }}>
+                <div style={{ textAlign: 'center', marginBottom: 15 }}>
                     <div style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: 8,
+                        gap: 6,
                         background: 'rgba(99,102,241,0.15)',
                         border: '1px solid rgba(99,102,241,0.3)',
-                        borderRadius: 10,
-                        padding: '10px 20px',
-                        fontSize: 13,
+                        borderRadius: 8,
+                        padding: '8px 16px',
+                        fontSize: 12,
                         fontWeight: 600,
                         color: '#cbd5e1',
                     }}>
@@ -241,7 +244,7 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                 </div>
 
                 {/* ── Row 5: HERO countdown (centered) ──────────────────────── */}
-                <div style={{ textAlign: 'center', marginBottom: 22 }}>
+                <div style={{ textAlign: 'center', marginBottom: 16 }}>
                     {timeLeft.isLive ? (
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
                             <span style={{
@@ -260,10 +263,10 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                         </div>
                     ) : (
                         <>
-                            <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>
+                            <div style={{ fontSize: 10, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>
                                 Starts in
                             </div>
-                            <div style={{ display: 'inline-flex', gap: 10, alignItems: 'flex-end', justifyContent: 'center' }}>
+                            <div style={{ display: 'inline-flex', gap: 8, alignItems: 'flex-end', justifyContent: 'center' }}>
                                 {timeLeft.days > 0 && <HeroUnit value={timeLeft.days} label="days" />}
                                 <HeroUnit value={timeLeft.hours} label="hours" />
                                 <HeroSep />
@@ -276,7 +279,7 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                 </div>
 
                 {/* ── Row 6: Join button ─────────────────────────────────────── */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7 }}>
                     <button
                         onClick={handleJoinClick}
                         title={!canJoin ? lockedLabel : undefined}
@@ -288,8 +291,8 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                                 : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
                             color: !canJoin ? '#64748b' : '#fff',
                             border: !canJoin ? '1px solid rgba(71,85,105,0.6)' : 'none',
-                            borderRadius: 14,
-                            padding: '12px 36px', fontSize: 14, fontWeight: 700,
+                            borderRadius: 12,
+                            padding: '10px 30px', fontSize: 13, fontWeight: 700,
                             cursor: canJoin ? 'pointer' : 'not-allowed',
                             letterSpacing: '0.02em', whiteSpace: 'nowrap',
                             boxShadow: canJoin
@@ -346,20 +349,20 @@ function HeroUnit({ value, label }: { value: number; label: string }) {
         <div style={{ textAlign: 'center' }}>
             <div style={{
                 background: 'rgba(99,102,241,0.25)', border: '1px solid rgba(99,102,241,0.4)',
-                borderRadius: 14, padding: '10px 16px', minWidth: 58,
-                fontSize: 48, fontWeight: 900, color: '#e0e7ff',
+                borderRadius: 12, padding: '8px 12px', minWidth: 50,
+                fontSize: 38, fontWeight: 900, color: '#e0e7ff',
                 fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.04em', lineHeight: 1,
                 textShadow: '0 2px 12px rgba(99,102,241,0.5)',
             }}>
                 {pad(value)}
             </div>
-            <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, marginTop: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
+            <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 600, marginTop: 5, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
         </div>
     );
 }
 
 function HeroSep() {
     return (
-        <div style={{ fontSize: 40, fontWeight: 900, color: 'rgba(99,102,241,0.6)', lineHeight: 1, marginBottom: 20, userSelect: 'none' }}>:</div>
+        <div style={{ fontSize: 32, fontWeight: 900, color: 'rgba(99,102,241,0.6)', lineHeight: 1, marginBottom: 16, userSelect: 'none' }}>:</div>
     );
 }

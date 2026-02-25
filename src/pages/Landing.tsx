@@ -318,8 +318,10 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             });
             const data = await res.json();
             if (!res.ok) { setUpdateSessionError(data.error || 'Failed to update session'); setUpdatingSession(false); return; }
+            console.log('✅ Session updated, fetching fresh data...');
+            await fetchTeacherSessions();
+            console.log('✅ Fresh data loaded, closing modal');
             setEditSessionMode(false);
-            fetchTeacherSessions();
         } catch { setUpdateSessionError('Server unreachable'); }
         setUpdatingSession(false);
     };
