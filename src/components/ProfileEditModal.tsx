@@ -37,17 +37,31 @@ export default function ProfileEditModal({ onClose }: ProfileEditModalProps) {
         setUploading(true);
 
         try {
-            // Create preview
+            // Show local preview immediately
             const reader = new FileReader();
-            reader.onloadend = () => {
-                setPreviewUrl(reader.result as string);
-            };
+            reader.onloadend = () => setPreviewUrl(reader.result as string);
             reader.readAsDataURL(file);
 
-            // Upload to InsForge Storage
+            // Delete the old avatar from storage so orphaned files don't pile up.
+            // The key is the last segment of the URL: .../objects/{encoded-key}
+            const oldUrl = avatarUrl || user?.profile?.avatar_url;
+            if (oldUrl) {
+                try {
+                    const match = oldUrl.match(/\/objects\/(.+)$/);
+                    if (match) {
+                        const oldKey = decodeURIComponent(match[1]);
+                        await insforge.storage.from('avatars').remove(oldKey);
+                    }
+                } catch { /* non-critical — keep going even if delete fails */ }
+            }
+
+            // Upload with a stable per-user filename so there is only ever
+            // one file per user in the avatars bucket.
+            const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+            const stableKey = `avatar-${user?.id}.${ext}`;
             const { data, error } = await insforge.storage
                 .from('avatars')
-                .uploadAuto(file);
+                .upload(stableKey, file);
 
             if (error || !data) {
                 console.error('Upload error:', error);
