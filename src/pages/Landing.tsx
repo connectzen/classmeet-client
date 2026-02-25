@@ -249,6 +249,98 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
 
     const dismissResume = () => { localStorage.removeItem('classmeet_last_room'); setResumeSession(null); };
 
+    const handleSessionImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            alert('Please select an image file');
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            alert('File size must be less than 5MB');
+            return;
+        }
+
+        setUploadingSessionImage(true);
+
+        try {
+            // Create preview
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setSessionImageFile(file);
+            };
+            reader.readAsDataURL(file);
+
+            // Upload to InsForge Storage
+            const { data, error } = await insforge.storage
+                .from('avatars')
+                .uploadAuto(file);
+
+            if (error || !data) {
+                console.error('Upload error:', error);
+                alert('Failed to upload image. Please try again.');
+                setSessionImageFile(null);
+                return;
+            }
+
+            setSessionImageUrl(data.url);
+        } catch (err) {
+            console.error('Upload error:', err);
+            alert('Failed to upload image. Please try again.');
+            setSessionImageFile(null);
+        } finally {
+            setUploadingSessionImage(false);
+        }
+    };
+
+    const handleEditSessionImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            alert('Please select an image file');
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            alert('File size must be less than 5MB');
+            return;
+        }
+
+        setUploadingEditSessionImage(true);
+
+        try {
+            // Create preview
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setEditSessionImageFile(file);
+            };
+            reader.readAsDataURL(file);
+
+            // Upload to InsForge Storage
+            const { data, error } = await insforge.storage
+                .from('avatars')
+                .uploadAuto(file);
+
+            if (error || !data) {
+                console.error('Upload error:', error);
+                alert('Failed to upload image. Please try again.');
+                setEditSessionImageFile(null);
+                return;
+            }
+
+            setEditSessionImageUrl(data.url);
+        } catch (err) {
+            console.error('Upload error:', err);
+            alert('Failed to upload image. Please try again.');
+            setEditSessionImageFile(null);
+        } finally {
+            setUploadingEditSessionImage(false);
+        }
+    };
+
     const handleScheduleSession = async () => {
         if (!sessionTitle.trim() || !sessionDateTime || !user?.id) return;
         setScheduling(true); setScheduleError('');
