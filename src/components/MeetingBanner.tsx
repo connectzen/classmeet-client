@@ -58,6 +58,12 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
     const [timeLeft, setTimeLeft] = useState<TimeLeft>(() => calcTimeLeft(meeting.scheduled_at));
     const [lockedWarning, setLockedWarning] = useState(false);
 
+    // Immediately recalculate when scheduled_at changes
+    useEffect(() => {
+        setTimeLeft(calcTimeLeft(meeting.scheduled_at));
+    }, [meeting.scheduled_at]);
+
+    // Update countdown every second
     useEffect(() => {
         const id = setInterval(() => setTimeLeft(calcTimeLeft(meeting.scheduled_at)), 1_000);
         return () => clearInterval(id);
@@ -119,116 +125,93 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
 
             <div style={{ position: 'relative' }}>
 
-                {/* ── Row 1: Badge (top left) ───────────────────────── */}
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 24 }}>
+                {/* ── Row 1: badge (left) ──────────────────────────────────── */}
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20 }}>
                     <span style={{
                         display: 'inline-flex', alignItems: 'center', gap: 6,
                         background: accentBg, border: `1px solid ${accentBorder}`,
-                        borderRadius: 100, padding: '5px 16px', fontSize: 11, fontWeight: 700,
-                        color: accentColor, letterSpacing: '0.08em', textTransform: 'uppercase',
-                        boxShadow: `0 2px 8px ${accentBg}`,
+                        borderRadius: 100, padding: '4px 14px', fontSize: 11, fontWeight: 700,
+                        color: accentColor, letterSpacing: '0.06em', textTransform: 'uppercase',
                     }}>
-                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: accentColor, flexShrink: 0, boxShadow: `0 0 8px ${accentColor}` }} />
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: accentColor, flexShrink: 0 }} />
                         {badgeLabel}
                     </span>
                 </div>
 
-                {/* ── Row 2: Title + Description (centered) ────────────────── */}
-                <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                {/* ── Row 2: title + description ────────────────────────────── */}
+                <div style={{ marginBottom: 24 }}>
                     <h3 style={{
-                        margin: '0 0 8px', fontSize: 24, fontWeight: 900, color: '#f8fafc',
-                        letterSpacing: '-0.03em', lineHeight: 1.2,
-                        textShadow: '0 2px 12px rgba(99,102,241,0.3)',
+                        margin: '0 0 6px', fontSize: 20, fontWeight: 800, color: '#f1f5f9',
+                        letterSpacing: '-0.02em', lineHeight: 1.2,
                     }}>
                         {meeting.title}
                     </h3>
                     {meeting.description && (
                         <p style={{
-                            margin: '0 auto', fontSize: 14, color: '#cbd5e1', lineHeight: 1.6,
-                            maxWidth: 600,
+                            margin: 0, fontSize: 13, color: '#94a3b8', lineHeight: 1.55,
+                            display: '-webkit-box', WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical', overflow: 'hidden',
                         }}>
                             {meeting.description}
                         </p>
                     )}
                 </div>
 
-                {/* ── Row 3: Teacher Profile (centered) ────────────────── */}
+                {/* ── Row 3: Teacher Profile (centered) ────────────────────── */}
                 {teacherProfile && (
-                    <div style={{ 
-                        display: 'flex', 
-                        flexDirection: 'column', 
-                        alignItems: 'center', 
-                        gap: 12,
-                        marginBottom: 28,
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 10,
+                        marginBottom: 22,
                     }}>
-                        <div style={{ position: 'relative' }}>
-                            {teacherProfile.avatar_url ? (
-                                <img
-                                    src={teacherProfile.avatar_url}
-                                    alt={teacherProfile.name}
-                                    style={{
-                                        width: 72,
-                                        height: 72,
-                                        borderRadius: '50%',
-                                        objectFit: 'cover',
-                                        border: '3px solid rgba(99,102,241,0.6)',
-                                        boxShadow: '0 4px 20px rgba(99,102,241,0.4), 0 0 0 6px rgba(99,102,241,0.1)',
-                                    }}
-                                />
-                            ) : (
-                                <div style={{
-                                    width: 72,
-                                    height: 72,
-                                    borderRadius: '50%',
-                                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: '#fff',
-                                    fontWeight: 800,
-                                    fontSize: 26,
-                                    border: '3px solid rgba(99,102,241,0.6)',
-                                    boxShadow: '0 4px 20px rgba(99,102,241,0.4), 0 0 0 6px rgba(99,102,241,0.1)',
-                                }}>
-                                    {teacherInitials}
-                                </div>
-                            )}
-                            <div style={{ 
-                                position: 'absolute',
-                                bottom: -2,
-                                right: -2,
+                        {teacherProfile.avatar_url ? (
+                            <img
+                                src={teacherProfile.avatar_url}
+                                alt={teacherProfile.name}
+                                style={{
+                                    width: 140,
+                                    height: 180,
+                                    borderRadius: 12,
+                                    objectFit: 'cover',
+                                    border: '3px solid rgba(99,102,241,0.5)',
+                                    boxShadow: '0 8px 24px rgba(99,102,241,0.3)',
+                                }}
+                            />
+                        ) : (
+                            <div style={{
+                                width: 140,
+                                height: 180,
+                                borderRadius: 12,
                                 background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                                borderRadius: '50%',
-                                padding: '6px',
-                                boxShadow: '0 2px 8px rgba(99,102,241,0.5)',
-                                border: '2px solid #1e1b4b',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#fff',
+                                fontWeight: 700,
+                                fontSize: 48,
+                                border: '3px solid rgba(99,102,241,0.5)',
+                                boxShadow: '0 8px 24px rgba(99,102,241,0.3)',
                             }}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                    <polyline points="20 6 9 17 4 12"></polyline>
-                                </svg>
+                                {teacherInitials}
                             </div>
-                        </div>
+                        )}
                         <div style={{ textAlign: 'center' }}>
                             <div style={{ 
-                                fontSize: 16, 
-                                fontWeight: 700, 
+                                fontSize: 14,
+                                fontWeight: 700,
                                 color: '#e2e8f0',
-                                marginBottom: 4,
-                                letterSpacing: '-0.01em',
+                                marginBottom: 2,
                             }}>
                                 {teacherProfile.name}
                             </div>
-                            <div style={{ 
-                                fontSize: 11, 
-                                color: accentColor,
+                            <div style={{
+                                fontSize: 11,
+                                color: '#94a3b8',
                                 fontWeight: 600,
                                 textTransform: 'uppercase',
-                                letterSpacing: '0.1em',
-                                padding: '3px 12px',
-                                background: accentBg,
-                                borderRadius: 100,
-                                border: `1px solid ${accentBorder}`,
-                                display: 'inline-block',
+                                letterSpacing: '0.06em',
                             }}>
                                 Instructor
                             </div>
@@ -236,67 +219,51 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                     </div>
                 )}
 
-                {/* ── Row 4: Date/Time (centered with icon) ─────────── */}
-                <div style={{ textAlign: 'center', marginBottom: 24 }}>
-                    <div style={{ 
-                        display: 'inline-flex', 
-                        alignItems: 'center', 
-                        gap: 10,
-                        background: 'rgba(99,102,241,0.18)',
-                        border: '1px solid rgba(99,102,241,0.35)',
-                        borderRadius: 12,
-                        padding: '12px 24px',
-                        fontSize: 14,
-                        fontWeight: 700,
-                        color: '#e2e8f0',
-                        boxShadow: '0 2px 12px rgba(99,102,241,0.2)',
+                {/* ── Row 4: Date/Time CENTERED ────────────────────────────── */}
+                <div style={{ textAlign: 'center', marginBottom: 22 }}>
+                    <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        background: 'rgba(99,102,241,0.15)',
+                        border: '1px solid rgba(99,102,241,0.3)',
+                        borderRadius: 10,
+                        padding: '10px 20px',
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: '#cbd5e1',
                     }}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                            <line x1="16" y1="2" x2="16" y2="6"></line>
-                            <line x1="8" y1="2" x2="8" y2="6"></line>
-                            <line x1="3" y1="10" x2="21" y2="10"></line>
-                        </svg>
-                        {new Date(meeting.scheduled_at).toLocaleString([], {
+                        🗓️ {new Date(meeting.scheduled_at).toLocaleString([], {
                             weekday: 'short', month: 'short', day: 'numeric',
                             hour: '2-digit', minute: '2-digit',
                         })}
                     </div>
                 </div>
 
-                {/* ── Row 5: HERO countdown (centered with enhanced styling) ─────────── */}
-                <div style={{ textAlign: 'center', marginBottom: 28 }}>
+                {/* ── Row 5: HERO countdown (centered) ──────────────────────── */}
+                <div style={{ textAlign: 'center', marginBottom: 22 }}>
                     {timeLeft.isLive ? (
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
                             <span style={{
-                                display: 'inline-flex', alignItems: 'center', gap: 10,
-                                background: 'rgba(239,68,68,0.25)', border: '2px solid rgba(239,68,68,0.5)',
-                                borderRadius: 100, padding: '12px 28px', fontSize: 16, fontWeight: 800,
-                                color: '#fca5a5', letterSpacing: '0.08em',
+                                display: 'inline-flex', alignItems: 'center', gap: 8,
+                                background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.45)',
+                                borderRadius: 100, padding: '8px 22px', fontSize: 15, fontWeight: 700,
+                                color: '#fca5a5', letterSpacing: '0.06em',
                                 animation: 'meeting-pulse 1.8s ease-in-out infinite',
-                                boxShadow: '0 4px 20px rgba(239,68,68,0.4), 0 0 0 4px rgba(239,68,68,0.1)',
                             }}>
                                 <span style={{
-                                    width: 12, height: 12, borderRadius: '50%', background: '#ef4444',
-                                    boxShadow: '0 0 12px #ef4444',
-                                    animation: 'meeting-pulse 1.8s ease-in-out infinite',
+                                    width: 10, height: 10, borderRadius: '50%', background: '#ef4444',
+                                    boxShadow: '0 0 8px #ef4444',
                                 }} />
                                 LIVE NOW
                             </span>
                         </div>
                     ) : (
                         <>
-                            <div style={{ 
-                                fontSize: 12, 
-                                color: '#94a3b8', 
-                                fontWeight: 700, 
-                                textTransform: 'uppercase', 
-                                letterSpacing: '0.12em', 
-                                marginBottom: 16,
-                            }}>
-                                ⏱️ Session Begins In
+                            <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>
+                                Starts in
                             </div>
-                            <div style={{ display: 'inline-flex', gap: 12, alignItems: 'flex-end', justifyContent: 'center', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'inline-flex', gap: 10, alignItems: 'flex-end', justifyContent: 'center' }}>
                                 {timeLeft.days > 0 && <HeroUnit value={timeLeft.days} label="days" />}
                                 <HeroUnit value={timeLeft.hours} label="hours" />
                                 <HeroSep />
@@ -308,8 +275,8 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                     )}
                 </div>
 
-                {/* ── Row 6: Join button (centered with icon) ────────────────────────── */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                {/* ── Row 6: Join button ─────────────────────────────────────── */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
                     <button
                         onClick={handleJoinClick}
                         title={!canJoin ? lockedLabel : undefined}
@@ -317,96 +284,47 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                             background: !canJoin
                                 ? 'rgba(71,85,105,0.5)'
                                 : timeLeft.isLive
-                                ? 'linear-gradient(135deg,#ef4444 0%,#dc2626 100%)'
-                                : 'linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%)',
+                                ? 'linear-gradient(135deg,#ef4444,#dc2626)'
+                                : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
                             color: !canJoin ? '#64748b' : '#fff',
-                            border: !canJoin ? '2px solid rgba(71,85,105,0.6)' : 'none',
-                            borderRadius: 16,
-                            padding: '16px 48px', 
-                            fontSize: 16, 
-                            fontWeight: 800,
+                            border: !canJoin ? '1px solid rgba(71,85,105,0.6)' : 'none',
+                            borderRadius: 14,
+                            padding: '12px 36px', fontSize: 14, fontWeight: 700,
                             cursor: canJoin ? 'pointer' : 'not-allowed',
-                            letterSpacing: '0.03em', 
-                            whiteSpace: 'nowrap',
+                            letterSpacing: '0.02em', whiteSpace: 'nowrap',
                             boxShadow: canJoin
                                 ? timeLeft.isLive
-                                    ? '0 6px 24px rgba(239,68,68,0.5), 0 0 0 4px rgba(239,68,68,0.1)'
-                                    : '0 6px 24px rgba(99,102,241,0.5), 0 0 0 4px rgba(99,102,241,0.1)'
+                                    ? '0 4px 20px rgba(239,68,68,0.45)'
+                                    : '0 4px 20px rgba(99,102,241,0.45)'
                                 : 'none',
-                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '10px',
+                            transition: 'filter 0.15s, transform 0.1s, background 0.2s',
                         }}
                         onMouseEnter={e => {
                             if (!canJoin) return;
-                            (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-3px) scale(1.02)';
-                            (e.currentTarget as HTMLButtonElement).style.boxShadow = canJoin
-                                ? timeLeft.isLive
-                                    ? '0 12px 32px rgba(239,68,68,0.6), 0 0 0 6px rgba(239,68,68,0.15)'
-                                    : '0 12px 32px rgba(99,102,241,0.6), 0 0 0 6px rgba(99,102,241,0.15)'
-                                : 'none';
+                            (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.12)';
+                            (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)';
                         }}
                         onMouseLeave={e => {
+                            (e.currentTarget as HTMLButtonElement).style.filter = 'none';
                             (e.currentTarget as HTMLButtonElement).style.transform = 'none';
-                            (e.currentTarget as HTMLButtonElement).style.boxShadow = canJoin
-                                ? timeLeft.isLive
-                                    ? '0 6px 24px rgba(239,68,68,0.5), 0 0 0 4px rgba(239,68,68,0.1)'
-                                    : '0 6px 24px rgba(99,102,241,0.5), 0 0 0 4px rgba(99,102,241,0.1)'
-                                : 'none';
                         }}
                     >
-                        {!canJoin ? (
-                            <>
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                                </svg>
-                                {lockedLabel}
-                            </>
-                        ) : timeLeft.isLive ? (
-                            <>
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                                </svg>
-                                Join Live Session
-                            </>
-                        ) : isCreator ? (
-                            <>
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
-                                    <polyline points="10 17 15 12 10 7"></polyline>
-                                    <line x1="15" y1="12" x2="3" y2="12"></line>
-                                </svg>
-                                Enter Early (Host)
-                            </>
-                        ) : (
-                            <>
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
-                                    <polyline points="10 17 15 12 10 7"></polyline>
-                                    <line x1="15" y1="12" x2="3" y2="12"></line>
-                                </svg>
-                                Join Session
-                            </>
-                        )}
+                        {!canJoin
+                            ? `🔒 ${lockedLabel}`
+                            : timeLeft.isLive
+                            ? '▶ Join Now'
+                            : isCreator
+                            ? '🚀 Enter Early (You\'re the host)'
+                            : '🚀 Join'}
                     </button>
                     {lockedWarning && (
                         <div style={{
-                            fontSize: 13, color: '#fbbf24', fontWeight: 600,
-                            background: 'rgba(234,179,8,0.15)', border: '1px solid rgba(234,179,8,0.4)',
-                            borderRadius: 10, padding: '8px 16px',
+                            fontSize: 12, color: '#f59e0b', fontWeight: 600,
+                            background: 'rgba(234,179,8,0.12)', border: '1px solid rgba(234,179,8,0.3)',
+                            borderRadius: 8, padding: '5px 14px',
                             animation: 'meeting-pulse 0.3s ease-in-out',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
                         }}>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <line x1="12" y1="8" x2="12" y2="12"></line>
-                                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                            </svg>
-                            Session starts {lockedLabel.toLowerCase()}
+                            ⚠️ This session hasn't started yet. {lockedLabel}.
                         </div>
                     )}
                 </div>
@@ -427,44 +345,21 @@ function HeroUnit({ value, label }: { value: number; label: string }) {
     return (
         <div style={{ textAlign: 'center' }}>
             <div style={{
-                background: 'rgba(99,102,241,0.28)', 
-                border: '2px solid rgba(99,102,241,0.45)',
-                borderRadius: 16, 
-                padding: '14px 20px', 
-                minWidth: 68,
-                fontSize: 52, 
-                fontWeight: 900, 
-                color: '#e0e7ff',
-                fontVariantNumeric: 'tabular-nums', 
-                letterSpacing: '-0.05em', 
-                lineHeight: 1,
-                textShadow: '0 2px 16px rgba(99,102,241,0.6), 0 0 32px rgba(99,102,241,0.3)',
-                boxShadow: '0 4px 16px rgba(99,102,241,0.2), inset 0 1px 0 rgba(255,255,255,0.1)',
+                background: 'rgba(99,102,241,0.25)', border: '1px solid rgba(99,102,241,0.4)',
+                borderRadius: 14, padding: '10px 16px', minWidth: 58,
+                fontSize: 48, fontWeight: 900, color: '#e0e7ff',
+                fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.04em', lineHeight: 1,
+                textShadow: '0 2px 12px rgba(99,102,241,0.5)',
             }}>
                 {pad(value)}
             </div>
-            <div style={{ 
-                fontSize: 11, 
-                color: '#94a3b8', 
-                fontWeight: 700, 
-                marginTop: 8, 
-                textTransform: 'uppercase', 
-                letterSpacing: '0.1em',
-            }}>{label}</div>
+            <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, marginTop: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
         </div>
     );
 }
 
 function HeroSep() {
     return (
-        <div style={{ 
-            fontSize: 40, 
-            fontWeight: 900, 
-            color: 'rgba(99,102,241,0.6)', 
-            lineHeight: 1, 
-            marginBottom: 24, 
-            userSelect: 'none',
-            textShadow: '0 2px 8px rgba(99,102,241,0.3)',
-        }}>:</div>
+        <div style={{ fontSize: 40, fontWeight: 900, color: 'rgba(99,102,241,0.6)', lineHeight: 1, marginBottom: 20, userSelect: 'none' }}>:</div>
     );
 }

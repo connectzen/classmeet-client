@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { useUser } from '../lib/AuthContext';
 import { insforge } from '../lib/insforge';
 
@@ -101,10 +102,10 @@ export default function ProfileEditModal({ onClose }: ProfileEditModalProps) {
         .join('')
         .toUpperCase();
 
-    return (
+    return ReactDOM.createPortal(
         <div
             style={{
-                position: 'fixed', inset: 0, zIndex: 9999,
+                position: 'fixed', inset: 0, zIndex: 999999,
                 background: 'rgba(0,0,0,0.8)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 padding: 20,
@@ -323,6 +324,7 @@ export default function ProfileEditModal({ onClose }: ProfileEditModalProps) {
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

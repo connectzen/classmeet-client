@@ -572,6 +572,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     {teacherSessions.map(s => (
                                         <div key={s.id} style={{ position: 'relative' }}>
                                             <MeetingBanner
+                                                key={s.id}
                                                 meeting={s}
                                                 displayName={displayName}
                                                 userRole="teacher"
