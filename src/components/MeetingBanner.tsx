@@ -163,43 +163,43 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
-                        gap: 10,
-                        marginBottom: 22,
+                        gap: 8,
+                        marginBottom: 20,
                     }}>
                         {teacherProfile.avatar_url ? (
                             <img
                                 src={teacherProfile.avatar_url}
                                 alt={teacherProfile.name}
                                 style={{
-                                    width: 140,
-                                    height: 180,
-                                    borderRadius: 12,
+                                    width: 90,
+                                    height: 120,
+                                    borderRadius: 10,
                                     objectFit: 'cover',
-                                    border: '3px solid rgba(99,102,241,0.5)',
-                                    boxShadow: '0 8px 24px rgba(99,102,241,0.3)',
+                                    border: '2px solid rgba(99,102,241,0.5)',
+                                    boxShadow: '0 4px 16px rgba(99,102,241,0.25)',
                                 }}
                             />
                         ) : (
                             <div style={{
-                                width: 140,
-                                height: 180,
-                                borderRadius: 12,
+                                width: 90,
+                                height: 120,
+                                borderRadius: 10,
                                 background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 color: '#fff',
                                 fontWeight: 700,
-                                fontSize: 48,
-                                border: '3px solid rgba(99,102,241,0.5)',
-                                boxShadow: '0 8px 24px rgba(99,102,241,0.3)',
+                                fontSize: 36,
+                                border: '2px solid rgba(99,102,241,0.5)',
+                                boxShadow: '0 4px 16px rgba(99,102,241,0.25)',
                             }}>
                                 {teacherInitials}
                             </div>
                         )}
                         <div style={{ textAlign: 'center' }}>
                             <div style={{ 
-                                fontSize: 14,
+                                fontSize: 13,
                                 fontWeight: 700,
                                 color: '#e2e8f0',
                                 marginBottom: 2,
@@ -207,7 +207,7 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                                 {teacherProfile.name}
                             </div>
                             <div style={{
-                                fontSize: 11,
+                                fontSize: 10,
                                 color: '#94a3b8',
                                 fontWeight: 600,
                                 textTransform: 'uppercase',
