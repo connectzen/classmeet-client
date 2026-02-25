@@ -121,41 +121,44 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
 
             <div style={{ position: 'relative' }}>
 
-                {/* ── Row 1: Title — left, padded right so it sits level with Edit/Delete overlay ── */}
-                <h3 style={{
-                    margin: '0 0 6px 0',
-                    fontSize: 17,
-                    fontWeight: 800,
-                    color: '#f1f5f9',
-                    letterSpacing: '-0.02em',
-                    lineHeight: 1.25,
+                {/* ── Row 1: Title + Badge — same line, right-padded for Edit/Delete overlay ── */}
+                <div style={{
+                    display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8,
+                    marginBottom: 18,
                     paddingRight: isCreator ? 158 : 100,
                 }}>
-                    {meeting.title}
-                </h3>
-
-                {/* ── Row 2: Badge below title ────────── */}
-                <div style={{ marginBottom: 18 }}>
+                    <h3 style={{
+                        margin: 0,
+                        fontSize: 17,
+                        fontWeight: 800,
+                        color: '#f1f5f9',
+                        letterSpacing: '-0.02em',
+                        lineHeight: 1.25,
+                        flexShrink: 0,
+                    }}>
+                        {meeting.title}
+                    </h3>
                     <span style={{
                         display: 'inline-flex', alignItems: 'center', gap: 4,
                         background: accentBg, border: `1px solid ${accentBorder}`,
                         borderRadius: 100, padding: '2px 10px', fontSize: 9, fontWeight: 700,
                         color: accentColor, letterSpacing: '0.06em', textTransform: 'uppercase',
+                        flexShrink: 0,
                     }}>
                         <span style={{ width: 4, height: 4, borderRadius: '50%', background: accentColor, flexShrink: 0 }} />
                         {badgeLabel}
                     </span>
                 </div>
 
-                {/* ── Row 3: Square centered profile photo ──────────── */}
+                {/* ── Row 2: Square centered profile photo ──────────── */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 10 }}>
                     {meeting.session_image_url ? (
                         <img
                             src={meeting.session_image_url}
                             alt={teacherName || meeting.title}
                             style={{
-                                width: 220,
-                                height: 220,
+                                width: 260,
+                                height: 260,
                                 borderRadius: 20,
                                 objectFit: 'cover',
                                 objectPosition: 'center top',
@@ -166,8 +169,8 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                         />
                     ) : (
                         <div style={{
-                            width: 220,
-                            height: 220,
+                            width: 260,
+                            height: 260,
                             borderRadius: 20,
                             background: 'linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(139,92,246,0.25) 100%)',
                             border: '3px solid rgba(99,102,241,0.35)',
