@@ -261,6 +261,19 @@ input, textarea, select {
   color: var(--text);
 }
 
+/* Session Grid - Responsive 2-column on desktop only */
+.session-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 1024px) {
+  .session-grid.session-grid-multi {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 /* Button that toggles to the inline create/join form */
 .btn-dashboard-create {
   display: inline-flex;

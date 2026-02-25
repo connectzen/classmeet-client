@@ -684,6 +684,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             {teacherSessions.length > 0 && (
                                 <div style={{ marginBottom: 8 }}>
                                     <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Scheduled Sessions</div>
+                                    <div className={`session-grid ${teacherSessions.length > 1 ? 'session-grid-multi' : ''}`}>
                                     {teacherSessions.map(s => (
                                         <div key={s.id} style={{ position: 'relative' }}>
                                             <MeetingBanner
@@ -717,6 +718,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                             </div>
                                         </div>
                                     ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -736,6 +738,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             {studentTeacherSessions.length > 0 && (
                                 <div style={{ marginBottom: 8 }}>
                                     <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Scheduled Sessions</div>
+                                    <div className={`session-grid ${studentTeacherSessions.length > 1 ? 'session-grid-multi' : ''}`}>
                                     {studentTeacherSessions.map(s => (
                                         <MeetingBanner
                                             key={s.id}
@@ -747,6 +750,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                             onJoin={(code, id, name, role, title) => onJoinRoom(code, id, name, role, title)}
                                         />
                                     ))}
+                                    </div>
                                 </div>
                             )}
                         </div>

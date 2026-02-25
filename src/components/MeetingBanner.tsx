@@ -119,8 +119,8 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
 
             <div style={{ position: 'relative' }}>
 
-                {/* ── Row 1: Badge (left) + Title (center-right) ────────── */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, paddingRight: isCreator ? 110 : 0 }}>
+                {/* ── Row 1: Badge (left aligned) ────────── */}
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14, paddingRight: isCreator ? 110 : 0 }}>
                     <span style={{
                         display: 'inline-flex', alignItems: 'center', gap: 4,
                         background: accentBg, border: `1px solid ${accentBorder}`,
@@ -130,21 +130,23 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                         <span style={{ width: 4, height: 4, borderRadius: '50%', background: accentColor, flexShrink: 0 }} />
                         {badgeLabel}
                     </span>
-
-                    <h3 style={{
-                        margin: 0,
-                        fontSize: 16,
-                        fontWeight: 800,
-                        color: '#f1f5f9',
-                        letterSpacing: '-0.02em',
-                    }}>
-                        {meeting.title}
-                    </h3>
                 </div>
 
-                {/* ── Row 2: Horizontal layout with image + content ──────────── */}
-                <div style={{ display: 'flex', gap: 16, marginBottom: 14 }}>
-                    {/* Session Image */}
+                {/* ── Row 2: Centered Title ────────── */}
+                <h3 style={{
+                    margin: '0 0 14px 0',
+                    fontSize: 16,
+                    fontWeight: 800,
+                    color: '#f1f5f9',
+                    letterSpacing: '-0.02em',
+                    textAlign: 'center',
+                }}>
+                    {meeting.title}
+                </h3>
+
+                {/* ── Row 2: Centered Image + Description ──────────── */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                    {/* Session Image (Centered) */}
                     {meeting.session_image_url ? (
                         <img
                             src={meeting.session_image_url}
@@ -156,7 +158,6 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                                 objectFit: 'cover',
                                 border: '2px solid rgba(99,102,241,0.3)',
                                 boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                                flexShrink: 0,
                             }}
                         />
                     ) : (
@@ -169,19 +170,16 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            flexShrink: 0,
                         }}>
                             <div style={{ fontSize: 48, opacity: 0.5 }}>📚</div>
                         </div>
                     )}
 
-                    {/* Description only */}
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
+                    {/* Description (Centered) */}
+                    <div style={{ width: '100%', textAlign: 'center' }}>
                         {meeting.description && (
                             <p style={{
                                 margin: 0, fontSize: 13, color: '#cbd5e1', lineHeight: 1.6,
-                                display: '-webkit-box', WebkitLineClamp: 4,
-                                WebkitBoxOrient: 'vertical', overflow: 'hidden',
                             }}>
                                 {meeting.description}
                             </p>
