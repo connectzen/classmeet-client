@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect, useCallback, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useUser } from '../lib/AuthContext';
+import { insforge } from '../lib/insforge';
 import ChatDrawer from '../components/ChatDrawer';
 import AuthModal from '../components/AuthModal';
 import UserMenu from '../components/UserMenu';
@@ -110,6 +111,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     // ── Teacher Sessions ──────────────────────────────────────────────────
     const [teacherSessions, setTeacherSessions] = useState<AdminMeeting[]>([]);
     const [studentTeacherSessions, setStudentTeacherSessions] = useState<AdminMeeting[]>([]);
+    const [teacherProfiles, setTeacherProfiles] = useState<Record<string, { name: string; avatar_url?: string }>>({});
 
     // Schedule modal state
     const [scheduleMode, setScheduleMode] = useState(false);
@@ -136,17 +138,49 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         if (!user?.id || userRole !== 'teacher') return;
         try {
             const r = await fetch(`${SERVER_URL}/api/teacher/sessions/by-host/${user.id}`);
-            if (r.ok) setTeacherSessions(await r.json());
+            if (r.ok) {
+                const sessions = await r.json();
+                setTeacherSessions(sessions);
+                // Fetch profiles for these sessions
+                await fetchTeacherProfiles(sessions);
+            }
         } catch { /* ignore */ }
-    }, [user?.id, userRole]);
+    }, [user?.id, userRole, fetchTeacherProfiles]);
 
     const fetchStudentTeacherSessions = useCallback(async () => {
         if (!user?.id || userRole !== 'student') return;
         try {
             const r = await fetch(`${SERVER_URL}/api/teacher/sessions/for-student/${user.id}`);
-            if (r.ok) setStudentTeacherSessions(await r.json());
+            if (r.ok) {
+                const sessions = await r.json();
+                setStudentTeacherSessions(sessions);
+                // Fetch profiles for these sessions
+                await fetchTeacherProfiles(sessions);
+            }
         } catch { /* ignore */ }
-    }, [user?.id, userRole]);
+    }, [user?.id, userRole, fetchTeacherProfiles]);
+
+    const fetchTeacherProfiles = useCallback(async (sessions: AdminMeeting[]) => {
+        const uniqueTeacherIds = Array.from(new Set(sessions.map(s => s.created_by)));
+        const profilesMap: Record<string, { name: string; avatar_url?: string }> = {};
+        
+        for (const teacherId of uniqueTeacherIds) {
+            try {
+                // Fetch user profile from InsForge
+                const { data, error } = await insforge.auth.getProfile(teacherId);
+                if (!error && data) {
+                    profilesMap[teacherId] = {
+                        name: data.name || 'Teacher',
+                        avatar_url: data.avatar_url,
+                    };
+                }
+            } catch (err) {
+                console.error('Error fetching teacher profile:', err);
+            }
+        }
+        
+        setTeacherProfiles(prev => ({ ...prev, ...profilesMap }));
+    }, []);
 
     const fetchAllStudents = useCallback(async () => {
         if (userRole !== 'teacher') return;
@@ -454,6 +488,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     displayName={displayName}
                                     userRole={userRole as 'teacher' | 'student' | 'admin'}                                    isCreator={userRole === 'admin'}
                                     sessionType="admin"                                    onJoin={(code, id, name, role, title) => onJoinRoom(code, id, name, role, title)}
+                                    teacherProfile={teacherProfiles[m.created_by]}
                                 />
                             ))}
                         </div>
@@ -542,6 +577,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                 isCreator={true}
                                                 sessionType="teacher"
                                                 onJoin={(code, id, name, role, title) => onJoinRoom(code, id, name, role, title)}
+                                                teacherProfile={teacherProfiles[s.created_by]}
                                             />
                                             <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', gap: 6, zIndex: 10 }}>
                                                 <button
@@ -593,6 +629,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                             isCreator={false}
                                             sessionType="teacher"
                                             onJoin={(code, id, name, role, title) => onJoinRoom(code, id, name, role, title)}
+                                            teacherProfile={teacherProfiles[s.created_by]}
                                         />
                                     ))}
                                 </div>

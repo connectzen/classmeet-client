@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useUser } from '../lib/AuthContext';
 import { insforge } from '../lib/insforge';
+import ProfileEditModal from './ProfileEditModal';
 
 export default function UserMenu() {
     const { user } = useUser();
     const [open, setOpen] = useState(false);
     const [signingOut, setSigningOut] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
 
     // Close when clicking outside
@@ -26,6 +28,7 @@ export default function UserMenu() {
     if (!user) return null;
 
     const displayName = user.profile?.name || user.email?.split('@')[0] || 'User';
+    const avatarUrl = user.profile?.avatar_url;
     const initials = displayName
         .split(' ')
         .map((w: string) => w[0])
@@ -34,24 +37,32 @@ export default function UserMenu() {
         .toUpperCase();
 
     return (
-        <div ref={menuRef} style={{ position: 'relative', display: 'inline-flex' }}>
-            {/* Avatar button */}
-            <button
-                onClick={() => setOpen(o => !o)}
-                title={displayName}
-                style={{
-                    width: 36, height: 36, borderRadius: '50%', border: '2px solid rgba(99,102,241,0.5)',
-                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                    color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    transition: 'border-color 0.2s, box-shadow 0.2s', flexShrink: 0,
-                    boxShadow: open ? '0 0 0 3px rgba(99,102,241,0.3)' : 'none',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.9)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.2)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = open ? 'rgba(99,102,241,0.9)' : 'rgba(99,102,241,0.5)'; e.currentTarget.style.boxShadow = open ? '0 0 0 3px rgba(99,102,241,0.3)' : 'none'; }}
-            >
-                {initials}
-            </button>
+        <>
+            {showEditModal && <ProfileEditModal onClose={() => setShowEditModal(false)} />}
+            
+            <div ref={menuRef} style={{ position: 'relative', display: 'inline-flex' }}>
+                {/* Avatar button */}
+                <button
+                    onClick={() => setOpen(o => !o)}
+                    title={displayName}
+                    style={{
+                        width: 36, height: 36, borderRadius: '50%', border: '2px solid rgba(99,102,241,0.5)',
+                        background: avatarUrl ? 'transparent' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                        color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'border-color 0.2s, box-shadow 0.2s', flexShrink: 0,
+                        boxShadow: open ? '0 0 0 3px rgba(99,102,241,0.3)' : 'none',
+                        padding: 0, overflow: 'hidden',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.9)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.2)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = open ? 'rgba(99,102,241,0.9)' : 'rgba(99,102,241,0.5)'; e.currentTarget.style.boxShadow = open ? '0 0 0 3px rgba(99,102,241,0.3)' : 'none'; }}
+                >
+                    {avatarUrl ? (
+                        <img src={avatarUrl} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                        initials
+                    )}
+                </button>
 
             {/* Dropdown */}
             {open && (
@@ -67,12 +78,23 @@ export default function UserMenu() {
                     {/* User info */}
                     <div style={{ padding: '10px 12px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: 8 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <div style={{
-                                width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
-                                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                color: '#fff', fontWeight: 700, fontSize: 15,
-                            }}>{initials}</div>
+                            {avatarUrl ? (
+                                <img 
+                                    src={avatarUrl} 
+                                    alt={displayName}
+                                    style={{
+                                        width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+                                        objectFit: 'cover',
+                                    }}
+                                />
+                            ) : (
+                                <div style={{
+                                    width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+                                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    color: '#fff', fontWeight: 700, fontSize: 15,
+                                }}>{initials}</div>
+                            )}
                             <div style={{ minWidth: 0 }}>
                                 <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text, #e8e8f0)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                     {displayName}
@@ -83,6 +105,29 @@ export default function UserMenu() {
                             </div>
                         </div>
                     </div>
+
+                    {/* Edit Profile */}
+                    <button
+                        onClick={() => {
+                            setShowEditModal(true);
+                            setOpen(false);
+                        }}
+                        style={{
+                            width: '100%', padding: '9px 12px', border: 'none', borderRadius: 10,
+                            background: 'transparent', color: 'var(--text, #e8e8f0)',
+                            fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: 8, transition: 'background 0.15s',
+                            textAlign: 'left', marginBottom: 4,
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.1)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                    >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                            <circle cx="12" cy="7" r="4" />
+                        </svg>
+                        Edit Profile
+                    </button>
 
                     {/* Sign out */}
                     <button
@@ -107,6 +152,7 @@ export default function UserMenu() {
                     </button>
                 </div>
             )}
-        </div>
+            </div>
+        </>
     );
 }
