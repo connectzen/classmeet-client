@@ -87,8 +87,9 @@ export default function OnboardingForm({ userId, name, email, onComplete }: Prop
             });
             const data = await r.json();
             if (!r.ok) throw new Error(data.error || 'Onboarding failed');
+            sessionStorage.setItem('onboarding_submitted', '1');
             sessionStorage.removeItem('needsOnboarding');
-            onComplete(data.role);
+            onComplete(data.role ?? 'pending');
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Something went wrong');
         } finally {

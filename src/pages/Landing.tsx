@@ -291,7 +291,9 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             fetch(`${SERVER_URL}/api/user-role/${user.id}${emailParam}`)
                 .then((r) => r.json())
                 .then((d) => {
-                    if (d.role === 'pending' && !sessionStorage.getItem('needsOnboarding')) {
+                    const isPending = d.role === 'pending';
+                    const alreadySubmitted = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('onboarding_submitted') === '1';
+                    if (isPending && !alreadySubmitted && typeof sessionStorage !== 'undefined' && !sessionStorage.getItem('needsOnboarding')) {
                         sessionStorage.setItem('needsOnboarding', '1');
                     }
                     setUserRole(d.role);
@@ -605,7 +607,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                         userId={user!.id}
                                         name={user?.profile?.name || user?.email?.split('@')[0] || ''}
                                         email={user?.email || ''}
-                                        onComplete={(role) => setUserRole(role as 'member' | 'teacher' | 'student')}
+                                        onComplete={(role) => setUserRole(role === 'pending' ? 'pending' : (role as 'member' | 'teacher' | 'student'))}
                                     />
                                 </div>
                             ) : (
