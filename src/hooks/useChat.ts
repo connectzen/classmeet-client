@@ -25,7 +25,7 @@ export interface Conversation {
     name: string | null;
     last_message: ChatMessage | null;
     unread_count: number;
-    other_user?: { user_id: string; user_name: string; user_role: string } | null;
+    other_user?: { user_id: string; user_name: string; user_role: string; avatar_url?: string | null } | null;
 }
 
 interface UseChatOptions {

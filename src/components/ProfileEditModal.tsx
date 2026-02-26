@@ -10,7 +10,7 @@ interface ProfileEditModalProps {
 }
 
 export default function ProfileEditModal({ onClose }: ProfileEditModalProps) {
-    const { user } = useUser();
+    const { user, refreshUser } = useUser();
     const [name, setName] = useState(user?.profile?.name || '');
     const [avatarUrl, setAvatarUrl] = useState(user?.profile?.avatar_url || '');
     const [uploading, setUploading] = useState(false);
@@ -116,8 +116,9 @@ export default function ProfileEditModal({ onClose }: ProfileEditModalProps) {
                 }
             }
 
-            // Reload the page to reflect changes
-            window.location.reload();
+            // Refresh auth user so header avatar/name update without full reload
+            await refreshUser();
+            onClose();
         } catch (err) {
             console.error('Profile update error:', err);
             alert('Failed to update profile. Please try again.');

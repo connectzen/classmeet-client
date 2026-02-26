@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { insforge } from './insforge';
 
 interface UserProfile {
@@ -19,13 +19,19 @@ export interface AuthUser {
 interface AuthContextValue {
     user: AuthUser | null;
     isLoaded: boolean;
+    refreshUser: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextValue>({ user: null, isLoaded: false });
+const AuthContext = createContext<AuthContextValue>({ user: null, isLoaded: false, refreshUser: async () => {} });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<AuthUser | null>(null);
     const [isLoaded, setIsLoaded] = useState(false);
+
+    const refreshUser = useCallback(async () => {
+        const { data } = await insforge.auth.getCurrentUser().catch(() => ({ data: null }));
+        setUser((data?.user as AuthUser) ?? null);
+    }, []);
 
     useEffect(() => {
         insforge.auth.getCurrentUser().then(({ data }) => {
@@ -41,16 +47,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const onVisible = () => {
             if (document.visibilityState !== 'visible') return;
-            insforge.auth.getCurrentUser().then(({ data }) => {
-                setUser((data?.user as AuthUser) ?? null);
-            }).catch(() => {});
+            refreshUser().catch(() => {});
         };
         document.addEventListener('visibilitychange', onVisible);
         return () => document.removeEventListener('visibilitychange', onVisible);
-    }, []);
+    }, [refreshUser]);
 
     return (
-        <AuthContext.Provider value={{ user, isLoaded }}>
+        <AuthContext.Provider value={{ user, isLoaded, refreshUser }}>
             {children}
         </AuthContext.Provider>
     );

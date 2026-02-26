@@ -299,8 +299,10 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                                 onMouseOut={e => !isActive && ((e.currentTarget as HTMLElement).style.background = 'transparent')}
                             >
                                 {/* Avatar */}
-                                <div style={{ width: 42, height: 42, borderRadius: '50%', background: `${getAvatarColor(conv)}22`, border: `2px solid ${getAvatarColor(conv)}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16, color: getAvatarColor(conv), flexShrink: 0, position: 'relative' }}>
-                                    {conv.type === 'broadcast' || conv.type === 'group' ? (conv.type === 'broadcast' ? '📢' : '#') : getConvAvatar(conv)}
+                                <div style={{ width: 42, height: 42, borderRadius: '50%', background: `${getAvatarColor(conv)}22`, border: `2px solid ${getAvatarColor(conv)}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16, color: getAvatarColor(conv), flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+                                    {conv.type === 'dm' && conv.other_user?.avatar_url ? (
+                                        <img src={conv.other_user.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : conv.type === 'broadcast' || conv.type === 'group' ? (conv.type === 'broadcast' ? '📢' : '#') : getConvAvatar(conv)}
                                     {conv.unread_count > 0 && (
                                         <div style={{ position: 'absolute', top: -4, right: -4, background: '#6366f1', color: '#fff', borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>
                                             {conv.unread_count > 9 ? '9+' : conv.unread_count}

@@ -864,11 +864,11 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 20 }}>
                                 <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
                                     <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Teachers</div>
-                                    <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>{loadingMemberTeachers ? '…' : memberTeachers.length}</div>
+                                    <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>{loadingMemberTeachers && memberTeachers.length === 0 ? '…' : memberTeachers.length}</div>
                                 </div>
                                 <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
                                     <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Students</div>
-                                    <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>{loadingStudentsList ? '…' : allStudents.length}</div>
+                                    <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>{loadingStudentsList && allStudents.length === 0 ? '…' : allStudents.length}</div>
                                 </div>
                                 <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
                                     <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Active courses</div>
@@ -885,7 +885,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             {/* Teachers and students hierarchy */}
                             <div style={{ marginBottom: 20 }}>
                                 <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Teachers & their students</div>
-                                {loadingTeachersWithStudents ? (
+                                {loadingTeachersWithStudents && memberTeachersWithStudents.length === 0 ? (
                                     <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>
                                 ) : memberTeachersWithStudents.length === 0 ? (
                                     <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No teachers or students.</div>
@@ -1017,7 +1017,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 20 }}>
                                 <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
                                     <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Students</div>
-                                    <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>{loadingTeacherStudents ? '…' : teacherStudents.length}</div>
+                                    <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>{loadingTeacherStudents && teacherStudents.length === 0 ? '…' : teacherStudents.length}</div>
                                 </div>
                                 <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
                                     <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Active courses</div>
@@ -1034,7 +1034,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             {/* Your students */}
                             <div style={{ marginBottom: 20 }}>
                                 <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Your students</div>
-                                {loadingTeacherStudents ? (
+                                {loadingTeacherStudents && teacherStudents.length === 0 ? (
                                     <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>
                                 ) : teacherStudents.length === 0 ? (
                                     <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No students assigned yet. Share your invite link from Profile → Invite links.</div>
@@ -1245,7 +1245,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                                         Target Students {targetStudentIds.length > 0 && <span style={{ color: '#818cf8' }}>({targetStudentIds.length} selected)</span>}
                                     </label>
-                                    {loadingStudentsList ? (
+                                    {loadingStudentsList && allStudents.length === 0 ? (
                                         <div style={{ fontSize: 13, color: '#64748b' }}>Loading students…</div>
                                     ) : allStudents.length === 0 ? (
                                         <div style={{ fontSize: 13, color: '#64748b' }}>No approved students found.</div>
@@ -1368,7 +1368,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                             <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                                                 Target Students {editTargetStudentIds.length > 0 && <span style={{ color: '#818cf8' }}>({editTargetStudentIds.length} selected)</span>}
                                             </label>
-                                            {loadingStudentsList ? (
+                                            {loadingStudentsList && allStudents.length === 0 ? (
                                                 <div style={{ fontSize: 13, color: '#64748b' }}>Loading students…</div>
                                             ) : allStudents.length === 0 ? (
                                                 <div style={{ fontSize: 13, color: '#64748b' }}>No approved students found.</div>
