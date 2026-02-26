@@ -810,8 +810,12 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                 </button>
                             </div>
 
-                            {/* Quick overview - same layout as teacher */}
+                            {/* Quick overview - Teachers first, then Students, Active courses, Upcoming sessions */}
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 20 }}>
+                                <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Teachers</div>
+                                    <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>{loadingMemberTeachers ? '…' : memberTeachers.length}</div>
+                                </div>
                                 <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
                                     <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Students</div>
                                     <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>{loadingStudentsList ? '…' : allStudents.length}</div>
@@ -826,29 +830,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                         {memberSessions.filter(s => new Date(s.scheduled_at) >= new Date()).length}
                                     </div>
                                 </div>
-                            </div>
-
-                            {/* Your students - with live/offline indicator */}
-                            <div style={{ marginBottom: 20 }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Your students</div>
-                                {loadingStudentsList ? (
-                                    <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>
-                                ) : allStudents.length === 0 ? (
-                                    <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No students yet. Share your invite link from Profile → Invite links.</div>
-                                ) : (
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                                        {allStudents.map(st => (
-                                            <div key={st.user_id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '8px 12px' }}>
-                                                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{initialsFor(st.name, st.email)}</div>
-                                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: onlineUserIds.has(st.user_id) ? '#22c55e' : 'var(--text-muted)' }} title={onlineUserIds.has(st.user_id) ? 'Online' : 'Offline'} />
-                                                <div>
-                                                    <span style={{ fontWeight: 600, fontSize: 13 }}>{st.name || 'Student'}</span>
-                                                    <span style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)' }}>{onlineUserIds.has(st.user_id) ? 'Online' : (lastSeenByUserId[st.user_id] ? formatLastSeen(lastSeenByUserId[st.user_id]) : 'Offline')}</span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
                             </div>
 
                             {/* Your teachers */}
