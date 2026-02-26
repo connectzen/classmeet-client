@@ -391,7 +391,13 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             setStudentTeacherSessions(prev => prev.filter(s => s.id !== sessionId));
         });
         sock2.on('teacher:session-updated', () => { fetchTeacherSessions(); fetchMemberSessions(); fetchStudentTeacherSessions(); });
-        sock2.on('dashboard:data-changed', () => refetchRoleAndDashboard());
+        sock2.on('dashboard:data-changed', () => {
+            // Refetch lists immediately so other users' profile changes (e.g. student name/avatar) are visible to teachers/members
+            if (userRole === 'teacher') { fetchTeacherStudents(); }
+            if (userRole === 'member') { fetchAllStudents(); fetchMemberTeachers(); fetchMemberTeachersWithStudents(); }
+            if (userRole === 'student') fetchTeacherNamesForStudent();
+            refetchRoleAndDashboard();
+        });
         if (userRole === 'teacher' || userRole === 'member' || userRole === 'student') {
             sock2.on('presence:list', (ids: string[]) => setOnlineUserIds(new Set(ids)));
             sock2.on('presence:state', (payload: { onlineIds: string[]; lastSeen: Record<string, number> }) => {
