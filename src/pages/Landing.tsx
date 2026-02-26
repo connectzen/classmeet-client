@@ -236,7 +236,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     }, [user?.id, userRole, fetchTeacherProfiles]);
 
     const fetchAllStudents = useCallback(async () => {
-        if (userRole !== 'teacher') return;
+        if (userRole !== 'teacher' && userRole !== 'member') return;
         setLoadingStudentsList(true);
         try {
             const r = await fetch(`${SERVER_URL}/api/students`);
@@ -694,6 +694,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                         setSessionDesc('');
                                         setSessionDateTime('');
                                         setTargetStudentIds([]);
+                                        fetchAllStudents();
                                     }}
                                 >
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -959,7 +960,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     style={{ width: '100%', boxSizing: 'border-box', colorScheme: 'dark' }}
                                 />
                             </div>
-                            {userRole === 'teacher' && (
+                            {(userRole === 'teacher' || userRole === 'member') && (
                                 <div>
                                     <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                                         Target Students {targetStudentIds.length > 0 && <span style={{ color: '#818cf8' }}>({targetStudentIds.length} selected)</span>}
@@ -1063,7 +1064,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     style={{ width: '100%', boxSizing: 'border-box', colorScheme: 'dark' }}
                                 />
                             </div>
-                            {userRole === 'teacher' && (
+                            {(userRole === 'teacher' || userRole === 'member') && (
                                 <div>
                                     <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                                         Target Students {editTargetStudentIds.length > 0 && <span style={{ color: '#818cf8' }}>({editTargetStudentIds.length} selected)</span>}

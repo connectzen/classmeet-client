@@ -120,6 +120,17 @@ input, textarea, select {
   width: 100%;
 }
 
+/* Global button click feedback: cursor + active reaction when clicked */
+button:not(:disabled),
+.btn:not(:disabled) {
+  cursor: pointer;
+}
+button:active:not(:disabled),
+.btn:active:not(:disabled) {
+  transform: scale(0.98);
+  transition: transform var(--t);
+}
+
 .error-banner {
   background: rgba(239, 68, 68, 0.12);
   border: 1px solid rgba(239, 68, 68, 0.3);
@@ -293,10 +304,13 @@ input, textarea, select {
   font-family: inherit;
   flex-shrink: 0;
 }
-.btn-dashboard-create:hover {
+.btn-dashboard-create:hover:not(:disabled) {
   background: var(--accent-hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 14px rgba(99,102,241,0.35);
+}
+.btn-dashboard-create:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
 }
 
 /* Inline form that replaces the button */
