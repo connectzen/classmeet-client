@@ -4,7 +4,7 @@ const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
 interface Props {
     hostId: string;
-    onJoinRoom: (roomCode: string, roomId: string, name: string, role: 'teacher' | 'student', roomName: string) => void;
+    onJoinRoom: (roomCode: string, roomId: string, name: string, role: 'teacher' | 'student', roomName: string, isGuestRoomHost?: boolean) => void;
 }
 
 export default function GuestRoomSection({ hostId, onJoinRoom }: Props) {
@@ -106,7 +106,7 @@ export default function GuestRoomSection({ hostId, onJoinRoom }: Props) {
                     <div style={{ display: 'flex', gap: 8 }}>
                         <button
                             type="button"
-                            onClick={() => onJoinRoom(guestRoom.room_code, guestRoom.room_id, 'Host', 'teacher', guestRoom.roomName)}
+                            onClick={() => { if (!window.confirm('Enter as host?')) return; onJoinRoom(guestRoom.room_code, guestRoom.room_id, 'Host', 'teacher', guestRoom.roomName, true); }}
                             style={{
                                 padding: '8px 16px',
                                 borderRadius: 8,

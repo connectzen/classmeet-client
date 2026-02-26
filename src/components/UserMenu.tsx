@@ -49,22 +49,25 @@ export default function UserMenu({ userRole }: UserMenuProps) {
             {showInviteLinks && user?.id && (
                 <div
                     style={{
-                        position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+                        position: 'fixed', inset: 0, zIndex: 999999, background: 'rgba(0,0,0,0.8)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, overflowY: 'auto',
                     }}
                     onClick={() => setShowInviteLinks(false)}
                 >
                     <div
                         style={{
-                            background: 'var(--surface-2, #18181f)', borderRadius: 16, padding: 24, maxWidth: 480, width: '100%', maxHeight: '90vh', overflow: 'auto',
-                            border: '1px solid rgba(99,102,241,0.2)', boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+                            background: 'var(--surface-2, #18181f)', borderRadius: 20, width: '100%', maxWidth: 450, maxHeight: '90vh', overflowY: 'auto',
+                            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', border: '1px solid rgba(99,102,241,0.2)', margin: 'auto',
                         }}
                         onClick={e => e.stopPropagation()}
                     >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                            <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Invite links</h3>
+                        <div style={{ padding: '24px 24px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--text, #e8e8f0)' }}>Invite links</h2>
                             <button type="button" onClick={() => setShowInviteLinks(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 20, cursor: 'pointer', padding: '2px 6px', lineHeight: 1 }}>×</button>
                         </div>
-                        <InviteLinksSection userId={user.id} variant={userRole === 'teacher' ? 'teacher' : 'member'} />
+                        <div style={{ padding: 24 }}>
+                            <InviteLinksSection userId={user.id} variant={userRole === 'teacher' ? 'teacher' : 'member'} />
+                        </div>
                     </div>
                 </div>
             )}

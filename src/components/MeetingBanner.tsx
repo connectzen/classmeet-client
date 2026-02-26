@@ -88,6 +88,7 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
             setTimeout(() => setLockedWarning(false), 2500);
             return;
         }
+        if (!window.confirm('Join this session?')) return;
         onJoin(meeting.room_code, meeting.room_id, displayName || 'Attendee', joinRole, meeting.title);
     };
 

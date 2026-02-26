@@ -13,6 +13,7 @@ interface RoomSession {
     roomName: string;
     name: string;
     role: 'teacher' | 'student' | 'guest';
+    isGuestRoomHost?: boolean;
 }
 
 export default function App() {
@@ -34,8 +35,8 @@ export default function App() {
         setView('admin');
     }, []);
 
-    const handleJoinRoom = (roomCode: string, roomId: string, name: string, role: 'teacher' | 'student' | 'guest', roomName: string) => {
-        setSession({ roomCode, roomId, roomName, name, role });
+    const handleJoinRoom = (roomCode: string, roomId: string, name: string, role: 'teacher' | 'student' | 'guest', roomName: string, isGuestRoomHost?: boolean) => {
+        setSession({ roomCode, roomId, roomName, name, role, isGuestRoomHost: !!isGuestRoomHost });
         setView('room');
     };
 
@@ -72,6 +73,7 @@ export default function App() {
                     roomName={session.roomName}
                     name={session.name}
                     role={session.role}
+                    isGuestRoomHost={session.isGuestRoomHost}
                     onLeave={handleLeave}
                 />
             )}

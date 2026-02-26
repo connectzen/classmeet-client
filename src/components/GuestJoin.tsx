@@ -26,6 +26,7 @@ export default function GuestJoin({ code, onJoin }: Props) {
                 return;
             }
             const data = await r.json();
+            if (!window.confirm('Join this guest room?')) { setLoading(false); return; }
             onJoin(data.roomCode, data.roomId, name.trim(), 'guest', data.roomName || `Guest Room ${data.roomCode}`);
         } catch {
             setError('Could not connect');

@@ -13,6 +13,7 @@ interface Props {
     roomName: string;
     name: string;
     role: 'teacher' | 'student' | 'guest';
+    isGuestRoomHost?: boolean;
     onLeave: () => void;
 }
 
@@ -29,7 +30,7 @@ function clearSession() {
     localStorage.removeItem('classmeet_last_room');
 }
 
-export default function Room({ roomCode, roomId, roomName, name, role, onLeave }: Props) {
+export default function Room({ roomCode, roomId, roomName, name, role, isGuestRoomHost, onLeave }: Props) {
     const { user } = useUser();
     const [localStream, setLocalStream] = useState<MediaStream | null>(null);
     const [participants, setParticipants] = useState<Map<string, ParticipantState>>(new Map());
@@ -163,7 +164,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, onLeave }
 
     const { socketId, connected, joinError: socketJoinError, existingParticipants, currentSpotlight,
         sendSignal, sendMessage, endRoom, muteParticipant, changeSpotlight } = useSocket({
-            roomCode, roomId, roomName, name, role,
+            roomCode, roomId, roomName, name, role, isGuestRoomHost,
             onParticipantJoined: handleParticipantJoined,
             onParticipantLeft: handleParticipantLeft,
             onSignal: handleSignal,
@@ -229,11 +230,13 @@ export default function Room({ roomCode, roomId, roomName, name, role, onLeave }
     }, [muteParticipant]);
 
     const handleLeaveIntentional = () => {
+        if (!window.confirm('Leave the room? You can rejoin if the session is still active.')) return;
         clearSession();
         onLeave();
     };
 
     const handleEndRoom = () => {
+        if (!window.confirm('End the class for everyone? This cannot be undone.')) return;
         clearSession();
         endRoom();
         onLeave();

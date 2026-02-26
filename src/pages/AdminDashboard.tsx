@@ -60,7 +60,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
     const [backendStats, setBackendStats] = useState<BackendStats | null>(null);
     const [healthStatus, setHealthStatus] = useState<HealthStatus | null>(null);
 
-    const [pendingUsers, setPendingUsers] = useState<{ id: string; name: string; email: string; created_at: string | null }[]>([]);
+    const [pendingUsers, setPendingUsers] = useState<{ id: string; name: string; email: string; created_at: string | null; role_interest?: string | null; areas_of_interest?: string | null }[]>([]);
     const [loadingPending, setLoadingPending] = useState(false);
     const [approvingId, setApprovingId] = useState<string | null>(null);
     const [rejectingId, setRejectingId] = useState<string | null>(null);
@@ -542,7 +542,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                                                 Plan and storage are managed in your InsForge backend.
                                             </div>
                                             <a
-                                                href={(import.meta.env.VITE_INSFORGE_BASE_URL as string) || 'https://insforge.app'}
+                                                href="https://insforge.app"
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 style={{ fontSize: 13, fontWeight: 600, color: '#a5b4fc', textDecoration: 'none' }}
@@ -793,13 +793,14 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                                                     <div style={{ fontWeight: 600, fontSize: 14 }}>{u.name || '(no name)'}</div>
                                                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{u.email}</div>
                                                     {u.created_at && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Signed up {new Date(u.created_at).toLocaleDateString()}</div>}
+                                                    {u.role_interest && <div style={{ fontSize: 11, color: '#a5b4fc', marginTop: 2 }}>Requested: {u.role_interest.charAt(0).toUpperCase() + u.role_interest.slice(1)}</div>}
                                                 </div>
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                                                 <span style={{ fontSize: 11, background: 'rgba(234,179,8,0.12)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: 100, padding: '3px 10px', color: '#f59e0b', fontWeight: 600 }}>Pending</span>
                                                 <select
                                                     id={`approve-role-${u.id}`}
-                                                    defaultValue="student"
+                                                    defaultValue={u.role_interest && ['member','teacher','student'].includes(u.role_interest) ? u.role_interest : 'student'}
                                                     style={{ background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', color: 'var(--text)', fontSize: 12 }}
                                                 >
                                                     <option value="student">Student</option>

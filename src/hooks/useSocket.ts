@@ -22,6 +22,7 @@ interface UseSocketOptions {
     roomName: string;
     name: string;
     role: 'teacher' | 'student' | 'guest';
+    isGuestRoomHost?: boolean;
     onParticipantJoined: (p: Participant) => void;
     onParticipantLeft: (socketId: string) => void;
     onSignal: (data: { from: string; signal: unknown }) => void;
@@ -37,7 +38,7 @@ interface UseSocketOptions {
 
 export function useSocket(options: UseSocketOptions) {
     const {
-        roomCode, roomId, roomName, name, role,
+        roomCode, roomId, roomName, name, role, isGuestRoomHost,
         onParticipantJoined, onParticipantLeft,
         onSignal, onChatMessage, onRoomEnded,
         onForceMute, onParticipantMuteChanged, onTeacherDisconnected,
@@ -63,7 +64,7 @@ export function useSocket(options: UseSocketOptions) {
             setSocketId(socket.id!);
             setConnected(true);
 
-            socket.emit('join-room', { roomCode, roomId, roomName, name, role }, (res: {
+            socket.emit('join-room', { roomCode, roomId, roomName, name, role, isGuestRoomHost: isGuestRoomHost ?? false }, (res: {
                 success?: boolean;
                 error?: string;
                 existingParticipants?: Participant[];
