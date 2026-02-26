@@ -49,21 +49,35 @@ export default function UserMenu({ userRole }: UserMenuProps) {
             {showInviteLinks && user?.id && (
                 <div
                     style={{
-                        position: 'fixed', inset: 0, zIndex: 999999, background: 'rgba(0,0,0,0.8)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, overflowY: 'auto',
+                        position: 'fixed', inset: 0, zIndex: 999999,
+                        background: 'rgba(0,0,0,0.8)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        padding: 20,
+                        animation: 'fadeIn 0.2s ease',
+                        overflowY: 'auto',
                     }}
-                    onClick={() => setShowInviteLinks(false)}
+                    onClick={(e) => { if (e.target === e.currentTarget) setShowInviteLinks(false); }}
                 >
+                    <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}}`}</style>
                     <div
                         style={{
-                            background: 'var(--surface-2, #18181f)', borderRadius: 20, width: '100%', maxWidth: 450, maxHeight: '90vh', overflowY: 'auto',
-                            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', border: '1px solid rgba(99,102,241,0.2)', margin: 'auto',
+                            background: 'var(--surface-2, #18181f)',
+                            borderRadius: 20,
+                            width: '100%',
+                            maxWidth: 450,
+                            maxHeight: '90vh',
+                            overflowY: 'auto',
+                            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+                            border: '1px solid rgba(99,102,241,0.2)',
+                            animation: 'scaleIn 0.2s ease',
+                            margin: 'auto',
                         }}
-                        onClick={e => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
                     >
+                        <style>{`@keyframes scaleIn{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}`}</style>
                         <div style={{ padding: '24px 24px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--text, #e8e8f0)' }}>Invite links</h2>
-                            <button type="button" onClick={() => setShowInviteLinks(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 20, cursor: 'pointer', padding: '2px 6px', lineHeight: 1 }}>×</button>
+                            <button type="button" onClick={() => setShowInviteLinks(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 20, cursor: 'pointer', padding: '2px 6px', lineHeight: 1 }} aria-label="Close">×</button>
                         </div>
                         <div style={{ padding: 24 }}>
                             <InviteLinksSection userId={user.id} variant={userRole === 'teacher' ? 'teacher' : 'member'} />

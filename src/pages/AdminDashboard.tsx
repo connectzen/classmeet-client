@@ -16,7 +16,6 @@ interface Meeting {
     created_at: string; targets: Array<{ type: string; value: string }>;
 }
 interface AdminStats { membersCount: number; teachersCount: number; studentsCount: number; liveGuestCount: number; }
-interface BackendStats { plan: string | null; storageTotal: number | null; storageUsed: number | null; storageRemaining: number | null; usageTrends?: unknown[]; warnings?: string[]; }
 interface HealthStatus { status: 'ok' | 'degraded'; database?: string; error?: string; }
 type Tab = 'overview' | 'members' | 'teachers' | 'students' | 'messages' | 'pending' | 'meetings';
 
@@ -57,7 +56,6 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
     const [showMemberTempPassword, setShowMemberTempPassword] = useState(true);
     const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
     const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
-    const [backendStats, setBackendStats] = useState<BackendStats | null>(null);
     const [healthStatus, setHealthStatus] = useState<HealthStatus | null>(null);
 
     const [pendingUsers, setPendingUsers] = useState<{ id: string; name: string; email: string; created_at: string | null; role_interest?: string | null; areas_of_interest?: string | null }[]>([]);
@@ -136,14 +134,6 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
         } catch { setHealthStatus({ status: 'degraded', error: 'Request failed' }); }
     }, [user?.id]);
 
-    const fetchBackendStats = useCallback(async () => {
-        if (!user?.id) return;
-        try {
-            const r = await fetch(`${SERVER_URL}/api/admin/backend-stats?adminId=${encodeURIComponent(user.id)}`);
-            if (r.ok) setBackendStats(await r.json());
-        } catch { setBackendStats(null); }
-    }, [user?.id]);
-
     const fetchSentMessages = useCallback(async () => {
         if (!user?.id) return;
         try { const r = await fetch(`${SERVER_URL}/api/messages/sent/${user.id}`); if (r.ok) setSentMessages(await r.json()); } catch {}
@@ -171,13 +161,13 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
 
     // ── Real-time auto-refresh via socket.io ─────────────────────────────
     const refreshCurrentTab = useCallback(() => {
-        if (tab === 'overview') { fetchTeachers(); fetchStudents(); fetchMembers(); fetchAdminStats(); fetchBackendStats(); fetchPendingUsers(); fetchSentMessages(); fetchMeetings(); }
+        if (tab === 'overview') { fetchTeachers(); fetchStudents(); fetchMembers(); fetchAdminStats(); fetchPendingUsers(); fetchSentMessages(); fetchMeetings(); }
         else if (tab === 'members') fetchMembers();
         else if (tab === 'teachers') fetchTeachers();
         else if (tab === 'students') fetchStudents();
         else if (tab === 'pending')  fetchPendingUsers();
         else if (tab === 'meetings') { fetchMeetings(); fetchAllRooms(); fetchAllUsers(); }
-    }, [tab, fetchTeachers, fetchStudents, fetchPendingUsers, fetchSentMessages, fetchMeetings, fetchAllRooms, fetchAllUsers]);
+    }, [tab, fetchTeachers, fetchStudents, fetchMembers, fetchAdminStats, fetchPendingUsers, fetchSentMessages, fetchMeetings, fetchAllRooms, fetchAllUsers]);
 
     // 30-second polling for the active tab
     useEffect(() => {
@@ -243,7 +233,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
         if (tab === 'pending')  fetchPendingUsers();
         if (tab === 'meetings') { fetchMeetings(); fetchAllRooms(); fetchAllUsers(); }
         if (tab === 'messages') { /* ChatDrawer handles its own data */ }
-    }, [tab, fetchTeachers, fetchStudents, fetchMembers, fetchAdminStats, fetchBackendStats, fetchHealth, fetchSentMessages, fetchPendingUsers, fetchMeetings, fetchAllRooms, fetchAllUsers]);
+    }, [tab, fetchTeachers, fetchStudents, fetchMembers, fetchAdminStats, fetchHealth, fetchSentMessages, fetchPendingUsers, fetchMeetings, fetchAllRooms, fetchAllUsers]);
 
     // Always fetch sidebar stats on mount regardless of starting tab
     useEffect(() => {
@@ -515,43 +505,6 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(2,1fr)', gap: 20, marginBottom: 32 }}>
                                 <StatCard icon="◆" label="Messages Sent" value={sentMessages.length} accent="#8b5cf6" />
-                            </div>
-                            <div style={{ marginBottom: 32 }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 12 }}>Backend &amp; Storage</div>
-                                <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: '20px 24px' }}>
-                                    {backendStats && (backendStats.plan != null || backendStats.storageUsed != null || backendStats.storageTotal != null) ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                            {backendStats.plan != null && <div style={{ fontSize: 14 }}><span style={{ color: 'var(--text-muted)' }}>Plan:</span> <strong>{backendStats.plan}</strong></div>}
-                                            {(backendStats.storageUsed != null || backendStats.storageTotal != null) && (
-                                                <div style={{ fontSize: 14 }}>
-                                                    <span style={{ color: 'var(--text-muted)' }}>Storage:</span>{' '}
-                                                    {backendStats.storageUsed != null && <span>{formatBytes(backendStats.storageUsed)} used</span>}
-                                                    {backendStats.storageTotal != null && <span> / {formatBytes(backendStats.storageTotal)} total</span>}
-                                                    {backendStats.storageRemaining != null && <span> ({formatBytes(backendStats.storageRemaining)} remaining)</span>}
-                                                </div>
-                                            )}
-                                            {backendStats.warnings && backendStats.warnings.length > 0 && (
-                                                <div style={{ marginTop: 8, padding: 10, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 10 }}>
-                                                    {backendStats.warnings.map((w, i) => <div key={i} style={{ fontSize: 13, color: '#f59e0b' }}>{w}</div>)}
-                                                </div>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                                                Plan and storage are managed in your InsForge backend.
-                                            </div>
-                                            <a
-                                                href="https://insforge.app"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                style={{ fontSize: 13, fontWeight: 600, color: '#a5b4fc', textDecoration: 'none' }}
-                                            >
-                                                View in InsForge →
-                                            </a>
-                                        </div>
-                                    )}
-                                </div>
                             </div>
                             {healthStatus && (
                                 <div style={{ marginBottom: 24, padding: 12, borderRadius: 12, background: healthStatus.status === 'ok' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${healthStatus.status === 'ok' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1097,13 +1050,6 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
 }
 
 /* ── Shared micro-components ── */
-
-function formatBytes(n: number): string {
-    if (n >= 1e9) return (n / 1e9).toFixed(1) + ' GB';
-    if (n >= 1e6) return (n / 1e6).toFixed(1) + ' MB';
-    if (n >= 1e3) return (n / 1e3).toFixed(1) + ' KB';
-    return n + ' B';
-}
 
 function PageHeader({ title, subtitle }: { title: string; subtitle?: string }) {
     return (

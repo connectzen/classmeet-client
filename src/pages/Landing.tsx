@@ -6,7 +6,7 @@ import ChatDrawer from '../components/ChatDrawer';
 import QuizDrawer from '../components/QuizDrawer';
 import AuthModal from '../components/AuthModal';
 import OnboardingForm from '../components/OnboardingForm';
-import GuestRoomSection from '../components/GuestRoomSection';
+import GuestRoomSection, { type GuestRoomSectionRef } from '../components/GuestRoomSection';
 import MemberCoursesSection from '../components/MemberCoursesSection';
 import UserMenu from '../components/UserMenu';
 import MeetingBanner, { AdminMeeting } from '../components/MeetingBanner';
@@ -49,6 +49,8 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [authModal, setAuthModal] = useState<'signin' | 'signup' | null>(null);
     const [userRole, setUserRole] = useState<'admin' | 'member' | 'teacher' | 'student' | 'pending' | null>(null);
     const [resumeSession, setResumeSession] = useState<ResumeSession | null>(null);
+    const pendingApprovalRef = useRef<HTMLDivElement>(null);
+    const guestRoomSectionRef = useRef<GuestRoomSectionRef>(null);
 
     // â”€â”€ Teacher state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const [teacherClasses, setTeacherClasses] = useState<ClassInfo[]>([]);
@@ -607,11 +609,18 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                         userId={user!.id}
                                         name={user?.profile?.name || user?.email?.split('@')[0] || ''}
                                         email={user?.email || ''}
-                                        onComplete={(role) => setUserRole(role === 'pending' ? 'pending' : (role as 'member' | 'teacher' | 'student'))}
+                                        onComplete={(role) => {
+                                            setUserRole(role === 'pending' ? 'pending' : (role as 'member' | 'teacher' | 'student'));
+                                            if (role === 'pending') {
+                                                requestAnimationFrame(() => {
+                                                    setTimeout(() => pendingApprovalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80);
+                                                });
+                                            }
+                                        }}
                                     />
                                 </div>
                             ) : (
-                                <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 16px' }}>
+                                <div ref={pendingApprovalRef} style={{ display: 'flex', justifyContent: 'center', padding: '40px 16px' }}>
                                     <div style={{
                                         background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.05))',
                                         border: '1px solid rgba(99,102,241,0.25)',
@@ -660,10 +669,19 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     <span className="role-badge badge-teacher">👤 Member Dashboard</span>
                                     <h2 className="dashboard-panel-title">Courses & Invites</h2>
                                 </div>
+                                <button
+                                    className="btn-dashboard-create"
+                                    onClick={() => guestRoomSectionRef.current?.createGuestRoom()}
+                                >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                        <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                                    </svg>
+                                    Create live session
+                                </button>
                             </div>
-                            <GuestRoomSection hostId={user!.id} onJoinRoom={onJoinRoom} />
+                            <GuestRoomSection ref={guestRoomSectionRef} hostId={user!.id} onJoinRoom={onJoinRoom} primaryCtaLabel="Create live session" />
                             <MemberCoursesSection userId={user!.id} />
-                            <p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 16 }}>
+                            <p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 24 }}>
                                 Create courses and quizzes, and chat with your teachers and students.
                             </p>
                         </div>

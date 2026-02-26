@@ -1,16 +1,24 @@
-import { useState } from 'react';
+import { useState, useImperativeHandle, forwardRef, useRef } from 'react';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
 interface Props {
     hostId: string;
     onJoinRoom: (roomCode: string, roomId: string, name: string, role: 'teacher' | 'student', roomName: string, isGuestRoomHost?: boolean) => void;
+    primaryCtaLabel?: string;
 }
 
-export default function GuestRoomSection({ hostId, onJoinRoom }: Props) {
+export interface GuestRoomSectionRef {
+    createGuestRoom: () => Promise<void>;
+    creating: boolean;
+}
+
+const GuestRoomSection = forwardRef<GuestRoomSectionRef, Props>(function GuestRoomSection({ hostId, onJoinRoom, primaryCtaLabel }, ref) {
     const [guestRoom, setGuestRoom] = useState<{ id: string; room_code: string; room_id: string; url: string; roomName: string } | null>(null);
     const [creating, setCreating] = useState(false);
     const [ending, setEnding] = useState(false);
+
+    const handleCreateRef = useRef<() => Promise<void>>(async () => {});
 
     async function handleCreate() {
         setCreating(true);
@@ -26,6 +34,11 @@ export default function GuestRoomSection({ hostId, onJoinRoom }: Props) {
             setCreating(false);
         }
     }
+    handleCreateRef.current = handleCreate;
+    useImperativeHandle(ref, () => ({
+        createGuestRoom: () => handleCreateRef.current?.(),
+        creating,
+    }), [creating]);
 
     async function handleEnd() {
         if (!guestRoom) return;
@@ -42,6 +55,7 @@ export default function GuestRoomSection({ hostId, onJoinRoom }: Props) {
         }
     }
 
+    const ctaLabel = primaryCtaLabel || 'Create guest room';
     return (
         <div style={{ marginTop: 20, marginBottom: 16 }}>
             <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 12 }}>Guest room</h3>
@@ -61,7 +75,7 @@ export default function GuestRoomSection({ hostId, onJoinRoom }: Props) {
                         cursor: creating ? 'not-allowed' : 'pointer',
                     }}
                 >
-                    {creating ? 'Creating…' : 'Create guest room'}
+                    {creating ? 'Creating…' : ctaLabel}
                 </button>
             ) : (
                 <div style={{
@@ -141,4 +155,5 @@ export default function GuestRoomSection({ hostId, onJoinRoom }: Props) {
             )}
         </div>
     );
-}
+});
+export default GuestRoomSection;
