@@ -139,6 +139,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [sessionDesc, setSessionDesc] = useState('');
     const [sessionDateTime, setSessionDateTime] = useState('');
     const [targetStudentIds, setTargetStudentIds] = useState<string[]>([]);
+    const [scheduleSessionType, setScheduleSessionType] = useState<'guest' | 'students'>('guest');
     const [allStudents, setAllStudents] = useState<{ user_id: string; name: string; email: string }[]>([]);
     const [scheduling, setScheduling] = useState(false);
     const [scheduleError, setScheduleError] = useState('');
@@ -151,6 +152,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [editSessionDesc, setEditSessionDesc] = useState('');
     const [editSessionDateTime, setEditSessionDateTime] = useState('');
     const [editTargetStudentIds, setEditTargetStudentIds] = useState<string[]>([]);
+    const [editSessionType, setEditSessionType] = useState<'guest' | 'students'>('guest');
     const [updatingSession, setUpdatingSession] = useState(false);
     const [updateSessionError, setUpdateSessionError] = useState('');
 
@@ -376,7 +378,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     description: sessionDesc.trim(),
                     scheduledAt: new Date(sessionDateTime).toISOString(),
                     maxParticipants: 30,
-                    targetStudentIds,
+                    targetStudentIds: scheduleSessionType === 'guest' ? [] : targetStudentIds,
                     createdBy: user.id,
                     sessionImageUrl: user?.profile?.avatar_url || null,
                 }),
@@ -426,8 +428,11 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             if (res.ok) {
                 const targets = await res.json();
                 setEditTargetStudentIds(targets.map((t: any) => t.target_user_id));
+                setEditSessionType(targets.length > 0 ? 'students' : 'guest');
+            } else {
+                setEditSessionType('guest');
             }
-        } catch { /* ignore */ }
+        } catch { /* ignore */ setEditSessionType('guest'); }
         
         // Fetch all students
         await fetchAllStudents();
@@ -449,7 +454,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     description: editSessionDesc.trim(),
                     sessionImageUrl: user?.profile?.avatar_url || editingSession?.session_image_url || null,
                     scheduledAt: new Date(editSessionDateTime).toISOString(),
-                    targetStudentIds: editTargetStudentIds,
+                    targetStudentIds: editSessionType === 'guest' ? [] : editTargetStudentIds,
                 }),
             });
             const data = await res.json();
@@ -694,6 +699,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                         setSessionDesc('');
                                         setSessionDateTime('');
                                         setTargetStudentIds([]);
+                                        setScheduleSessionType('guest');
                                         fetchAllStudents();
                                     }}
                                 >
@@ -783,6 +789,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                         setSessionDesc('');
                                         setSessionDateTime('');
                                         setTargetStudentIds([]);
+                                        setScheduleSessionType('guest');
                                         fetchAllStudents();
                                     }}
                                 >
@@ -961,6 +968,21 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                 />
                             </div>
                             {(userRole === 'teacher' || userRole === 'member') && (
+                                <>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Who can join?</label>
+                                        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, color: 'var(--text)' }}>
+                                                <input type="radio" name="scheduleSessionType" checked={scheduleSessionType === 'guest'} onChange={() => setScheduleSessionType('guest')} style={{ accentColor: '#6366f1' }} />
+                                                Anyone with the link (guest)
+                                            </label>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, color: 'var(--text)' }}>
+                                                <input type="radio" name="scheduleSessionType" checked={scheduleSessionType === 'students'} onChange={() => setScheduleSessionType('students')} style={{ accentColor: '#6366f1' }} />
+                                                Selected students
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {scheduleSessionType === 'students' && (
                                 <div>
                                     <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                                         Target Students {targetStudentIds.length > 0 && <span style={{ color: '#818cf8' }}>({targetStudentIds.length} selected)</span>}
@@ -997,6 +1019,8 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                         </div>
                                     )}
                                 </div>
+                                    )}
+                                </>
                             )}
                         </div>
 
@@ -1065,42 +1089,59 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                 />
                             </div>
                             {(userRole === 'teacher' || userRole === 'member') && (
-                                <div>
-                                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                                        Target Students {editTargetStudentIds.length > 0 && <span style={{ color: '#818cf8' }}>({editTargetStudentIds.length} selected)</span>}
-                                    </label>
-                                    {loadingStudentsList ? (
-                                        <div style={{ fontSize: 13, color: '#64748b' }}>Loading students…</div>
-                                    ) : allStudents.length === 0 ? (
-                                        <div style={{ fontSize: 13, color: '#64748b' }}>No approved students found.</div>
-                                    ) : (
-                                        <div style={{
-                                            maxHeight: 180, overflowY: 'auto',
-                                            border: '1px solid rgba(99,102,241,0.3)', borderRadius: 10,
-                                            background: 'rgba(99,102,241,0.05)',
-                                        }}>
-                                            {allStudents.map(s => (
-                                                <label key={s.user_id} style={{
-                                                    display: 'flex', alignItems: 'center', gap: 10,
-                                                    padding: '8px 12px', cursor: 'pointer',
-                                                    borderBottom: '1px solid rgba(99,102,241,0.1)',
-                                                    background: editTargetStudentIds.includes(s.user_id) ? 'rgba(99,102,241,0.15)' : 'transparent',
+                                <>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Who can join?</label>
+                                        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, color: 'var(--text)' }}>
+                                                <input type="radio" name="editSessionType" checked={editSessionType === 'guest'} onChange={() => setEditSessionType('guest')} style={{ accentColor: '#6366f1' }} />
+                                                Anyone with the link (guest)
+                                            </label>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, color: 'var(--text)' }}>
+                                                <input type="radio" name="editSessionType" checked={editSessionType === 'students'} onChange={() => setEditSessionType('students')} style={{ accentColor: '#6366f1' }} />
+                                                Selected students
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {editSessionType === 'students' && (
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                                Target Students {editTargetStudentIds.length > 0 && <span style={{ color: '#818cf8' }}>({editTargetStudentIds.length} selected)</span>}
+                                            </label>
+                                            {loadingStudentsList ? (
+                                                <div style={{ fontSize: 13, color: '#64748b' }}>Loading students…</div>
+                                            ) : allStudents.length === 0 ? (
+                                                <div style={{ fontSize: 13, color: '#64748b' }}>No approved students found.</div>
+                                            ) : (
+                                                <div style={{
+                                                    maxHeight: 180, overflowY: 'auto',
+                                                    border: '1px solid rgba(99,102,241,0.3)', borderRadius: 10,
+                                                    background: 'rgba(99,102,241,0.05)',
                                                 }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={editTargetStudentIds.includes(s.user_id)}
-                                                        onChange={() => toggleEditTargetStudent(s.user_id)}
-                                                        style={{ accentColor: '#6366f1' }}
-                                                    />
-                                                    <div>
-                                                        <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{s.name || s.email}</div>
-                                                        {s.name && <div style={{ fontSize: 11, color: '#64748b' }}>{s.email}</div>}
-                                                    </div>
-                                                </label>
-                                            ))}
+                                                    {allStudents.map(s => (
+                                                        <label key={s.user_id} style={{
+                                                            display: 'flex', alignItems: 'center', gap: 10,
+                                                            padding: '8px 12px', cursor: 'pointer',
+                                                            borderBottom: '1px solid rgba(99,102,241,0.1)',
+                                                            background: editTargetStudentIds.includes(s.user_id) ? 'rgba(99,102,241,0.15)' : 'transparent',
+                                                        }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={editTargetStudentIds.includes(s.user_id)}
+                                                                onChange={() => toggleEditTargetStudent(s.user_id)}
+                                                                style={{ accentColor: '#6366f1' }}
+                                                            />
+                                                            <div>
+                                                                <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{s.name || s.email}</div>
+                                                                {s.name && <div style={{ fontSize: 11, color: '#64748b' }}>{s.email}</div>}
+                                                            </div>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
-                                </div>
+                                </>
                             )}
                         </div>
 

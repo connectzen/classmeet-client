@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { useUser } from '../lib/AuthContext';
 import { insforge } from '../lib/insforge';
 import ProfileEditModal from './ProfileEditModal';
@@ -46,7 +47,7 @@ export default function UserMenu({ userRole }: UserMenuProps) {
     return (
         <>
             {showEditModal && <ProfileEditModal onClose={() => setShowEditModal(false)} />}
-            {showInviteLinks && user?.id && (
+            {showInviteLinks && user?.id && ReactDOM.createPortal(
                 <div
                     style={{
                         position: 'fixed', inset: 0, zIndex: 999999,
@@ -83,7 +84,8 @@ export default function UserMenu({ userRole }: UserMenuProps) {
                             <InviteLinksSection userId={user.id} variant={userRole === 'teacher' ? 'teacher' : 'member'} />
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
             
             <div ref={menuRef} style={{ position: 'relative', display: 'inline-flex' }}>
