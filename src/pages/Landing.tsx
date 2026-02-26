@@ -6,7 +6,6 @@ import ChatDrawer from '../components/ChatDrawer';
 import QuizDrawer from '../components/QuizDrawer';
 import AuthModal from '../components/AuthModal';
 import OnboardingForm from '../components/OnboardingForm';
-import GuestRoomSection, { type GuestRoomSectionRef } from '../components/GuestRoomSection';
 import MemberCoursesSection from '../components/MemberCoursesSection';
 import UserMenu from '../components/UserMenu';
 import MeetingBanner, { AdminMeeting } from '../components/MeetingBanner';
@@ -50,7 +49,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [userRole, setUserRole] = useState<'admin' | 'member' | 'teacher' | 'student' | 'pending' | null>(null);
     const [resumeSession, setResumeSession] = useState<ResumeSession | null>(null);
     const pendingApprovalRef = useRef<HTMLDivElement>(null);
-    const guestRoomSectionRef = useRef<GuestRoomSectionRef>(null);
 
     // â”€â”€ Teacher state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const [teacherClasses, setTeacherClasses] = useState<ClassInfo[]>([]);
@@ -125,8 +123,9 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         };
     }, [user?.id, userRole, fetchAdminMeetings]);
 
-    // ── Teacher Sessions ──────────────────────────────────────────────────
+    // ── Teacher / Member Sessions ─────────────────────────────────────────
     const [teacherSessions, setTeacherSessions] = useState<AdminMeeting[]>([]);
+    const [memberSessions, setMemberSessions] = useState<AdminMeeting[]>([]);
     const [studentTeacherSessions, setStudentTeacherSessions] = useState<AdminMeeting[]>([]);
     const [teacherProfiles, setTeacherProfiles] = useState<Record<string, { name: string; avatar_url?: string }>>({});
     const [teacherStudents, setTeacherStudents] = useState<{ id: string; name: string; email: string }[]>([]);
@@ -185,7 +184,18 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             if (r.ok) {
                 const sessions = await r.json();
                 setTeacherSessions(sessions);
-                // Fetch profiles for these sessions
+                await fetchTeacherProfiles(sessions);
+            }
+        } catch { /* ignore */ }
+    }, [user?.id, userRole, fetchTeacherProfiles]);
+
+    const fetchMemberSessions = useCallback(async () => {
+        if (!user?.id || userRole !== 'member') return;
+        try {
+            const r = await fetch(`${SERVER_URL}/api/teacher/sessions/by-host/${user.id}`);
+            if (r.ok) {
+                const sessions = await r.json();
+                setMemberSessions(sessions);
                 await fetchTeacherProfiles(sessions);
             }
         } catch { /* ignore */ }
@@ -238,12 +248,14 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     useEffect(() => {
         if (!user?.id || !userRole || userRole === 'pending') return;
         fetchTeacherSessions();
+        fetchMemberSessions();
         fetchStudentTeacherSessions();
         if (userRole === 'teacher') {
             fetchTeacherStudents();
             fetchTeacherCoursesCount();
         }
         const pollIdT = setInterval(fetchTeacherSessions, 30_000);
+        const pollIdM = setInterval(fetchMemberSessions, 30_000);
         const pollIdS = setInterval(fetchStudentTeacherSessions, 30_000);
         const sock2 = io(SERVER_URL, { transports: ['websocket'] });
         sock2.on('connect', () => {
@@ -252,9 +264,10 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                 sock2.emit('presence:subscribe');
             }
         });
-        sock2.on('teacher:session-created', () => { fetchTeacherSessions(); fetchStudentTeacherSessions(); });
+        sock2.on('teacher:session-created', () => { fetchTeacherSessions(); fetchMemberSessions(); fetchStudentTeacherSessions(); });
         sock2.on('teacher:session-ended', ({ sessionId }: { sessionId: string }) => {
             setTeacherSessions(prev => prev.filter(s => s.id !== sessionId));
+            setMemberSessions(prev => prev.filter(s => s.id !== sessionId));
             setStudentTeacherSessions(prev => prev.filter(s => s.id !== sessionId));
         });
         if (userRole === 'teacher') {
@@ -269,10 +282,11 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         }
         return () => {
             clearInterval(pollIdT);
+            clearInterval(pollIdM);
             clearInterval(pollIdS);
             sock2.disconnect();
         };
-    }, [user?.id, userRole, fetchTeacherSessions, fetchStudentTeacherSessions, fetchTeacherStudents, fetchTeacherCoursesCount]);
+    }, [user?.id, userRole, fetchTeacherSessions, fetchMemberSessions, fetchStudentTeacherSessions, fetchTeacherStudents, fetchTeacherCoursesCount]);
 
     // Persist invite token from URL so it survives post-signup reload
     useEffect(() => {
@@ -372,6 +386,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             setScheduleMode(false);
             setSessionTitle(''); setSessionDesc(''); setSessionDateTime(''); setTargetStudentIds([]);
             fetchTeacherSessions();
+            fetchMemberSessions();
         } catch { setScheduleError('Server unreachable'); }
         setScheduling(false);
     };
@@ -385,6 +400,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                 body: JSON.stringify({ teacherId: user.id }),
             });
             setTeacherSessions(prev => prev.filter(s => s.id !== session.id));
+            setMemberSessions(prev => prev.filter(s => s.id !== session.id));
         } catch { /* ignore */ }
     };
 
@@ -440,7 +456,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             if (!res.ok) { setUpdateSessionError(data.error || 'Failed to update session'); setUpdatingSession(false); return; }
             console.log('✅ Session updated, fetching fresh data...');
             await fetchTeacherSessions();
-            console.log('✅ Fresh data loaded, closing modal');
+            await fetchMemberSessions();
             setEditSessionMode(false);
         } catch { setUpdateSessionError('Server unreachable'); }
         setUpdatingSession(false);
@@ -671,15 +687,76 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                 </div>
                                 <button
                                     className="btn-dashboard-create"
-                                    onClick={() => guestRoomSectionRef.current?.createGuestRoom()}
+                                    onClick={() => {
+                                        setScheduleMode(true);
+                                        setScheduleError('');
+                                        setSessionTitle('');
+                                        setSessionDesc('');
+                                        setSessionDateTime('');
+                                        setTargetStudentIds([]);
+                                    }}
                                 >
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                                         <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
                                     </svg>
-                                    Create live session
+                                    Schedule session
                                 </button>
                             </div>
-                            <GuestRoomSection ref={guestRoomSectionRef} hostId={user!.id} onJoinRoom={onJoinRoom} primaryCtaLabel="Create live session" />
+                            {memberSessions.length > 0 && (
+                                <div style={{ marginBottom: 20 }}>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Your sessions</div>
+                                    <div className={`session-grid ${memberSessions.length > 1 ? 'session-grid-multi' : ''}`}>
+                                        {memberSessions.map(s => (
+                                            <div key={s.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%' }}>
+                                                <MeetingBanner
+                                                    meeting={{ ...s, session_image_url: teacherProfiles[s.created_by]?.avatar_url || s.session_image_url }}
+                                                    displayName={displayName}
+                                                    userRole="teacher"
+                                                    isCreator={true}
+                                                    sessionType="teacher"
+                                                    teacherName={teacherProfiles[s.created_by]?.name || displayName}
+                                                    onJoin={(code, id, name, role, title) => onJoinRoom(code, id, name, role, title)}
+                                                />
+                                                <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', gap: 6, zIndex: 10 }}>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleEditSession(s); }}
+                                                        title="Edit session"
+                                                        style={{
+                                                            background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.35)',
+                                                            borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 600,
+                                                            color: '#a5b4fc', cursor: 'pointer',
+                                                        }}
+                                                    >Edit</button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleDeleteSession(s); }}
+                                                        title="Delete session"
+                                                        style={{
+                                                            background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)',
+                                                            borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 600,
+                                                            color: '#fca5a5', cursor: 'pointer',
+                                                        }}
+                                                    >Delete</button>
+                                                </div>
+                                                <div style={{ marginTop: 8, padding: '8px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+                                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Share link (no login required)</div>
+                                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                                        <input
+                                                            readOnly
+                                                            value={`${typeof window !== 'undefined' ? window.location.origin : ''}?guest=${s.room_code}`}
+                                                            style={{ flex: 1, minWidth: 120, padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: 'var(--text)', fontSize: 12 }}
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => navigator.clipboard.writeText(`${window.location.origin}?guest=${s.room_code}`)}
+                                                            style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: 'var(--primary, #6366f1)', color: '#fff', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}
+                                                        >Copy</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                             <MemberCoursesSection userId={user!.id} />
                             <p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 24 }}>
                                 Create courses and quizzes, and chat with your teachers and students.
@@ -854,7 +931,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                         overflowY: 'auto',
                     }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-                            <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#f1f5f9' }}>Schedule a Class</h3>
+                            <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#f1f5f9' }}>{userRole === 'member' ? 'Schedule session' : 'Schedule a Class'}</h3>
                             <button onClick={() => setScheduleMode(false)} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
                         </div>
 
@@ -882,42 +959,44 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     style={{ width: '100%', boxSizing: 'border-box', colorScheme: 'dark' }}
                                 />
                             </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                                    Target Students {targetStudentIds.length > 0 && <span style={{ color: '#818cf8' }}>({targetStudentIds.length} selected)</span>}
-                                </label>
-                                {loadingStudentsList ? (
-                                    <div style={{ fontSize: 13, color: '#64748b' }}>Loading students…</div>
-                                ) : allStudents.length === 0 ? (
-                                    <div style={{ fontSize: 13, color: '#64748b' }}>No approved students found.</div>
-                                ) : (
-                                    <div style={{
-                                        maxHeight: 180, overflowY: 'auto',
-                                        border: '1px solid rgba(99,102,241,0.3)', borderRadius: 10,
-                                        background: 'rgba(99,102,241,0.05)',
-                                    }}>
-                                        {allStudents.map(s => (
-                                            <label key={s.user_id} style={{
-                                                display: 'flex', alignItems: 'center', gap: 10,
-                                                padding: '8px 12px', cursor: 'pointer',
-                                                borderBottom: '1px solid rgba(99,102,241,0.1)',
-                                                background: targetStudentIds.includes(s.user_id) ? 'rgba(99,102,241,0.15)' : 'transparent',
-                                            }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={targetStudentIds.includes(s.user_id)}
-                                                    onChange={() => toggleTargetStudent(s.user_id)}
-                                                    style={{ accentColor: '#6366f1' }}
-                                                />
-                                                <div>
-                                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{s.name || s.email}</div>
-                                                    {s.name && <div style={{ fontSize: 11, color: '#64748b' }}>{s.email}</div>}
-                                                </div>
-                                            </label>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
+                            {userRole === 'teacher' && (
+                                <div>
+                                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                        Target Students {targetStudentIds.length > 0 && <span style={{ color: '#818cf8' }}>({targetStudentIds.length} selected)</span>}
+                                    </label>
+                                    {loadingStudentsList ? (
+                                        <div style={{ fontSize: 13, color: '#64748b' }}>Loading students…</div>
+                                    ) : allStudents.length === 0 ? (
+                                        <div style={{ fontSize: 13, color: '#64748b' }}>No approved students found.</div>
+                                    ) : (
+                                        <div style={{
+                                            maxHeight: 180, overflowY: 'auto',
+                                            border: '1px solid rgba(99,102,241,0.3)', borderRadius: 10,
+                                            background: 'rgba(99,102,241,0.05)',
+                                        }}>
+                                            {allStudents.map(s => (
+                                                <label key={s.user_id} style={{
+                                                    display: 'flex', alignItems: 'center', gap: 10,
+                                                    padding: '8px 12px', cursor: 'pointer',
+                                                    borderBottom: '1px solid rgba(99,102,241,0.1)',
+                                                    background: targetStudentIds.includes(s.user_id) ? 'rgba(99,102,241,0.15)' : 'transparent',
+                                                }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={targetStudentIds.includes(s.user_id)}
+                                                        onChange={() => toggleTargetStudent(s.user_id)}
+                                                        style={{ accentColor: '#6366f1' }}
+                                                    />
+                                                    <div>
+                                                        <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{s.name || s.email}</div>
+                                                        {s.name && <div style={{ fontSize: 11, color: '#64748b' }}>{s.email}</div>}
+                                                    </div>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 24 }}>
@@ -931,7 +1010,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                 onClick={handleScheduleSession}
                                 disabled={scheduling || !sessionTitle.trim() || !sessionDateTime}
                             >
-                                {scheduling ? 'Scheduling…' : 'Schedule Class'}
+                                {scheduling ? 'Scheduling…' : userRole === 'member' ? 'Schedule session' : 'Schedule Class'}
                             </button>
                         </div>
                     </div>
@@ -984,42 +1063,44 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     style={{ width: '100%', boxSizing: 'border-box', colorScheme: 'dark' }}
                                 />
                             </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                                    Target Students {editTargetStudentIds.length > 0 && <span style={{ color: '#818cf8' }}>({editTargetStudentIds.length} selected)</span>}
-                                </label>
-                                {loadingStudentsList ? (
-                                    <div style={{ fontSize: 13, color: '#64748b' }}>Loading students…</div>
-                                ) : allStudents.length === 0 ? (
-                                    <div style={{ fontSize: 13, color: '#64748b' }}>No approved students found.</div>
-                                ) : (
-                                    <div style={{
-                                        maxHeight: 180, overflowY: 'auto',
-                                        border: '1px solid rgba(99,102,241,0.3)', borderRadius: 10,
-                                        background: 'rgba(99,102,241,0.05)',
-                                    }}>
-                                        {allStudents.map(s => (
-                                            <label key={s.user_id} style={{
-                                                display: 'flex', alignItems: 'center', gap: 10,
-                                                padding: '8px 12px', cursor: 'pointer',
-                                                borderBottom: '1px solid rgba(99,102,241,0.1)',
-                                                background: editTargetStudentIds.includes(s.user_id) ? 'rgba(99,102,241,0.15)' : 'transparent',
-                                            }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={editTargetStudentIds.includes(s.user_id)}
-                                                    onChange={() => toggleEditTargetStudent(s.user_id)}
-                                                    style={{ accentColor: '#6366f1' }}
-                                                />
-                                                <div>
-                                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{s.name || s.email}</div>
-                                                    {s.name && <div style={{ fontSize: 11, color: '#64748b' }}>{s.email}</div>}
-                                                </div>
-                                            </label>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
+                            {userRole === 'teacher' && (
+                                <div>
+                                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                        Target Students {editTargetStudentIds.length > 0 && <span style={{ color: '#818cf8' }}>({editTargetStudentIds.length} selected)</span>}
+                                    </label>
+                                    {loadingStudentsList ? (
+                                        <div style={{ fontSize: 13, color: '#64748b' }}>Loading students…</div>
+                                    ) : allStudents.length === 0 ? (
+                                        <div style={{ fontSize: 13, color: '#64748b' }}>No approved students found.</div>
+                                    ) : (
+                                        <div style={{
+                                            maxHeight: 180, overflowY: 'auto',
+                                            border: '1px solid rgba(99,102,241,0.3)', borderRadius: 10,
+                                            background: 'rgba(99,102,241,0.05)',
+                                        }}>
+                                            {allStudents.map(s => (
+                                                <label key={s.user_id} style={{
+                                                    display: 'flex', alignItems: 'center', gap: 10,
+                                                    padding: '8px 12px', cursor: 'pointer',
+                                                    borderBottom: '1px solid rgba(99,102,241,0.1)',
+                                                    background: editTargetStudentIds.includes(s.user_id) ? 'rgba(99,102,241,0.15)' : 'transparent',
+                                                }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={editTargetStudentIds.includes(s.user_id)}
+                                                        onChange={() => toggleEditTargetStudent(s.user_id)}
+                                                        style={{ accentColor: '#6366f1' }}
+                                                    />
+                                                    <div>
+                                                        <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{s.name || s.email}</div>
+                                                        {s.name && <div style={{ fontSize: 11, color: '#64748b' }}>{s.email}</div>}
+                                                    </div>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 24 }}>
@@ -1033,7 +1114,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                 onClick={handleUpdateSession}
                                 disabled={updatingSession || !editSessionTitle.trim() || !editSessionDateTime}
                             >
-                                {updatingSession ? 'Updating…' : 'Update Class'}
+                                {updatingSession ? 'Updating…' : 'Update session'}
                             </button>
                         </div>
                     </div>
