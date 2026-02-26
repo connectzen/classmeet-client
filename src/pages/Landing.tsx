@@ -832,33 +832,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                 </div>
                             </div>
 
-                            {/* Your teachers */}
-                            <div style={{ marginBottom: 20 }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Your teachers</div>
-                                {loadingMemberTeachers ? (
-                                    <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>
-                                ) : memberTeachers.length === 0 ? (
-                                    <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No teachers.</div>
-                                ) : (
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                                        {memberTeachers.map(t => (
-                                            <div key={t.user_id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '8px 12px' }}>
-                                                {teacherProfiles[t.user_id]?.avatar_url ? (
-                                                    <img src={teacherProfiles[t.user_id].avatar_url!} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                                                ) : (
-                                                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{initialsFor(teacherProfiles[t.user_id]?.name || t.name, 'T')}</div>
-                                                )}
-                                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: onlineUserIds.has(t.user_id) ? '#22c55e' : 'var(--text-muted)' }} title={onlineUserIds.has(t.user_id) ? 'Online' : 'Offline'} />
-                                                <div>
-                                                    <span style={{ fontWeight: 600, fontSize: 13 }}>{teacherProfiles[t.user_id]?.name || t.name || 'Teacher'}</span>
-                                                    <span style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)' }}>{onlineUserIds.has(t.user_id) ? 'Online' : (lastSeenByUserId[t.user_id] ? formatLastSeen(lastSeenByUserId[t.user_id]) : 'Offline')}</span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
                             {/* Teachers and students hierarchy */}
                             <div style={{ marginBottom: 20 }}>
                                 <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Teachers & their students</div>
