@@ -345,13 +345,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                 }
                 setUserRole(d.role);
                 if (d.role === 'admin') onAdminView();
-                if (d.role !== 'pending' && user?.profile?.name) {
-                    fetch(`${SERVER_URL}/api/profile/sync-name`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ userId: user.id, name: user.profile.name }),
-                    }).catch(() => {});
-                }
+                // Do not call profile/sync-name here: it emits dashboard:data-changed and would cause a refetch loop
                 fetchTeacherSessions();
                 fetchMemberSessions();
                 fetchStudentTeacherSessions();
@@ -360,7 +354,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                 if (d.role === 'student') fetchTeacherNamesForStudent();
             })
             .catch(() => setUserRole('pending'));
-    }, [user?.id, user?.email, user?.profile?.name, onAdminView, fetchTeacherSessions, fetchMemberSessions, fetchStudentTeacherSessions, fetchTeacherStudents, fetchTeacherCoursesCount, fetchAllStudents, fetchMemberCoursesCount, fetchTeacherNamesForStudent, fetchMemberTeachers, fetchMemberTeachersWithStudents]);
+    }, [user?.id, user?.email, onAdminView, fetchTeacherSessions, fetchMemberSessions, fetchStudentTeacherSessions, fetchTeacherStudents, fetchTeacherCoursesCount, fetchAllStudents, fetchMemberCoursesCount, fetchTeacherNamesForStudent, fetchMemberTeachers, fetchMemberTeachersWithStudents]);
 
     useEffect(() => {
         if (!user?.id || !userRole || userRole === 'pending') return;
