@@ -537,7 +537,19 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                                             )}
                                         </div>
                                     ) : (
-                                        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Backend metrics not available</div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                                                Plan and storage are managed in your InsForge backend.
+                                            </div>
+                                            <a
+                                                href={(import.meta.env.VITE_INSFORGE_BASE_URL as string) || 'https://insforge.app'}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                style={{ fontSize: 13, fontWeight: 600, color: '#a5b4fc', textDecoration: 'none' }}
+                                            >
+                                                View in InsForge →
+                                            </a>
+                                        </div>
                                     )}
                                 </div>
                             </div>
