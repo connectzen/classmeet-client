@@ -7,7 +7,6 @@ import QuizDrawer from '../components/QuizDrawer';
 import AuthModal from '../components/AuthModal';
 import OnboardingForm from '../components/OnboardingForm';
 import GuestRoomSection from '../components/GuestRoomSection';
-import InviteLinksSection from '../components/InviteLinksSection';
 import MemberCoursesSection from '../components/MemberCoursesSection';
 import UserMenu from '../components/UserMenu';
 import MeetingBanner, { AdminMeeting } from '../components/MeetingBanner';
@@ -128,6 +127,10 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [teacherSessions, setTeacherSessions] = useState<AdminMeeting[]>([]);
     const [studentTeacherSessions, setStudentTeacherSessions] = useState<AdminMeeting[]>([]);
     const [teacherProfiles, setTeacherProfiles] = useState<Record<string, { name: string; avatar_url?: string }>>({});
+    const [teacherStudents, setTeacherStudents] = useState<{ id: string; name: string; email: string }[]>([]);
+    const [loadingTeacherStudents, setLoadingTeacherStudents] = useState(false);
+    const [teacherCoursesCount, setTeacherCoursesCount] = useState(0);
+    const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
 
     // Schedule modal state
     const [scheduleMode, setScheduleMode] = useState(false);
@@ -186,6 +189,27 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         } catch { /* ignore */ }
     }, [user?.id, userRole, fetchTeacherProfiles]);
 
+    const fetchTeacherStudents = useCallback(async () => {
+        if (!user?.id || userRole !== 'teacher') return;
+        setLoadingTeacherStudents(true);
+        try {
+            const r = await fetch(`${SERVER_URL}/api/teacher/${user.id}/students`);
+            if (r.ok) setTeacherStudents(await r.json());
+        } catch { /* ignore */ }
+        setLoadingTeacherStudents(false);
+    }, [user?.id, userRole]);
+
+    const fetchTeacherCoursesCount = useCallback(async () => {
+        if (!user?.id || userRole !== 'teacher') return;
+        try {
+            const r = await fetch(`${SERVER_URL}/api/courses?createdBy=${encodeURIComponent(user.id)}`);
+            if (r.ok) {
+                const courses = await r.json();
+                setTeacherCoursesCount(Array.isArray(courses) ? courses.length : 0);
+            }
+        } catch { /* ignore */ }
+    }, [user?.id, userRole]);
+
     const fetchStudentTeacherSessions = useCallback(async () => {
         if (!user?.id || userRole !== 'student') return;
         try {
@@ -213,20 +237,40 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         if (!user?.id || !userRole || userRole === 'pending') return;
         fetchTeacherSessions();
         fetchStudentTeacherSessions();
+        if (userRole === 'teacher') {
+            fetchTeacherStudents();
+            fetchTeacherCoursesCount();
+        }
         const pollIdT = setInterval(fetchTeacherSessions, 30_000);
         const pollIdS = setInterval(fetchStudentTeacherSessions, 30_000);
         const sock2 = io(SERVER_URL, { transports: ['websocket'] });
+        sock2.on('connect', () => {
+            sock2.emit('register-user', user.id);
+            if (userRole === 'teacher') {
+                sock2.emit('presence:subscribe');
+            }
+        });
         sock2.on('teacher:session-created', () => { fetchTeacherSessions(); fetchStudentTeacherSessions(); });
         sock2.on('teacher:session-ended', ({ sessionId }: { sessionId: string }) => {
             setTeacherSessions(prev => prev.filter(s => s.id !== sessionId));
             setStudentTeacherSessions(prev => prev.filter(s => s.id !== sessionId));
         });
+        if (userRole === 'teacher') {
+            sock2.on('presence:list', (ids: string[]) => setOnlineUserIds(new Set(ids)));
+            sock2.on('presence:status', ({ userId, online }: { userId: string; online: boolean }) => {
+                setOnlineUserIds(prev => {
+                    const next = new Set(prev);
+                    if (online) next.add(userId); else next.delete(userId);
+                    return next;
+                });
+            });
+        }
         return () => {
             clearInterval(pollIdT);
             clearInterval(pollIdS);
             sock2.disconnect();
         };
-    }, [user?.id, userRole, fetchTeacherSessions, fetchStudentTeacherSessions]);
+    }, [user?.id, userRole, fetchTeacherSessions, fetchStudentTeacherSessions, fetchTeacherStudents, fetchTeacherCoursesCount]);
 
     // Persist invite token from URL so it survives post-signup reload
     useEffect(() => {
@@ -247,6 +291,9 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             fetch(`${SERVER_URL}/api/user-role/${user.id}${emailParam}`)
                 .then((r) => r.json())
                 .then((d) => {
+                    if (d.role === 'pending' && !sessionStorage.getItem('needsOnboarding')) {
+                        sessionStorage.setItem('needsOnboarding', '1');
+                    }
                     setUserRole(d.role);
                     if (d.role === 'admin') onAdminView();
                     if (d.role !== 'pending' && user?.profile?.name) {
@@ -444,7 +491,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             <button className="btn-primary-nav" onClick={() => setAuthModal('signup')}>Get Started</button>
                         </>
                     )}
-                    {user && <UserMenu />}
+                    {user && <UserMenu userRole={userRole} />}
                 </div>
             </nav>
 
@@ -612,7 +659,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     <h2 className="dashboard-panel-title">Courses & Invites</h2>
                                 </div>
                             </div>
-                            <InviteLinksSection userId={user!.id} variant="member" />
                             <GuestRoomSection hostId={user!.id} onJoinRoom={onJoinRoom} />
                             <MemberCoursesSection userId={user!.id} />
                             <p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 16 }}>
@@ -649,7 +695,43 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                 </button>
                             </div>
 
-                            <InviteLinksSection userId={user!.id} variant="teacher" />
+                            {/* Quick overview */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 20 }}>
+                                <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Students</div>
+                                    <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>{loadingTeacherStudents ? '…' : teacherStudents.length}</div>
+                                </div>
+                                <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Active courses</div>
+                                    <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>{teacherCoursesCount}</div>
+                                </div>
+                                <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Upcoming sessions</div>
+                                    <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>
+                                        {teacherSessions.filter(s => new Date(s.scheduled_at) >= new Date()).length}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Your students */}
+                            <div style={{ marginBottom: 20 }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Your students</div>
+                                {loadingTeacherStudents ? (
+                                    <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>
+                                ) : teacherStudents.length === 0 ? (
+                                    <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No students assigned yet. Share your invite link from Profile → Invite links.</div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                        {teacherStudents.map(st => (
+                                            <div key={st.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '8px 12px' }}>
+                                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: onlineUserIds.has(st.id) ? '#22c55e' : 'var(--text-muted)' }} title={onlineUserIds.has(st.id) ? 'Online' : 'Offline'} />
+                                                <span style={{ fontWeight: 600, fontSize: 13 }}>{st.name || st.email}</span>
+                                                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{st.email}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
 
                             {/* Teacher-owned session banners */}
                             {teacherSessions.length > 0 && (

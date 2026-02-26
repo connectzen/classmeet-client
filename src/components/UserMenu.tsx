@@ -2,13 +2,20 @@ import { useState, useEffect, useRef } from 'react';
 import { useUser } from '../lib/AuthContext';
 import { insforge } from '../lib/insforge';
 import ProfileEditModal from './ProfileEditModal';
+import InviteLinksSection from './InviteLinksSection';
 
-export default function UserMenu() {
+interface UserMenuProps {
+    userRole?: string | null;
+}
+
+export default function UserMenu({ userRole }: UserMenuProps) {
     const { user } = useUser();
     const [open, setOpen] = useState(false);
     const [signingOut, setSigningOut] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
+    const [showInviteLinks, setShowInviteLinks] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
+    const showInviteLinksItem = userRole === 'teacher' || userRole === 'member';
 
     // Close when clicking outside
     useEffect(() => {
@@ -39,6 +46,28 @@ export default function UserMenu() {
     return (
         <>
             {showEditModal && <ProfileEditModal onClose={() => setShowEditModal(false)} />}
+            {showInviteLinks && user?.id && (
+                <div
+                    style={{
+                        position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+                    }}
+                    onClick={() => setShowInviteLinks(false)}
+                >
+                    <div
+                        style={{
+                            background: 'var(--surface-2, #18181f)', borderRadius: 16, padding: 24, maxWidth: 480, width: '100%', maxHeight: '90vh', overflow: 'auto',
+                            border: '1px solid rgba(99,102,241,0.2)', boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+                        }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                            <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Invite links</h3>
+                            <button type="button" onClick={() => setShowInviteLinks(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 20, cursor: 'pointer', padding: '2px 6px', lineHeight: 1 }}>×</button>
+                        </div>
+                        <InviteLinksSection userId={user.id} variant={userRole === 'teacher' ? 'teacher' : 'member'} />
+                    </div>
+                </div>
+            )}
             
             <div ref={menuRef} style={{ position: 'relative', display: 'inline-flex' }}>
                 {/* Avatar button */}
@@ -105,6 +134,32 @@ export default function UserMenu() {
                             </div>
                         </div>
                     </div>
+
+                    {showInviteLinksItem && (
+                        <button
+                            onClick={() => {
+                                setShowInviteLinks(true);
+                                setOpen(false);
+                            }}
+                            style={{
+                                width: '100%', padding: '9px 12px', border: 'none', borderRadius: 10,
+                                background: 'transparent', color: 'var(--text, #e8e8f0)',
+                                fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', gap: 8, transition: 'background 0.15s',
+                                textAlign: 'left', marginBottom: 4,
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.1)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                        >
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                                <circle cx="9" cy="7" r="4" />
+                                <line x1="19" y1="8" x2="19" y2="14" />
+                                <line x1="22" y1="11" x2="16" y2="11" />
+                            </svg>
+                            Invite links
+                        </button>
+                    )}
 
                     {/* Edit Profile */}
                     <button

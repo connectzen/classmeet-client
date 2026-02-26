@@ -16,6 +16,7 @@ interface Meeting {
     created_at: string; targets: Array<{ type: string; value: string }>;
 }
 interface AdminStats { membersCount: number; teachersCount: number; studentsCount: number; liveGuestCount: number; }
+interface BackendStats { plan: string | null; storageTotal: number | null; storageUsed: number | null; storageRemaining: number | null; usageTrends?: unknown[]; warnings?: string[]; }
 interface HealthStatus { status: 'ok' | 'degraded'; database?: string; error?: string; }
 type Tab = 'overview' | 'members' | 'teachers' | 'students' | 'messages' | 'pending' | 'meetings';
 
@@ -50,7 +51,13 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
 
     const [members, setMembers] = useState<Member[]>([]);
     const [loadingMembers, setLoadingMembers] = useState(false);
+    const [showAddMember, setShowAddMember] = useState(false);
+    const [memberForm, setMemberForm] = useState({ name: '', email: '', tempPassword: '' });
+    const [memberError, setMemberError] = useState('');
+    const [showMemberTempPassword, setShowMemberTempPassword] = useState(true);
+    const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
     const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
+    const [backendStats, setBackendStats] = useState<BackendStats | null>(null);
     const [healthStatus, setHealthStatus] = useState<HealthStatus | null>(null);
 
     const [pendingUsers, setPendingUsers] = useState<{ id: string; name: string; email: string; created_at: string | null }[]>([]);
@@ -129,6 +136,14 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
         } catch { setHealthStatus({ status: 'degraded', error: 'Request failed' }); }
     }, [user?.id]);
 
+    const fetchBackendStats = useCallback(async () => {
+        if (!user?.id) return;
+        try {
+            const r = await fetch(`${SERVER_URL}/api/admin/backend-stats?adminId=${encodeURIComponent(user.id)}`);
+            if (r.ok) setBackendStats(await r.json());
+        } catch { setBackendStats(null); }
+    }, [user?.id]);
+
     const fetchSentMessages = useCallback(async () => {
         if (!user?.id) return;
         try { const r = await fetch(`${SERVER_URL}/api/messages/sent/${user.id}`); if (r.ok) setSentMessages(await r.json()); } catch {}
@@ -156,7 +171,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
 
     // ── Real-time auto-refresh via socket.io ─────────────────────────────
     const refreshCurrentTab = useCallback(() => {
-        if (tab === 'overview') { fetchTeachers(); fetchStudents(); fetchMembers(); fetchAdminStats(); fetchPendingUsers(); fetchSentMessages(); fetchMeetings(); }
+        if (tab === 'overview') { fetchTeachers(); fetchStudents(); fetchMembers(); fetchAdminStats(); fetchBackendStats(); fetchPendingUsers(); fetchSentMessages(); fetchMeetings(); }
         else if (tab === 'members') fetchMembers();
         else if (tab === 'teachers') fetchTeachers();
         else if (tab === 'students') fetchStudents();
@@ -178,6 +193,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
         sock.on('admin:refresh', ({ type }: { type: string }) => {
             if (type === 'teachers' || type === 'overview') { fetchTeachers(); fetchStudents(); }
             if (type === 'students') fetchStudents();
+            if (type === 'members') fetchMembers();
             if (type === 'pending')  { fetchPendingUsers(); fetchTeachers(); fetchStudents(); fetchMembers(); }
             fetchTeachers();
             fetchStudents();
@@ -220,14 +236,14 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
     };
 
     useEffect(() => {
-        if (tab === 'overview') { fetchTeachers(); fetchStudents(); fetchMembers(); fetchAdminStats(); fetchHealth(); fetchSentMessages(); fetchPendingUsers(); fetchMeetings(); }
+        if (tab === 'overview') { fetchTeachers(); fetchStudents(); fetchMembers(); fetchAdminStats(); fetchBackendStats(); fetchHealth(); fetchSentMessages(); fetchPendingUsers(); fetchMeetings(); }
         if (tab === 'members') fetchMembers();
         if (tab === 'teachers') fetchTeachers();
         if (tab === 'students') { fetchStudents(); }
         if (tab === 'pending')  fetchPendingUsers();
         if (tab === 'meetings') { fetchMeetings(); fetchAllRooms(); fetchAllUsers(); }
         if (tab === 'messages') { /* ChatDrawer handles its own data */ }
-    }, [tab, fetchTeachers, fetchStudents, fetchMembers, fetchAdminStats, fetchHealth, fetchSentMessages, fetchPendingUsers, fetchMeetings, fetchAllRooms, fetchAllUsers]);
+    }, [tab, fetchTeachers, fetchStudents, fetchMembers, fetchAdminStats, fetchBackendStats, fetchHealth, fetchSentMessages, fetchPendingUsers, fetchMeetings, fetchAllRooms, fetchAllUsers]);
 
     // Always fetch sidebar stats on mount regardless of starting tab
     useEffect(() => {
@@ -262,6 +278,33 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
         if (!confirm('Remove this student? This will delete their account and all enrollments.')) return;
         await fetch(`${SERVER_URL}/api/students/${userId}`, { method: 'DELETE' });
         fetchStudents();
+    };
+
+    const handleAddMember = async () => {
+        setMemberError('');
+        if (!memberForm.name || !memberForm.email || !memberForm.tempPassword) { setMemberError('All fields are required.'); return; }
+        if (!user?.id) { setMemberError('You must be logged in.'); return; }
+        const r = await fetch(`${SERVER_URL}/api/members`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...memberForm, adminId: user.id }),
+        });
+        if (r.ok) { setShowAddMember(false); setMemberForm({ name: '', email: '', tempPassword: '' }); fetchMembers(); }
+        else { const d = await r.json(); setMemberError(d.error || 'Failed.'); }
+    };
+
+    const ROLES = ['member', 'teacher', 'student'] as const;
+    const handleEditRole = async (userId: string, role: string) => {
+        if (!user?.id || !ROLES.includes(role as typeof ROLES[number])) return;
+        setEditingRoleId(userId);
+        const r = await fetch(`${SERVER_URL}/api/user-role/${userId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role, adminId: user.id }),
+        });
+        setEditingRoleId(null);
+        if (r.ok) { fetchMembers(); fetchTeachers(); fetchStudents(); }
+        else { const d = await r.json(); alert(d.error || 'Failed to update role'); }
     };
 
     const handleCreateMeeting = async () => {
@@ -473,6 +516,31 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(2,1fr)', gap: 20, marginBottom: 32 }}>
                                 <StatCard icon="◆" label="Messages Sent" value={sentMessages.length} accent="#8b5cf6" />
                             </div>
+                            <div style={{ marginBottom: 32 }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 12 }}>Backend &amp; Storage</div>
+                                <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: '20px 24px' }}>
+                                    {backendStats && (backendStats.plan != null || backendStats.storageUsed != null || backendStats.storageTotal != null) ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                            {backendStats.plan != null && <div style={{ fontSize: 14 }}><span style={{ color: 'var(--text-muted)' }}>Plan:</span> <strong>{backendStats.plan}</strong></div>}
+                                            {(backendStats.storageUsed != null || backendStats.storageTotal != null) && (
+                                                <div style={{ fontSize: 14 }}>
+                                                    <span style={{ color: 'var(--text-muted)' }}>Storage:</span>{' '}
+                                                    {backendStats.storageUsed != null && <span>{formatBytes(backendStats.storageUsed)} used</span>}
+                                                    {backendStats.storageTotal != null && <span> / {formatBytes(backendStats.storageTotal)} total</span>}
+                                                    {backendStats.storageRemaining != null && <span> ({formatBytes(backendStats.storageRemaining)} remaining)</span>}
+                                                </div>
+                                            )}
+                                            {backendStats.warnings && backendStats.warnings.length > 0 && (
+                                                <div style={{ marginTop: 8, padding: 10, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 10 }}>
+                                                    {backendStats.warnings.map((w, i) => <div key={i} style={{ fontSize: 13, color: '#f59e0b' }}>{w}</div>)}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Backend metrics not available</div>
+                                    )}
+                                </div>
+                            </div>
                             {healthStatus && (
                                 <div style={{ marginBottom: 24, padding: 12, borderRadius: 12, background: healthStatus.status === 'ok' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${healthStatus.status === 'ok' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`, display: 'flex', alignItems: 'center', gap: 8 }}>
                                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: healthStatus.status === 'ok' ? '#22c55e' : '#ef4444' }} />
@@ -495,9 +563,44 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                     {/* MEMBERS */}
                     {tab === 'members' && (
                         <div>
-                            <PageHeader title="Members" subtitle={`${members.length} registered`} />
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+                                <PageHeader title="Members" subtitle={`${members.length} registered`} />
+                                <Btn onClick={() => { setShowAddMember(true); setMemberError(''); }} color="#a78bfa">+ Add Member</Btn>
+                            </div>
+                            {showAddMember && (
+                                <Card title="Add New Member" style={{ marginBottom: 24 }}>
+                                    <div style={{ display: 'grid', gap: 12 }}>
+                                        <Input placeholder="Full Name" value={memberForm.name} onChange={e => setMemberForm({ ...memberForm, name: e.target.value })} />
+                                        <Input placeholder="Email Address" value={memberForm.email} onChange={e => setMemberForm({ ...memberForm, email: e.target.value })} />
+                                        <div style={{ position: 'relative' }}>
+                                            <input
+                                                type={showMemberTempPassword ? 'text' : 'password'}
+                                                placeholder="Temporary Password"
+                                                value={memberForm.tempPassword}
+                                                onChange={e => setMemberForm({ ...memberForm, tempPassword: e.target.value })}
+                                                style={{ background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: 10, padding: '9px 90px 9px 14px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' }}
+                                            />
+                                            <div style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', display: 'flex', gap: 4 }}>
+                                                <button type="button" onClick={() => setShowMemberTempPassword(v => !v)} title={showMemberTempPassword ? 'Hide' : 'Show'}
+                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--text-muted)', padding: '2px 4px', lineHeight: 1 }}>
+                                                    {showMemberTempPassword ? '🙈' : '👁'}
+                                                </button>
+                                                <button type="button" onClick={() => { navigator.clipboard.writeText(memberForm.tempPassword); }} title="Copy password"
+                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', padding: '2px 4px', lineHeight: 1 }}>
+                                                    📋
+                                                </button>
+                                            </div>
+                                        </div>
+                                        {memberError && <ErrorMsg>{memberError}</ErrorMsg>}
+                                        <div style={{ display: 'flex', gap: 10 }}>
+                                            <Btn onClick={handleAddMember} color="#a78bfa">Add Member</Btn>
+                                            <Btn onClick={() => setShowAddMember(false)} color="var(--surface-3)">Cancel</Btn>
+                                        </div>
+                                    </div>
+                                </Card>
+                            )}
                             {loadingMembers ? <Loading /> : members.length === 0 ? (
-                                <Empty icon="👤" message="No members yet." />
+                                <Empty icon="👤" message="No members yet. Add one above." />
                             ) : (
                                 <div style={{ display: 'grid', gap: 10 }}>
                                     {members.map(m => (
@@ -509,7 +612,20 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                                                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{m.email}</div>
                                                 </div>
                                             </div>
-                                            <span style={{ fontSize: 11, background: 'rgba(167,139,250,0.2)', border: '1px solid rgba(167,139,250,0.4)', borderRadius: 100, padding: '3px 10px', color: '#a78bfa', fontWeight: 600 }}>Member</span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <label style={{ fontSize: 11, color: 'var(--text-muted)' }}>Role</label>
+                                                <select
+                                                    value="member"
+                                                    onChange={e => handleEditRole(m.user_id, e.target.value)}
+                                                    disabled={editingRoleId === m.user_id}
+                                                    style={{ background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', color: 'var(--text)', fontSize: 12 }}
+                                                >
+                                                    <option value="member">Member</option>
+                                                    <option value="teacher">Teacher</option>
+                                                    <option value="student">Student</option>
+                                                </select>
+                                                {editingRoleId === m.user_id && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Updating...</span>}
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -580,7 +696,19 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                                                             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{t.email} · {t.room_count} class{t.room_count !== 1 ? 'es' : ''}</div>
                                                         </div>
                                                     </div>
-                                                    <div style={{ display: 'flex', gap: 8 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                                        <label style={{ fontSize: 11, color: 'var(--text-muted)' }}>Role</label>
+                                                        <select
+                                                            value="teacher"
+                                                            onChange={e => handleEditRole(t.user_id, e.target.value)}
+                                                            disabled={editingRoleId === t.user_id}
+                                                            style={{ background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', color: 'var(--text)', fontSize: 12 }}
+                                                        >
+                                                            <option value="teacher">Teacher</option>
+                                                            <option value="member">Member</option>
+                                                            <option value="student">Student</option>
+                                                        </select>
+                                                        {editingRoleId === t.user_id && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Updating...</span>}
                                                         <Btn onClick={() => setEditTeacher(t)} color="var(--surface-3)" small>Edit</Btn>
                                                         <Btn onClick={() => handleDeleteTeacher(t.user_id)} color="#ef444420" textColor="#ef4444" small>Remove</Btn>
                                                     </div>
@@ -611,7 +739,19 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                                                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{s.email} · {s.enrollment_count} enrollment{s.enrollment_count !== 1 ? 's' : ''}</div>
                                                 </div>
                                             </div>
-                                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                                <label style={{ fontSize: 11, color: 'var(--text-muted)' }}>Role</label>
+                                                <select
+                                                    value="student"
+                                                    onChange={e => handleEditRole(s.user_id, e.target.value)}
+                                                    disabled={editingRoleId === s.user_id}
+                                                    style={{ background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', color: 'var(--text)', fontSize: 12 }}
+                                                >
+                                                    <option value="student">Student</option>
+                                                    <option value="member">Member</option>
+                                                    <option value="teacher">Teacher</option>
+                                                </select>
+                                                {editingRoleId === s.user_id && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Updating...</span>}
                                                 <Btn onClick={() => handleDeleteStudent(s.user_id)} color="#ef444420" textColor="#ef4444" small>Remove</Btn>
                                             </div>
                                         </div>
@@ -944,6 +1084,13 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
 }
 
 /* ── Shared micro-components ── */
+
+function formatBytes(n: number): string {
+    if (n >= 1e9) return (n / 1e9).toFixed(1) + ' GB';
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + ' MB';
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + ' KB';
+    return n + ' B';
+}
 
 function PageHeader({ title, subtitle }: { title: string; subtitle?: string }) {
     return (
