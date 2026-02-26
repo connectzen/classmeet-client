@@ -47,6 +47,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const { user } = useUser();
     const [authModal, setAuthModal] = useState<'signin' | 'signup' | null>(null);
     const [userRole, setUserRole] = useState<'admin' | 'member' | 'teacher' | 'student' | 'pending' | null>(null);
+    const [onboardingCompleted, setOnboardingCompleted] = useState(false);
     const [resumeSession, setResumeSession] = useState<ResumeSession | null>(null);
     const pendingApprovalRef = useRef<HTMLDivElement>(null);
 
@@ -131,6 +132,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [teacherStudents, setTeacherStudents] = useState<{ id: string; name: string; email: string }[]>([]);
     const [loadingTeacherStudents, setLoadingTeacherStudents] = useState(false);
     const [teacherCoursesCount, setTeacherCoursesCount] = useState(0);
+    const [memberCoursesCount, setMemberCoursesCount] = useState(0);
     const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
 
     // Schedule modal state
@@ -224,6 +226,17 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         } catch { /* ignore */ }
     }, [user?.id, userRole]);
 
+    const fetchMemberCoursesCount = useCallback(async () => {
+        if (!user?.id || userRole !== 'member') return;
+        try {
+            const r = await fetch(`${SERVER_URL}/api/courses?createdBy=${encodeURIComponent(user.id)}`);
+            if (r.ok) {
+                const courses = await r.json();
+                setMemberCoursesCount(Array.isArray(courses) ? courses.length : 0);
+            }
+        } catch { /* ignore */ }
+    }, [user?.id, userRole]);
+
     const fetchStudentTeacherSessions = useCallback(async () => {
         if (!user?.id || userRole !== 'student') return;
         try {
@@ -256,13 +269,17 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             fetchTeacherStudents();
             fetchTeacherCoursesCount();
         }
+        if (userRole === 'member') {
+            fetchAllStudents();
+            fetchMemberCoursesCount();
+        }
         const pollIdT = setInterval(fetchTeacherSessions, 30_000);
         const pollIdM = setInterval(fetchMemberSessions, 30_000);
         const pollIdS = setInterval(fetchStudentTeacherSessions, 30_000);
         const sock2 = io(SERVER_URL, { transports: ['websocket'] });
         sock2.on('connect', () => {
             sock2.emit('register-user', user.id);
-            if (userRole === 'teacher') {
+            if (userRole === 'teacher' || userRole === 'member' || userRole === 'student') {
                 sock2.emit('presence:subscribe');
             }
         });
@@ -272,7 +289,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             setMemberSessions(prev => prev.filter(s => s.id !== sessionId));
             setStudentTeacherSessions(prev => prev.filter(s => s.id !== sessionId));
         });
-        if (userRole === 'teacher') {
+        if (userRole === 'teacher' || userRole === 'member' || userRole === 'student') {
             sock2.on('presence:list', (ids: string[]) => setOnlineUserIds(new Set(ids)));
             sock2.on('presence:status', ({ userId, online }: { userId: string; online: boolean }) => {
                 setOnlineUserIds(prev => {
@@ -288,7 +305,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             clearInterval(pollIdS);
             sock2.disconnect();
         };
-    }, [user?.id, userRole, fetchTeacherSessions, fetchMemberSessions, fetchStudentTeacherSessions, fetchTeacherStudents, fetchTeacherCoursesCount]);
+    }, [user?.id, userRole, fetchTeacherSessions, fetchMemberSessions, fetchStudentTeacherSessions, fetchTeacherStudents, fetchTeacherCoursesCount, fetchAllStudents, fetchMemberCoursesCount]);
 
     // Persist invite token from URL so it survives post-signup reload
     useEffect(() => {
@@ -378,7 +395,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     description: sessionDesc.trim(),
                     scheduledAt: new Date(sessionDateTime).toISOString(),
                     maxParticipants: 30,
-                    targetStudentIds: scheduleSessionType === 'guest' ? [] : targetStudentIds,
+                    targetStudentIds: userRole === 'teacher' ? targetStudentIds : (scheduleSessionType === 'guest' ? [] : targetStudentIds),
                     createdBy: user.id,
                     sessionImageUrl: user?.profile?.avatar_url || null,
                 }),
@@ -428,11 +445,11 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             if (res.ok) {
                 const targets = await res.json();
                 setEditTargetStudentIds(targets.map((t: any) => t.target_user_id));
-                setEditSessionType(targets.length > 0 ? 'students' : 'guest');
+                setEditSessionType(userRole === 'teacher' ? 'students' : (targets.length > 0 ? 'students' : 'guest'));
             } else {
-                setEditSessionType('guest');
+                setEditSessionType(userRole === 'teacher' ? 'students' : 'guest');
             }
-        } catch { /* ignore */ setEditSessionType('guest'); }
+        } catch { /* ignore */ setEditSessionType(userRole === 'teacher' ? 'students' : 'guest'); }
         
         // Fetch all students
         await fetchAllStudents();
@@ -454,7 +471,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     description: editSessionDesc.trim(),
                     sessionImageUrl: user?.profile?.avatar_url || editingSession?.session_image_url || null,
                     scheduledAt: new Date(editSessionDateTime).toISOString(),
-                    targetStudentIds: editSessionType === 'guest' ? [] : editTargetStudentIds,
+                    targetStudentIds: userRole === 'teacher' ? editTargetStudentIds : (editSessionType === 'guest' ? [] : editTargetStudentIds),
                 }),
             });
             const data = await res.json();
@@ -624,7 +641,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     {/* ONBOARDING (new user) or PENDING APPROVAL */}
                     {userRole === 'pending' && (
                         <>
-                            {typeof sessionStorage !== 'undefined' && sessionStorage.getItem('needsOnboarding') === '1' ? (
+                            {typeof sessionStorage !== 'undefined' && sessionStorage.getItem('needsOnboarding') === '1' && !onboardingCompleted ? (
                                 <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 16px' }}>
                                     <OnboardingForm
                                         userId={user!.id}
@@ -632,6 +649,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                         email={user?.email || ''}
                                         onComplete={(role) => {
                                             setUserRole(role === 'pending' ? 'pending' : (role as 'member' | 'teacher' | 'student'));
+                                            setOnboardingCompleted(true);
                                             if (role === 'pending') {
                                                 requestAnimationFrame(() => {
                                                     setTimeout(() => pendingApprovalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80);
@@ -640,7 +658,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                         }}
                                     />
                                 </div>
-                            ) : (
+                            ) : (userRole === 'pending' && (onboardingCompleted || (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('needsOnboarding') !== '1'))) ? (
                                 <div ref={pendingApprovalRef} style={{ display: 'flex', justifyContent: 'center', padding: '40px 16px' }}>
                                     <div style={{
                                         background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.05))',
@@ -679,7 +697,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                         </p>
                                     </div>
                                 </div>
-                            )}
+                            ) : null}
                         </>
                     )}
 
@@ -688,7 +706,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             <div className="dashboard-panel-header">
                                 <div className="dashboard-panel-title-group">
                                     <span className="role-badge badge-teacher">👤 Member Dashboard</span>
-                                    <h2 className="dashboard-panel-title">Courses & Invites</h2>
+                                    <h2 className="dashboard-panel-title">Your Classes</h2>
                                 </div>
                                 <button
                                     className="btn-dashboard-create"
@@ -709,6 +727,45 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     Schedule session
                                 </button>
                             </div>
+
+                            {/* Quick overview - same layout as teacher */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 20 }}>
+                                <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Students</div>
+                                    <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>{loadingStudentsList ? '…' : allStudents.length}</div>
+                                </div>
+                                <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Active courses</div>
+                                    <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>{memberCoursesCount}</div>
+                                </div>
+                                <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Upcoming sessions</div>
+                                    <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>
+                                        {memberSessions.filter(s => new Date(s.scheduled_at) >= new Date()).length}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Your students - with live/offline indicator */}
+                            <div style={{ marginBottom: 20 }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Your students</div>
+                                {loadingStudentsList ? (
+                                    <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>
+                                ) : allStudents.length === 0 ? (
+                                    <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No students yet. Share your invite link from Profile → Invite links.</div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                        {allStudents.map(st => (
+                                            <div key={st.user_id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '8px 12px' }}>
+                                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: onlineUserIds.has(st.user_id) ? '#22c55e' : 'var(--text-muted)' }} title={onlineUserIds.has(st.user_id) ? 'Online' : 'Offline'} />
+                                                <span style={{ fontWeight: 600, fontSize: 13 }}>{st.name || st.email}</span>
+                                                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{st.email}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
                             {memberSessions.length > 0 && (
                                 <div style={{ marginBottom: 20 }}>
                                     <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Your sessions</div>
@@ -789,7 +846,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                         setSessionDesc('');
                                         setSessionDateTime('');
                                         setTargetStudentIds([]);
-                                        setScheduleSessionType('guest');
+                                        setScheduleSessionType('students');
                                         fetchAllStudents();
                                     }}
                                 >
@@ -893,6 +950,34 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                 </div>
                             </div>
 
+                            {/* Quick overview */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 20 }}>
+                                <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Upcoming sessions</div>
+                                    <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>
+                                        {studentTeacherSessions.filter(s => new Date(s.scheduled_at) >= new Date()).length}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Your teachers - with live/offline indicator */}
+                            {(() => {
+                                const teacherIds = Array.from(new Set(studentTeacherSessions.map(s => s.created_by)));
+                                return teacherIds.length > 0 ? (
+                                    <div style={{ marginBottom: 20 }}>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Your teachers</div>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                            {teacherIds.map(tid => (
+                                                <div key={tid} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '8px 12px' }}>
+                                                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: onlineUserIds.has(tid) ? '#22c55e' : 'var(--text-muted)' }} title={onlineUserIds.has(tid) ? 'Online' : 'Offline'} />
+                                                    <span style={{ fontWeight: 600, fontSize: 13 }}>{teacherProfiles[tid]?.name || 'Teacher'}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : null;
+                            })()}
+
                             {/* Student scheduled sessions (teacher sessions they're targeted for) */}
                             {studentTeacherSessions.length > 0 && (
                                 <div style={{ marginBottom: 8 }}>
@@ -969,20 +1054,22 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             </div>
                             {(userRole === 'teacher' || userRole === 'member') && (
                                 <>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Who can join?</label>
-                                        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, color: 'var(--text)' }}>
-                                                <input type="radio" name="scheduleSessionType" checked={scheduleSessionType === 'guest'} onChange={() => setScheduleSessionType('guest')} style={{ accentColor: '#6366f1' }} />
-                                                Anyone with the link (guest)
-                                            </label>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, color: 'var(--text)' }}>
-                                                <input type="radio" name="scheduleSessionType" checked={scheduleSessionType === 'students'} onChange={() => setScheduleSessionType('students')} style={{ accentColor: '#6366f1' }} />
-                                                Selected students
-                                            </label>
+                                    {userRole === 'member' && (
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Who can join?</label>
+                                            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, color: 'var(--text)' }}>
+                                                    <input type="radio" name="scheduleSessionType" checked={scheduleSessionType === 'guest'} onChange={() => setScheduleSessionType('guest')} style={{ accentColor: '#6366f1' }} />
+                                                    Anyone with the link (guest)
+                                                </label>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, color: 'var(--text)' }}>
+                                                    <input type="radio" name="scheduleSessionType" checked={scheduleSessionType === 'students'} onChange={() => setScheduleSessionType('students')} style={{ accentColor: '#6366f1' }} />
+                                                    Selected students
+                                                </label>
+                                            </div>
                                         </div>
-                                    </div>
-                                    {scheduleSessionType === 'students' && (
+                                    )}
+                                    {(userRole === 'teacher' || scheduleSessionType === 'students') && (
                                 <div>
                                     <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                                         Target Students {targetStudentIds.length > 0 && <span style={{ color: '#818cf8' }}>({targetStudentIds.length} selected)</span>}
@@ -1090,20 +1177,22 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             </div>
                             {(userRole === 'teacher' || userRole === 'member') && (
                                 <>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Who can join?</label>
-                                        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, color: 'var(--text)' }}>
-                                                <input type="radio" name="editSessionType" checked={editSessionType === 'guest'} onChange={() => setEditSessionType('guest')} style={{ accentColor: '#6366f1' }} />
-                                                Anyone with the link (guest)
-                                            </label>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, color: 'var(--text)' }}>
-                                                <input type="radio" name="editSessionType" checked={editSessionType === 'students'} onChange={() => setEditSessionType('students')} style={{ accentColor: '#6366f1' }} />
-                                                Selected students
-                                            </label>
+                                    {userRole === 'member' && (
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Who can join?</label>
+                                            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, color: 'var(--text)' }}>
+                                                    <input type="radio" name="editSessionType" checked={editSessionType === 'guest'} onChange={() => setEditSessionType('guest')} style={{ accentColor: '#6366f1' }} />
+                                                    Anyone with the link (guest)
+                                                </label>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, color: 'var(--text)' }}>
+                                                    <input type="radio" name="editSessionType" checked={editSessionType === 'students'} onChange={() => setEditSessionType('students')} style={{ accentColor: '#6366f1' }} />
+                                                    Selected students
+                                                </label>
+                                            </div>
                                         </div>
-                                    </div>
-                                    {editSessionType === 'students' && (
+                                    )}
+                                    {(userRole === 'teacher' || editSessionType === 'students') && (
                                         <div>
                                             <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                                                 Target Students {editTargetStudentIds.length > 0 && <span style={{ color: '#818cf8' }}>({editTargetStudentIds.length} selected)</span>}

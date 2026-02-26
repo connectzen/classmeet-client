@@ -25,6 +25,8 @@ export default function GuestJoin({ code, onJoin }: Props) {
     const [session, setSession] = useState<SessionByCode | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [guestName, setGuestName] = useState('');
+    const [nameError, setNameError] = useState('');
 
     useEffect(() => {
         let cancelled = false;
@@ -68,10 +70,13 @@ export default function GuestJoin({ code, onJoin }: Props) {
     } : null!;
 
     const handleJoinAsGuest = (roomCode: string, roomId: string, _displayName: string, _role: 'teacher' | 'student', title: string) => {
-        const name = window.prompt('Enter your name to join');
-        if (name?.trim()) {
-            onJoin(roomCode, roomId, name.trim(), 'guest', title);
+        const name = guestName.trim();
+        if (!name) {
+            setNameError('Please enter your name to join.');
+            return;
         }
+        setNameError('');
+        onJoin(roomCode, roomId, name, 'guest', title);
     };
 
     if (loading) {
@@ -129,9 +134,33 @@ export default function GuestJoin({ code, onJoin }: Props) {
                 <p style={{ margin: '0 0 16px', fontSize: 14, color: 'var(--text-muted)', textAlign: 'center' }}>
                     You've been invited to join this session. No account required.
                 </p>
+                <div style={{ marginBottom: 16 }}>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        Your name
+                    </label>
+                    <input
+                        type="text"
+                        value={guestName}
+                        onChange={(e) => { setGuestName(e.target.value); setNameError(''); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && session) handleJoinAsGuest(session.room_code, session.room_id, '', 'student', session.title); }}
+                        placeholder="Enter your name to join"
+                        style={{
+                            width: '100%',
+                            padding: '12px 14px',
+                            borderRadius: 10,
+                            background: 'rgba(255,255,255,0.05)',
+                            border: nameError ? '1px solid rgba(239,68,68,0.5)' : '1px solid rgba(255,255,255,0.1)',
+                            color: 'var(--text, #e8e8f0)',
+                            fontSize: 14,
+                            outline: 'none',
+                            boxSizing: 'border-box',
+                        }}
+                    />
+                    {nameError && <p style={{ margin: '6px 0 0', fontSize: 13, color: '#f87171' }}>{nameError}</p>}
+                </div>
                 <MeetingBanner
                     meeting={meetingForBanner}
-                    displayName=""
+                    displayName={guestName.trim()}
                     userRole="student"
                     isCreator={false}
                     sessionType="teacher"

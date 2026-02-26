@@ -45,6 +45,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [activeAudioDeviceId, setActiveAudioDeviceId] = useState<string | null>(null);
     const [teacherGraceCountdown, setTeacherGraceCountdown] = useState<number | null>(null);
     const [codeCopied, setCodeCopied] = useState(false);
+    const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+    const [showEndConfirm, setShowEndConfirm] = useState(false);
     // Always-current ref so spotlight callbacks can normalize without stale closures
     const socketIdRef = useRef<string>('');
 
@@ -230,13 +232,21 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     }, [muteParticipant]);
 
     const handleLeaveIntentional = () => {
-        if (!window.confirm('Leave the room? You can rejoin if the session is still active.')) return;
+        setShowLeaveConfirm(true);
+    };
+
+    const confirmLeave = () => {
+        setShowLeaveConfirm(false);
         clearSession();
         onLeave();
     };
 
     const handleEndRoom = () => {
-        if (!window.confirm('End the class for everyone? This cannot be undone.')) return;
+        setShowEndConfirm(true);
+    };
+
+    const confirmEndRoom = () => {
+        setShowEndConfirm(false);
         clearSession();
         endRoom();
         onLeave();
@@ -314,6 +324,80 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                     <div className="mobile-chat-sheet" onClick={(e) => e.stopPropagation()}>
                         <button className="mobile-chat-close" onClick={() => setIsChatOpen(false)}>✕</button>
                         <ChatPanel messages={messages} mySocketId={socketId} onSend={sendMessage} />
+                    </div>
+                </div>
+            )}
+
+            {/* Leave room confirmation modal */}
+            {showLeaveConfirm && (
+                <div
+                    style={{
+                        position: 'fixed', inset: 0, zIndex: 999999,
+                        background: 'rgba(0,0,0,0.8)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        padding: 20,
+                    }}
+                    onClick={() => setShowLeaveConfirm(false)}
+                >
+                    <div
+                        style={{
+                            background: 'var(--surface-2, #18181f)',
+                            borderRadius: 20,
+                            width: '100%',
+                            maxWidth: 400,
+                            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+                            border: '1px solid rgba(99,102,241,0.2)',
+                            margin: 'auto',
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div style={{ padding: '24px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--text, #e8e8f0)' }}>Leave the room?</h2>
+                        </div>
+                        <p style={{ margin: 0, padding: '20px 24px', fontSize: 15, color: 'var(--text-muted, #94a3b8)', lineHeight: 1.5 }}>
+                            You can rejoin if the session is still active.
+                        </p>
+                        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', padding: '16px 24px 24px' }}>
+                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowLeaveConfirm(false)}>Cancel</button>
+                            <button type="button" className="btn btn-primary" onClick={confirmLeave}>Leave</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* End class confirmation modal */}
+            {showEndConfirm && (
+                <div
+                    style={{
+                        position: 'fixed', inset: 0, zIndex: 999999,
+                        background: 'rgba(0,0,0,0.8)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        padding: 20,
+                    }}
+                    onClick={() => setShowEndConfirm(false)}
+                >
+                    <div
+                        style={{
+                            background: 'var(--surface-2, #18181f)',
+                            borderRadius: 20,
+                            width: '100%',
+                            maxWidth: 400,
+                            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+                            border: '1px solid rgba(239,68,68,0.3)',
+                            margin: 'auto',
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div style={{ padding: '24px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--text, #e8e8f0)' }}>End the class for everyone?</h2>
+                        </div>
+                        <p style={{ margin: 0, padding: '20px 24px', fontSize: 15, color: 'var(--text-muted, #94a3b8)', lineHeight: 1.5 }}>
+                            This cannot be undone.
+                        </p>
+                        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', padding: '16px 24px 24px' }}>
+                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowEndConfirm(false)}>Cancel</button>
+                            <button type="button" className="btn btn-primary" style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)' }} onClick={confirmEndRoom}>End class</button>
+                        </div>
                     </div>
                 </div>
             )}
