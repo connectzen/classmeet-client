@@ -37,6 +37,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
     }, []);
 
+    // Refetch current user when tab becomes visible (e.g. profile/avatar updated elsewhere)
+    useEffect(() => {
+        const onVisible = () => {
+            if (document.visibilityState !== 'visible') return;
+            insforge.auth.getCurrentUser().then(({ data }) => {
+                setUser((data?.user as AuthUser) ?? null);
+            }).catch(() => {});
+        };
+        document.addEventListener('visibilitychange', onVisible);
+        return () => document.removeEventListener('visibilitychange', onVisible);
+    }, []);
+
     return (
         <AuthContext.Provider value={{ user, isLoaded }}>
             {children}

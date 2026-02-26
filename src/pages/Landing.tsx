@@ -331,6 +331,37 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         setLoadingStudentsList(false);
     }, [userRole]);
 
+    // Refetch role and dashboard data (used on tab focus and dashboard:data-changed)
+    const refetchRoleAndDashboard = useCallback(() => {
+        if (!user?.id) return;
+        const emailParam = user.email ? `?email=${encodeURIComponent(user.email)}` : '';
+        fetch(`${SERVER_URL}/api/user-role/${user.id}${emailParam}`)
+            .then((r) => r.json())
+            .then((d) => {
+                const isPending = d.role === 'pending';
+                const alreadySubmitted = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('onboarding_submitted') === '1';
+                if (isPending && !alreadySubmitted && typeof sessionStorage !== 'undefined' && !sessionStorage.getItem('needsOnboarding')) {
+                    sessionStorage.setItem('needsOnboarding', '1');
+                }
+                setUserRole(d.role);
+                if (d.role === 'admin') onAdminView();
+                if (d.role !== 'pending' && user?.profile?.name) {
+                    fetch(`${SERVER_URL}/api/profile/sync-name`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: user.id, name: user.profile.name }),
+                    }).catch(() => {});
+                }
+                fetchTeacherSessions();
+                fetchMemberSessions();
+                fetchStudentTeacherSessions();
+                if (d.role === 'teacher') { fetchTeacherStudents(); fetchTeacherCoursesCount(); }
+                if (d.role === 'member') { fetchAllStudents(); fetchMemberCoursesCount(); fetchMemberTeachers(); fetchMemberTeachersWithStudents(); }
+                if (d.role === 'student') fetchTeacherNamesForStudent();
+            })
+            .catch(() => setUserRole('pending'));
+    }, [user?.id, user?.email, user?.profile?.name, onAdminView, fetchTeacherSessions, fetchMemberSessions, fetchStudentTeacherSessions, fetchTeacherStudents, fetchTeacherCoursesCount, fetchAllStudents, fetchMemberCoursesCount, fetchTeacherNamesForStudent, fetchMemberTeachers, fetchMemberTeachersWithStudents]);
+
     useEffect(() => {
         if (!user?.id || !userRole || userRole === 'pending') return;
         fetchTeacherSessions();
@@ -365,6 +396,8 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             setMemberSessions(prev => prev.filter(s => s.id !== sessionId));
             setStudentTeacherSessions(prev => prev.filter(s => s.id !== sessionId));
         });
+        sock2.on('teacher:session-updated', () => { fetchTeacherSessions(); fetchMemberSessions(); fetchStudentTeacherSessions(); });
+        sock2.on('dashboard:data-changed', () => refetchRoleAndDashboard());
         if (userRole === 'teacher' || userRole === 'member' || userRole === 'student') {
             sock2.on('presence:list', (ids: string[]) => setOnlineUserIds(new Set(ids)));
             sock2.on('presence:state', (payload: { onlineIds: string[]; lastSeen: Record<string, number> }) => {
@@ -387,7 +420,18 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             clearInterval(pollIdS);
             sock2.disconnect();
         };
-    }, [user?.id, userRole, fetchTeacherSessions, fetchMemberSessions, fetchStudentTeacherSessions, fetchTeacherStudents, fetchTeacherCoursesCount, fetchAllStudents, fetchMemberCoursesCount, fetchTeacherNamesForStudent, fetchMemberTeachers, fetchMemberTeachersWithStudents]);
+    }, [user?.id, userRole, fetchTeacherSessions, fetchMemberSessions, fetchStudentTeacherSessions, fetchTeacherStudents, fetchTeacherCoursesCount, fetchAllStudents, fetchMemberCoursesCount, fetchTeacherNamesForStudent, fetchMemberTeachers, fetchMemberTeachersWithStudents, refetchRoleAndDashboard]);
+
+    // Refetch role and dashboard when user returns to tab
+    useEffect(() => {
+        const onVisible = () => {
+            if (document.visibilityState !== 'visible') return;
+            if (!user?.id || !userRole || userRole === 'pending') return;
+            refetchRoleAndDashboard();
+        };
+        document.addEventListener('visibilitychange', onVisible);
+        return () => document.removeEventListener('visibilitychange', onVisible);
+    }, [user?.id, userRole, refetchRoleAndDashboard]);
 
     // Persist invite token from URL so it survives post-signup reload
     useEffect(() => {
