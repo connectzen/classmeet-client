@@ -226,7 +226,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
     };
 
     useEffect(() => {
-        if (tab === 'overview') { fetchTeachers(); fetchStudents(); fetchMembers(); fetchAdminStats(); fetchBackendStats(); fetchHealth(); fetchSentMessages(); fetchPendingUsers(); fetchMeetings(); }
+        if (tab === 'overview') { fetchTeachers(); fetchStudents(); fetchMembers(); fetchAdminStats(); fetchHealth(); fetchSentMessages(); fetchPendingUsers(); fetchMeetings(); }
         if (tab === 'members') fetchMembers();
         if (tab === 'teachers') fetchTeachers();
         if (tab === 'students') { fetchStudents(); }
