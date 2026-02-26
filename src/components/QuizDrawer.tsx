@@ -1035,7 +1035,7 @@ function TakeQuiz({ quiz, submissionId, userId, onDone }: {
 
     function setAnswer(partial: Partial<Answer>) {
         if (!q) return;
-        setAnswers(prev => ({ ...prev, [q.id]: { questionId: q.id, ...prev[q.id], ...partial } }));
+        setAnswers(prev => ({ ...prev, [q.id]: { ...prev[q.id], ...partial, questionId: q.id } }));
     }
 
     async function startRecording() {
@@ -1054,7 +1054,7 @@ function TakeQuiz({ quiz, submissionId, userId, onDone }: {
                 // Create a local URL immediately so the student can play back right away
                 const localUrl = URL.createObjectURL(blob);
                 setLocalRecordUrls(prev => ({ ...prev, [capturedQId]: localUrl }));
-                setAnswers(prev => ({ ...prev, [capturedQId]: { questionId: capturedQId, ...prev[capturedQId], fileUrl: localUrl } }));
+                setAnswers(prev => ({ ...prev, [capturedQId]: { ...prev[capturedQId], fileUrl: localUrl, questionId: capturedQId } }));
                 // Upload to server for permanent storage
                 setUploading(true);
                 try {
@@ -1062,7 +1062,7 @@ function TakeQuiz({ quiz, submissionId, userId, onDone }: {
                     fd.append('file', blob, 'recording.webm');
                     const r = await fetch(`${SERVER}/api/quiz/upload`, { method: 'POST', body: fd });
                     const data = await r.json();
-                    if (data.url) setAnswers(prev => ({ ...prev, [capturedQId]: { questionId: capturedQId, ...prev[capturedQId], fileUrl: data.url } }));
+                    if (data.url) setAnswers(prev => ({ ...prev, [capturedQId]: { ...prev[capturedQId], fileUrl: data.url, questionId: capturedQId } }));
                 } catch { /* keep local URL as fallback */ }
                 setUploading(false);
             };
