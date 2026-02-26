@@ -82,6 +82,23 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const joinInputRef = useRef<HTMLInputElement>(null);
 
     const displayName = user?.profile?.name || user?.email?.split('@')[0] || '';
+
+    const initialsFor = (name: string, fallback?: string) => {
+        if (name?.trim()) return name.trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+        if (fallback) return fallback[0].toUpperCase();
+        return '?';
+    };
+
+    const formatLastSeen = (ts: number) => {
+        const d = new Date(ts);
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        if (d >= today) return `Last seen ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+        if (d >= yesterday) return 'Last seen yesterday';
+        return `Last seen ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
+    };
     const [chatOpen, setChatOpen] = useState(false);
     const [unreadChatCount, setUnreadChatCount] = useState(0);
     const [quizOpen, setQuizOpen] = useState(false);
@@ -133,7 +150,13 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [loadingTeacherStudents, setLoadingTeacherStudents] = useState(false);
     const [teacherCoursesCount, setTeacherCoursesCount] = useState(0);
     const [memberCoursesCount, setMemberCoursesCount] = useState(0);
+    const [memberTeachers, setMemberTeachers] = useState<{ user_id: string; name: string; email?: string }[]>([]);
+    const [loadingMemberTeachers, setLoadingMemberTeachers] = useState(false);
+    const [memberTeachersWithStudents, setMemberTeachersWithStudents] = useState<{ teacherId: string; teacherName: string; students: { id: string; name: string }[] }[]>([]);
+    const [loadingTeachersWithStudents, setLoadingTeachersWithStudents] = useState(false);
     const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+    const [lastSeenByUserId, setLastSeenByUserId] = useState<Record<string, number>>({});
+    const [teacherNamesFromApi, setTeacherNamesFromApi] = useState<Record<string, string>>({});
 
     // Schedule modal state
     const [scheduleMode, setScheduleMode] = useState(false);
@@ -237,6 +260,43 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         } catch { /* ignore */ }
     }, [user?.id, userRole]);
 
+    const fetchMemberTeachers = useCallback(async () => {
+        if (userRole !== 'member') return;
+        setLoadingMemberTeachers(true);
+        try {
+            const r = await fetch(`${SERVER_URL}/api/teachers`);
+            if (r.ok) {
+                const teachers = await r.json();
+                setMemberTeachers(teachers);
+                // Load profiles for avatars/names (reuse session-shaped list for fetchTeacherProfiles)
+                await fetchTeacherProfiles(teachers.map((t: { user_id: string }) => ({ created_by: t.user_id } as AdminMeeting)));
+            }
+        } catch { /* ignore */ }
+        setLoadingMemberTeachers(false);
+    }, [userRole, fetchTeacherProfiles]);
+
+    const fetchMemberTeachersWithStudents = useCallback(async () => {
+        if (userRole !== 'member') return;
+        setLoadingTeachersWithStudents(true);
+        try {
+            const tr = await fetch(`${SERVER_URL}/api/teachers`);
+            if (!tr.ok) return;
+            const teachers = await tr.json();
+            const result: { teacherId: string; teacherName: string; students: { id: string; name: string }[] }[] = [];
+            for (const t of teachers) {
+                const sr = await fetch(`${SERVER_URL}/api/teacher/${t.user_id}/students`);
+                const students = sr.ok ? await sr.json() : [];
+                result.push({
+                    teacherId: t.user_id,
+                    teacherName: t.name || 'Teacher',
+                    students: students.map((s: { id: string; name: string }) => ({ id: s.id, name: s.name || 'Student' })),
+                });
+            }
+            setMemberTeachersWithStudents(result);
+        } catch { /* ignore */ }
+        setLoadingTeachersWithStudents(false);
+    }, [userRole]);
+
     const fetchStudentTeacherSessions = useCallback(async () => {
         if (!user?.id || userRole !== 'student') return;
         try {
@@ -244,11 +304,22 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             if (r.ok) {
                 const sessions = await r.json();
                 setStudentTeacherSessions(sessions);
-                // Fetch profiles for these sessions
                 await fetchTeacherProfiles(sessions);
             }
         } catch { /* ignore */ }
     }, [user?.id, userRole, fetchTeacherProfiles]);
+
+    const fetchTeacherNamesForStudent = useCallback(async () => {
+        try {
+            const r = await fetch(`${SERVER_URL}/api/teachers`);
+            if (r.ok) {
+                const list = await r.json();
+                const map: Record<string, string> = {};
+                list.forEach((t: { user_id: string; name: string }) => { map[t.user_id] = t.name || ''; });
+                setTeacherNamesFromApi(map);
+            }
+        } catch { /* ignore */ }
+    }, []);
 
     const fetchAllStudents = useCallback(async () => {
         if (userRole !== 'teacher' && userRole !== 'member') return;
@@ -272,6 +343,11 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         if (userRole === 'member') {
             fetchAllStudents();
             fetchMemberCoursesCount();
+            fetchMemberTeachers();
+            fetchMemberTeachersWithStudents();
+        }
+        if (userRole === 'student') {
+            fetchTeacherNamesForStudent();
         }
         const pollIdT = setInterval(fetchTeacherSessions, 30_000);
         const pollIdM = setInterval(fetchMemberSessions, 30_000);
@@ -291,12 +367,18 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         });
         if (userRole === 'teacher' || userRole === 'member' || userRole === 'student') {
             sock2.on('presence:list', (ids: string[]) => setOnlineUserIds(new Set(ids)));
-            sock2.on('presence:status', ({ userId, online }: { userId: string; online: boolean }) => {
+            sock2.on('presence:state', (payload: { onlineIds: string[]; lastSeen: Record<string, number> }) => {
+                if (payload.onlineIds) setOnlineUserIds(new Set(payload.onlineIds));
+                if (payload.lastSeen && typeof payload.lastSeen === 'object') setLastSeenByUserId(prev => ({ ...prev, ...payload.lastSeen }));
+            });
+            sock2.on('presence:status', (payload: { userId: string; online: boolean; lastSeen?: number }) => {
+                const { userId, online, lastSeen } = payload;
                 setOnlineUserIds(prev => {
                     const next = new Set(prev);
                     if (online) next.add(userId); else next.delete(userId);
                     return next;
                 });
+                if (!online && lastSeen != null) setLastSeenByUserId(prev => ({ ...prev, [userId]: lastSeen }));
             });
         }
         return () => {
@@ -305,7 +387,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             clearInterval(pollIdS);
             sock2.disconnect();
         };
-    }, [user?.id, userRole, fetchTeacherSessions, fetchMemberSessions, fetchStudentTeacherSessions, fetchTeacherStudents, fetchTeacherCoursesCount, fetchAllStudents, fetchMemberCoursesCount]);
+    }, [user?.id, userRole, fetchTeacherSessions, fetchMemberSessions, fetchStudentTeacherSessions, fetchTeacherStudents, fetchTeacherCoursesCount, fetchAllStudents, fetchMemberCoursesCount, fetchTeacherNamesForStudent, fetchMemberTeachers, fetchMemberTeachersWithStudents]);
 
     // Persist invite token from URL so it survives post-signup reload
     useEffect(() => {
@@ -757,9 +839,79 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                                         {allStudents.map(st => (
                                             <div key={st.user_id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '8px 12px' }}>
+                                                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{initialsFor(st.name, st.email)}</div>
                                                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: onlineUserIds.has(st.user_id) ? '#22c55e' : 'var(--text-muted)' }} title={onlineUserIds.has(st.user_id) ? 'Online' : 'Offline'} />
-                                                <span style={{ fontWeight: 600, fontSize: 13 }}>{st.name || st.email}</span>
-                                                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{st.email}</span>
+                                                <div>
+                                                    <span style={{ fontWeight: 600, fontSize: 13 }}>{st.name || 'Student'}</span>
+                                                    <span style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)' }}>{onlineUserIds.has(st.user_id) ? 'Online' : (lastSeenByUserId[st.user_id] ? formatLastSeen(lastSeenByUserId[st.user_id]) : 'Offline')}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Your teachers */}
+                            <div style={{ marginBottom: 20 }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Your teachers</div>
+                                {loadingMemberTeachers ? (
+                                    <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>
+                                ) : memberTeachers.length === 0 ? (
+                                    <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No teachers.</div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                        {memberTeachers.map(t => (
+                                            <div key={t.user_id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '8px 12px' }}>
+                                                {teacherProfiles[t.user_id]?.avatar_url ? (
+                                                    <img src={teacherProfiles[t.user_id].avatar_url!} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                                                ) : (
+                                                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{initialsFor(teacherProfiles[t.user_id]?.name || t.name, 'T')}</div>
+                                                )}
+                                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: onlineUserIds.has(t.user_id) ? '#22c55e' : 'var(--text-muted)' }} title={onlineUserIds.has(t.user_id) ? 'Online' : 'Offline'} />
+                                                <div>
+                                                    <span style={{ fontWeight: 600, fontSize: 13 }}>{teacherProfiles[t.user_id]?.name || t.name || 'Teacher'}</span>
+                                                    <span style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)' }}>{onlineUserIds.has(t.user_id) ? 'Online' : (lastSeenByUserId[t.user_id] ? formatLastSeen(lastSeenByUserId[t.user_id]) : 'Offline')}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Teachers and students hierarchy */}
+                            <div style={{ marginBottom: 20 }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Teachers & their students</div>
+                                {loadingTeachersWithStudents ? (
+                                    <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>
+                                ) : memberTeachersWithStudents.length === 0 ? (
+                                    <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No teachers or students.</div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                                        {memberTeachersWithStudents.map(({ teacherId, teacherName, students }) => (
+                                            <div key={teacherId} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 14 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                                                    {teacherProfiles[teacherId]?.avatar_url ? (
+                                                        <img src={teacherProfiles[teacherId].avatar_url!} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                                                    ) : (
+                                                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{initialsFor(teacherProfiles[teacherId]?.name || teacherName, 'T')}</div>
+                                                    )}
+                                                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: onlineUserIds.has(teacherId) ? '#22c55e' : 'var(--text-muted)' }} />
+                                                    <span style={{ fontWeight: 600, fontSize: 13 }}>{teacherProfiles[teacherId]?.name || teacherName}</span>
+                                                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{onlineUserIds.has(teacherId) ? 'Online' : (lastSeenByUserId[teacherId] ? formatLastSeen(lastSeenByUserId[teacherId]) : 'Offline')}</span>
+                                                </div>
+                                                <div style={{ paddingLeft: 36, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                                    {students.length === 0 ? (
+                                                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>No students</span>
+                                                    ) : (
+                                                        students.map(st => (
+                                                            <div key={st.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.2)', borderRadius: 8, padding: '4px 10px' }}>
+                                                                <div style={{ width: 6, height: 6, borderRadius: '50%', background: onlineUserIds.has(st.id) ? '#22c55e' : 'var(--text-muted)' }} />
+                                                                <span style={{ fontSize: 12 }}>{st.name}</span>
+                                                                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{onlineUserIds.has(st.id) ? 'Online' : (lastSeenByUserId[st.id] ? formatLastSeen(lastSeenByUserId[st.id]) : '')}</span>
+                                                            </div>
+                                                        ))
+                                                    )}
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
@@ -886,9 +1038,12 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                                         {teacherStudents.map(st => (
                                             <div key={st.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '8px 12px' }}>
+                                                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{initialsFor(st.name, st.email)}</div>
                                                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: onlineUserIds.has(st.id) ? '#22c55e' : 'var(--text-muted)' }} title={onlineUserIds.has(st.id) ? 'Online' : 'Offline'} />
-                                                <span style={{ fontWeight: 600, fontSize: 13 }}>{st.name || st.email}</span>
-                                                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{st.email}</span>
+                                                <div>
+                                                    <span style={{ fontWeight: 600, fontSize: 13 }}>{st.name || 'Student'}</span>
+                                                    <span style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)' }}>{onlineUserIds.has(st.id) ? 'Online' : (lastSeenByUserId[st.id] ? formatLastSeen(lastSeenByUserId[st.id]) : 'Offline')}</span>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
@@ -967,12 +1122,24 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     <div style={{ marginBottom: 20 }}>
                                         <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Your teachers</div>
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                                            {teacherIds.map(tid => (
-                                                <div key={tid} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '8px 12px' }}>
-                                                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: onlineUserIds.has(tid) ? '#22c55e' : 'var(--text-muted)' }} title={onlineUserIds.has(tid) ? 'Online' : 'Offline'} />
-                                                    <span style={{ fontWeight: 600, fontSize: 13 }}>{teacherProfiles[tid]?.name || 'Teacher'}</span>
-                                                </div>
-                                            ))}
+                                            {teacherIds.map(tid => {
+                                                const name = teacherProfiles[tid]?.name ?? teacherNamesFromApi[tid] ?? 'Teacher';
+                                                const avatarUrl = teacherProfiles[tid]?.avatar_url;
+                                                return (
+                                                    <div key={tid} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '8px 12px' }}>
+                                                        {avatarUrl ? (
+                                                            <img src={avatarUrl} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                                                        ) : (
+                                                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{initialsFor(name)}</div>
+                                                        )}
+                                                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: onlineUserIds.has(tid) ? '#22c55e' : 'var(--text-muted)' }} title={onlineUserIds.has(tid) ? 'Online' : 'Offline'} />
+                                                        <div>
+                                                            <span style={{ fontWeight: 600, fontSize: 13 }}>{name}</span>
+                                                            <span style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)' }}>{onlineUserIds.has(tid) ? 'Online' : (lastSeenByUserId[tid] ? formatLastSeen(lastSeenByUserId[tid]) : 'Offline')}</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 ) : null;
