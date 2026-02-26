@@ -42,34 +42,28 @@ export default function ProfileEditModal({ onClose }: ProfileEditModalProps) {
             reader.onloadend = () => setPreviewUrl(reader.result as string);
             reader.readAsDataURL(file);
 
-            // Delete the old avatar from storage so orphaned files don't pile up.
-            // The key is the last segment of the URL: .../objects/{encoded-key}
-            const oldUrl = avatarUrl || user?.profile?.avatar_url;
-            if (oldUrl) {
-                try {
-                    const match = oldUrl.match(/\/objects\/(.+)$/);
-                    if (match) {
-                        const oldKey = decodeURIComponent(match[1]);
-                        await insforge.storage.from('avatars').remove(oldKey);
-                    }
-                } catch { /* non-critical — keep going even if delete fails */ }
-            }
-
-            // Upload with a stable per-user filename so there is only ever
-            // one file per user in the avatars bucket.
-            const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-            const stableKey = `avatar-${user?.id}.${ext}`;
-            const { data, error } = await insforge.storage
-                .from('avatars')
-                .upload(stableKey, file);
-
-            if (error || !data) {
-                console.error('Upload error:', error);
-                alert('Failed to upload image. Please try again.');
+            if (!user?.id) {
+                alert('Please sign in to upload an avatar.');
                 return;
             }
 
-            setAvatarUrl(data.url);
+            const form = new FormData();
+            form.append('file', file);
+            form.append('userId', user.id);
+            const res = await fetch(`${SERVER_URL}/api/profile/upload-avatar`, {
+                method: 'POST',
+                body: form,
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                console.error('Upload error:', err);
+                alert(err.error || 'Failed to upload image. Please try again.');
+                return;
+            }
+
+            const data = await res.json();
+            if (data.url) setAvatarUrl(data.url);
         } catch (err) {
             console.error('Upload error:', err);
             alert('Failed to upload image. Please try again.');
