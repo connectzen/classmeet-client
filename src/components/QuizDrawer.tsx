@@ -103,11 +103,12 @@ function fmtTime(s: string) {
 
 // ─── Component ────────────────────────────────────────────────────────────
 export default function QuizDrawer({ userId, userName, userRole, open, onClose }: Props) {
-    const canCreate = userRole === 'teacher' || userRole === 'admin';
+    const canCreate = userRole === 'teacher' || userRole === 'admin' || userRole === 'member';
     const [view, setView] = useState<View>({ name: 'list' });
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
     const [loadingQuizzes, setLoadingQuizzes] = useState(false);
     const [teacherRooms, setTeacherRooms] = useState<TeacherRoom[]>([]);
+    const [courses, setCourses] = useState<{ id: string; title: string }[]>([]);
 
     // ── Fetch quizzes ──────────────────────────────────────────────────────
     const fetchQuizzes = useCallback(async () => {
@@ -126,7 +127,14 @@ export default function QuizDrawer({ userId, userName, userRole, open, onClose }
         setLoadingQuizzes(false);
     }, [userId, canCreate]);
 
-    useEffect(() => { if (open) { fetchQuizzes(); if (canCreate) fetchTeacherRooms(); } }, [open]);
+    async function fetchCourses() {
+        if (!userId) return;
+        try {
+            const r = await fetch(`${SERVER}/api/courses?createdBy=${userId}`);
+            if (r.ok) setCourses(await r.json());
+        } catch { /* ignore */ }
+    }
+    useEffect(() => { if (open) { fetchQuizzes(); if (canCreate) { fetchTeacherRooms(); fetchCourses(); } } }, [open]);
     useEffect(() => { if (open && view.name === 'list') fetchQuizzes(); }, [view]);
 
     async function fetchTeacherRooms() {
@@ -233,6 +241,7 @@ export default function QuizDrawer({ userId, userName, userRole, open, onClose }
                         <CreateQuizForm
                             userId={userId}
                             rooms={teacherRooms}
+                            courses={courses}
                             onCreated={(quiz) => {
                                 fetchQuizzes();
                                 setView({ name: 'builder', quizId: quiz.id });
@@ -400,26 +409,30 @@ function QuizList({
 }
 
 // ─── Create Quiz Form ─────────────────────────────────────────────────────
-function CreateQuizForm({ userId, rooms, onCreated, onCancel }: {
-    userId: string; rooms: TeacherRoom[];
+function CreateQuizForm({ userId, rooms, courses, onCreated, onCancel }: {
+    userId: string; rooms: TeacherRoom[]; courses: { id: string; title: string }[];
     onCreated: (q: Quiz) => void; onCancel: () => void;
 }) {
     const [title, setTitle] = useState('');
     const [roomId, setRoomId] = useState('');
+    const [courseId, setCourseId] = useState('');
     const [timeLimit, setTimeLimit] = useState('');
     const [saving, setSaving] = useState(false);
     const [err, setErr] = useState('');
 
     async function handleCreate() {
         if (!title.trim()) { setErr('Title is required'); return; }
-        if (!roomId) { setErr('Select a room'); return; }
+        if (!roomId && !courseId) { setErr('Select a room or course'); return; }
         setSaving(true); setErr('');
         try {
             const r = await fetch(`${SERVER}/api/quizzes`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    title: title.trim(), roomId, createdBy: userId,
+                    title: title.trim(),
+                    roomId: roomId || undefined,
+                    courseId: courseId || undefined,
+                    createdBy: userId,
                     timeLimitMinutes: timeLimit ? Number(timeLimit) : null,
                 }),
             });
@@ -443,12 +456,22 @@ function CreateQuizForm({ userId, rooms, onCreated, onCancel }: {
                 autoFocus
             />
 
+            {courses.length > 0 && (
+                <>
+                    <label className="quiz-label" style={{ marginTop: 14 }}>Course (optional)</label>
+                    <select className="quiz-input" value={courseId} onChange={e => { setCourseId(e.target.value); if (e.target.value) setRoomId(''); }}>
+                        <option value="">— No course —</option>
+                        {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                    </select>
+                </>
+            )}
+
             <label className="quiz-label" style={{ marginTop: 14 }}>Assign to Room</label>
-            {rooms.length === 0 ? (
-                <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>No rooms found. Create a room first.</p>
+            {rooms.length === 0 && !courseId ? (
+                <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Select a course above or create a room first.</p>
             ) : (
-                <select className="quiz-input" value={roomId} onChange={e => setRoomId(e.target.value)}>
-                    <option value="">— Select a room —</option>
+                <select className="quiz-input" value={roomId} onChange={e => { setRoomId(e.target.value); if (e.target.value) setCourseId(''); }}>
+                    <option value="">— Select a room (optional if course set) —</option>
                     {rooms.map(r => <option key={r.id} value={r.id}>{r.name} ({r.code})</option>)}
                 </select>
             )}

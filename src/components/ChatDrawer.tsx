@@ -64,15 +64,20 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
         if (dmUsers.length > 0) return;
         setLoadingDmUsers(true);
         try {
-            const res = await fetch(`${import.meta.env.VITE_SERVER_URL || 'http://localhost:3001'}/api/all-users`);
+            const res = await fetch(`${import.meta.env.VITE_SERVER_URL || 'http://localhost:3001'}/api/chat/partners/${userId}`);
             if (res.ok) {
-                const all = await res.json() as { id: string; name: string; email: string; role: string }[];
-                // Students can only DM teachers; admins/teachers see everyone
-                setDmUsers(all.filter(u => {
-                    if (u.id === userId || u.role === 'pending') return false;
-                    if (userRole === 'student') return u.role === 'teacher';
-                    return true;
-                }));
+                const partners = await res.json() as { id: string; name: string; email: string; role: string }[];
+                setDmUsers(partners.filter(u => u.id !== userId));
+            } else {
+                const fallback = await fetch(`${import.meta.env.VITE_SERVER_URL || 'http://localhost:3001'}/api/all-users`);
+                if (fallback.ok) {
+                    const all = await fallback.json() as { id: string; name: string; email: string; role: string }[];
+                    setDmUsers(all.filter(u => {
+                        if (u.id === userId || u.role === 'pending') return false;
+                        if (userRole === 'student') return u.role === 'teacher';
+                        return true;
+                    }));
+                }
             }
         } catch { /* ignore */ }
         setLoadingDmUsers(false);

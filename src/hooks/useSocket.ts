@@ -6,7 +6,7 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 export interface Participant {
     socketId: string;
     name: string;
-    role: 'teacher' | 'student';
+    role: 'teacher' | 'student' | 'guest';
 }
 
 export interface ChatMessage {
@@ -21,7 +21,7 @@ interface UseSocketOptions {
     roomId: string;
     roomName: string;
     name: string;
-    role: 'teacher' | 'student';
+    role: 'teacher' | 'student' | 'guest';
     onParticipantJoined: (p: Participant) => void;
     onParticipantLeft: (socketId: string) => void;
     onSignal: (data: { from: string; signal: unknown }) => void;

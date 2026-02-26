@@ -1,7 +1,7 @@
 interface Participant {
     socketId: string;
     name: string;
-    role: 'teacher' | 'student';
+    role: 'teacher' | 'student' | 'guest';
     isMuted?: boolean;
 }
 

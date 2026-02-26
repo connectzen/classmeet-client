@@ -94,6 +94,8 @@ export default function AuthModal({ defaultTab, onClose }: Props) {
         const { error: err } = await insforge.auth.signUp({ email: email.trim(), password, name: name.trim() });
         setLoading(false);
         if (err) { setError(err.message || 'Could not create account. Try again.'); return; }
+        // Only show onboarding for signups without an invite link (invite flow assigns role via claim-invite)
+        if (!sessionStorage.getItem('inviteToken')) sessionStorage.setItem('needsOnboarding', '1');
         window.location.reload();
     };
 

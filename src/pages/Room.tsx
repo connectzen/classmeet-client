@@ -12,7 +12,7 @@ interface Props {
     roomId: string;
     roomName: string;
     name: string;
-    role: 'teacher' | 'student';
+    role: 'teacher' | 'student' | 'guest';
     onLeave: () => void;
 }
 

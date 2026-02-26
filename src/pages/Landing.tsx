@@ -1,10 +1,14 @@
-﻿import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useUser } from '../lib/AuthContext';
 import { insforge } from '../lib/insforge';
 import ChatDrawer from '../components/ChatDrawer';
 import QuizDrawer from '../components/QuizDrawer';
 import AuthModal from '../components/AuthModal';
+import OnboardingForm from '../components/OnboardingForm';
+import GuestRoomSection from '../components/GuestRoomSection';
+import InviteLinksSection from '../components/InviteLinksSection';
+import MemberCoursesSection from '../components/MemberCoursesSection';
 import UserMenu from '../components/UserMenu';
 import MeetingBanner, { AdminMeeting } from '../components/MeetingBanner';
 
@@ -44,7 +48,7 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Props) {
     const { user } = useUser();
     const [authModal, setAuthModal] = useState<'signin' | 'signup' | null>(null);
-    const [userRole, setUserRole] = useState<'admin' | 'teacher' | 'student' | 'pending' | null>(null);
+    const [userRole, setUserRole] = useState<'admin' | 'member' | 'teacher' | 'student' | 'pending' | null>(null);
     const [resumeSession, setResumeSession] = useState<ResumeSession | null>(null);
 
     // â”€â”€ Teacher state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -224,27 +228,57 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         };
     }, [user?.id, userRole, fetchTeacherSessions, fetchStudentTeacherSessions]);
 
-    // Role check — redirect to AdminDashboard if role is admin
+    // Persist invite token from URL so it survives post-signup reload
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const invite = params.get('invite');
+        if (invite) {
+            sessionStorage.setItem('inviteToken', invite);
+            window.history.replaceState({}, '', window.location.pathname || '/');
+        }
+    }, []);
+
+    // Role check — claim invite if present, then redirect/fetch role
     useEffect(() => {
         if (!user?.id) { setUserRole(null); return; }
+        const inviteToken = sessionStorage.getItem('inviteToken');
         const emailParam = user.email ? `?email=${encodeURIComponent(user.email)}` : '';
-        fetch(`${SERVER_URL}/api/user-role/${user.id}${emailParam}`)
-            .then((r) => r.json())
-            .then((d) => {
-                setUserRole(d.role);
-                if (d.role === 'admin') onAdminView();
-                // Auto-sync latest InsForge profile name → user_roles on every load.
-                // This ensures Google OAuth random names and manual profile changes
-                // always stay in sync with what teachers/admins see.
-                if (d.role !== 'pending' && user?.profile?.name) {
-                    fetch(`${SERVER_URL}/api/profile/sync-name`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ userId: user.id, name: user.profile.name }),
-                    }).catch(() => { /* non-critical */ });
-                }
+        const doFetchRole = () =>
+            fetch(`${SERVER_URL}/api/user-role/${user.id}${emailParam}`)
+                .then((r) => r.json())
+                .then((d) => {
+                    setUserRole(d.role);
+                    if (d.role === 'admin') onAdminView();
+                    if (d.role !== 'pending' && user?.profile?.name) {
+                        fetch(`${SERVER_URL}/api/profile/sync-name`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ userId: user.id, name: user.profile.name }),
+                        }).catch(() => {});
+                    }
+                })
+                .catch(() => setUserRole('pending'));
+        if (inviteToken) {
+            fetch(`${SERVER_URL}/api/claim-invite`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    token: inviteToken,
+                    userId: user.id,
+                    name: user?.profile?.name || user?.email?.split('@')[0] || '',
+                    email: user?.email || '',
+                }),
             })
-            .catch(() => setUserRole('pending'));
+                .then((r) => r.json())
+                .then((data) => {
+                    sessionStorage.removeItem('inviteToken');
+                    if (data.role) setUserRole(data.role);
+                    else doFetchRole();
+                })
+                .catch(() => doFetchRole());
+        } else {
+            doFetchRole();
+        }
     }, [user?.id, onAdminView]);
 
     // Resume session check
@@ -466,6 +500,8 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                         <p className="hero-subtitle">
                             {userRole === 'teacher'
                                 ? 'Manage your classes below, or create a new one.'
+                                : userRole === 'member'
+                                ? 'Manage your courses, quizzes, and invite links below.'
                                 : userRole === 'pending'
                                 ? 'Your account is pending admin approval.'
                                 : 'Your enrolled classes are below. Join any live class or enter a code.'}
@@ -513,45 +549,75 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                         </div>
                     )}
 
-                    {/* PENDING APPROVAL SCREEN */}
+                    {/* ONBOARDING (new user) or PENDING APPROVAL */}
                     {userRole === 'pending' && (
-                        <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 16px' }}>
-                            <div style={{
-                                background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.05))',
-                                border: '1px solid rgba(99,102,241,0.25)',
-                                borderRadius: 24,
-                                padding: '48px 40px',
-                                maxWidth: 480,
-                                width: '100%',
-                                textAlign: 'center',
-                            }}>
-                                <div style={{ fontSize: 64, marginBottom: 20, lineHeight: 1 }}>⏳</div>
-                                <h2 style={{ margin: '0 0 12px', fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--text)' }}>
-                                    Awaiting Admin Approval
-                                </h2>
-                                <p style={{ margin: '0 0 24px', fontSize: 15, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                                    Your account has been created and is waiting for an administrator
-                                    to approve your access. You'll be able to join classes once approved.
-                                </p>
-                                <div style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: 8,
-                                    background: 'rgba(234,179,8,0.12)',
-                                    border: '1px solid rgba(234,179,8,0.3)',
-                                    borderRadius: 100,
-                                    padding: '8px 20px',
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    color: '#f59e0b',
-                                }}>
-                                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b', flexShrink: 0 }} />
-                                    Pending Approval
+                        <>
+                            {typeof sessionStorage !== 'undefined' && sessionStorage.getItem('needsOnboarding') === '1' ? (
+                                <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 16px' }}>
+                                    <OnboardingForm
+                                        userId={user!.id}
+                                        name={user?.profile?.name || user?.email?.split('@')[0] || ''}
+                                        email={user?.email || ''}
+                                        onComplete={(role) => setUserRole(role as 'member' | 'teacher' | 'student')}
+                                    />
                                 </div>
-                                <p style={{ margin: '20px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
-                                    Contact your administrator if you believe this is taking too long.
-                                </p>
+                            ) : (
+                                <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 16px' }}>
+                                    <div style={{
+                                        background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.05))',
+                                        border: '1px solid rgba(99,102,241,0.25)',
+                                        borderRadius: 24,
+                                        padding: '48px 40px',
+                                        maxWidth: 480,
+                                        width: '100%',
+                                        textAlign: 'center',
+                                    }}>
+                                        <div style={{ fontSize: 64, marginBottom: 20, lineHeight: 1 }}>⏳</div>
+                                        <h2 style={{ margin: '0 0 12px', fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--text)' }}>
+                                            Awaiting Admin Approval
+                                        </h2>
+                                        <p style={{ margin: '0 0 24px', fontSize: 15, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                                            Your account has been created and is waiting for an administrator
+                                            to approve your access. You'll be able to join classes once approved.
+                                        </p>
+                                        <div style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 8,
+                                            background: 'rgba(234,179,8,0.12)',
+                                            border: '1px solid rgba(234,179,8,0.3)',
+                                            borderRadius: 100,
+                                            padding: '8px 20px',
+                                            fontSize: 13,
+                                            fontWeight: 600,
+                                            color: '#f59e0b',
+                                        }}>
+                                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b', flexShrink: 0 }} />
+                                            Pending Approval
+                                        </div>
+                                        <p style={{ margin: '20px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
+                                            Contact your administrator if you believe this is taking too long.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    )}
+
+                    {userRole === 'member' && (
+                        <div className="dashboard-panel">
+                            <div className="dashboard-panel-header">
+                                <div className="dashboard-panel-title-group">
+                                    <span className="role-badge badge-teacher">👤 Member Dashboard</span>
+                                    <h2 className="dashboard-panel-title">Courses & Invites</h2>
+                                </div>
                             </div>
+                            <InviteLinksSection userId={user!.id} variant="member" />
+                            <GuestRoomSection hostId={user!.id} onJoinRoom={onJoinRoom} />
+                            <MemberCoursesSection userId={user!.id} />
+                            <p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 16 }}>
+                                Create courses and quizzes, and chat with your teachers and students.
+                            </p>
                         </div>
                     )}
 
@@ -582,6 +648,8 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     Schedule Class
                                 </button>
                             </div>
+
+                            <InviteLinksSection userId={user!.id} variant="teacher" />
 
                             {/* Teacher-owned session banners */}
                             {teacherSessions.length > 0 && (

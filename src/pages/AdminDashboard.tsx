@@ -8,16 +8,20 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
 interface Teacher { user_id: string; name: string; email: string; created_at: string; room_count: number; }
 interface Student { user_id: string; name: string; email: string; created_at: string; enrollment_count: number; }
+interface Member { user_id: string; name: string; email: string; created_at: string; }
 interface InboxMsg { id?: string; [key: string]: unknown; }
 interface Meeting {
     id: string; room_code: string; room_id: string; title: string; description: string;
     scheduled_at: string; created_by: string; max_participants: number; is_active: boolean;
     created_at: string; targets: Array<{ type: string; value: string }>;
 }
-type Tab = 'overview' | 'teachers' | 'students' | 'messages' | 'pending' | 'meetings';
+interface AdminStats { membersCount: number; teachersCount: number; studentsCount: number; liveGuestCount: number; }
+interface HealthStatus { status: 'ok' | 'degraded'; database?: string; error?: string; }
+type Tab = 'overview' | 'members' | 'teachers' | 'students' | 'messages' | 'pending' | 'meetings';
 
 const NAV_ITEMS: { key: Tab; icon: string; label: string }[] = [
     { key: 'overview',  icon: '◈', label: 'Overview'  },
+    { key: 'members',   icon: '👤', label: 'Members'  },
     { key: 'teachers',  icon: '◎', label: 'Teachers'  },
     { key: 'students',  icon: '◉', label: 'Students'  },
     { key: 'pending',   icon: '⏳', label: 'Pending'   },
@@ -44,9 +48,15 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
     const [students, setStudents] = useState<Student[]>([]);
     const [loadingStudents, setLoadingStudents] = useState(false);
 
+    const [members, setMembers] = useState<Member[]>([]);
+    const [loadingMembers, setLoadingMembers] = useState(false);
+    const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
+    const [healthStatus, setHealthStatus] = useState<HealthStatus | null>(null);
+
     const [pendingUsers, setPendingUsers] = useState<{ id: string; name: string; email: string; created_at: string | null }[]>([]);
     const [loadingPending, setLoadingPending] = useState(false);
     const [approvingId, setApprovingId] = useState<string | null>(null);
+    const [rejectingId, setRejectingId] = useState<string | null>(null);
     const [approveError, setApproveError] = useState<string>('');
 
     const [sentMessages, setSentMessages] = useState<InboxMsg[]>([]);
@@ -96,6 +106,29 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
         setLoadingStudents(false);
     }, []);
 
+    const fetchMembers = useCallback(async () => {
+        setLoadingMembers(true);
+        try { const r = await fetch(`${SERVER_URL}/api/members`); if (r.ok) setMembers(await r.json()); } catch {}
+        setLoadingMembers(false);
+    }, []);
+
+    const fetchAdminStats = useCallback(async () => {
+        if (!user?.id) return;
+        try {
+            const r = await fetch(`${SERVER_URL}/api/admin/stats?adminId=${encodeURIComponent(user.id)}`);
+            if (r.ok) setAdminStats(await r.json());
+        } catch {}
+    }, [user?.id]);
+
+    const fetchHealth = useCallback(async () => {
+        if (!user?.id) return;
+        try {
+            const r = await fetch(`${SERVER_URL}/api/admin/health?adminId=${encodeURIComponent(user.id)}`);
+            const data = await r.json();
+            setHealthStatus(data);
+        } catch { setHealthStatus({ status: 'degraded', error: 'Request failed' }); }
+    }, [user?.id]);
+
     const fetchSentMessages = useCallback(async () => {
         if (!user?.id) return;
         try { const r = await fetch(`${SERVER_URL}/api/messages/sent/${user.id}`); if (r.ok) setSentMessages(await r.json()); } catch {}
@@ -123,7 +156,8 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
 
     // ── Real-time auto-refresh via socket.io ─────────────────────────────
     const refreshCurrentTab = useCallback(() => {
-        if (tab === 'overview') { fetchTeachers(); fetchStudents(); fetchPendingUsers(); fetchSentMessages(); fetchMeetings(); }
+        if (tab === 'overview') { fetchTeachers(); fetchStudents(); fetchMembers(); fetchAdminStats(); fetchPendingUsers(); fetchSentMessages(); fetchMeetings(); }
+        else if (tab === 'members') fetchMembers();
         else if (tab === 'teachers') fetchTeachers();
         else if (tab === 'students') fetchStudents();
         else if (tab === 'pending')  fetchPendingUsers();
@@ -144,7 +178,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
         sock.on('admin:refresh', ({ type }: { type: string }) => {
             if (type === 'teachers' || type === 'overview') { fetchTeachers(); fetchStudents(); }
             if (type === 'students') fetchStudents();
-            if (type === 'pending')  { fetchPendingUsers(); fetchTeachers(); fetchStudents(); }
+            if (type === 'pending')  { fetchPendingUsers(); fetchTeachers(); fetchStudents(); fetchMembers(); }
             fetchTeachers();
             fetchStudents();
             fetchPendingUsers();
@@ -157,31 +191,50 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
         return () => { sock.disconnect(); };
     }, [fetchTeachers, fetchStudents, fetchPendingUsers, fetchMeetings, setMeetings]);
 
-    const handleApproveUser = async (userId: string, name: string, email: string) => {
+    const handleApproveUser = async (userId: string, name: string, email: string, role: 'member' | 'teacher' | 'student' = 'student') => {
         setApprovingId(userId); setApproveError('');
         const r = await fetch(`${SERVER_URL}/api/approve-user/${userId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email, role: 'student' }),
+            body: JSON.stringify({ name, email, role }),
         });
-        if (r.ok) { fetchPendingUsers(); fetchStudents(); }
+        if (r.ok) { fetchPendingUsers(); fetchStudents(); fetchTeachers(); fetchMembers(); }
         else { const d = await r.json(); setApproveError(d.error || 'Failed to approve.'); }
         setApprovingId(null);
     };
 
+    const handleRejectUser = async (userId: string) => {
+        if (!user?.id) return;
+        setRejectingId(userId); setApproveError('');
+        try {
+            const r = await fetch(`${SERVER_URL}/api/reject-user/${userId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ adminId: user.id }),
+            });
+            if (r.ok) fetchPendingUsers();
+            else { const d = await r.json(); setApproveError(d.error || 'Failed to reject.'); }
+        } finally {
+            setRejectingId(null);
+        }
+    };
+
     useEffect(() => {
-        if (tab === 'overview') { fetchTeachers(); fetchStudents(); fetchSentMessages(); fetchPendingUsers(); fetchMeetings(); }
+        if (tab === 'overview') { fetchTeachers(); fetchStudents(); fetchMembers(); fetchAdminStats(); fetchHealth(); fetchSentMessages(); fetchPendingUsers(); fetchMeetings(); }
+        if (tab === 'members') fetchMembers();
         if (tab === 'teachers') fetchTeachers();
         if (tab === 'students') { fetchStudents(); }
         if (tab === 'pending')  fetchPendingUsers();
         if (tab === 'meetings') { fetchMeetings(); fetchAllRooms(); fetchAllUsers(); }
         if (tab === 'messages') { /* ChatDrawer handles its own data */ }
-    }, [tab, fetchTeachers, fetchStudents, fetchSentMessages, fetchPendingUsers, fetchMeetings, fetchAllRooms, fetchAllUsers]);
+    }, [tab, fetchTeachers, fetchStudents, fetchMembers, fetchAdminStats, fetchHealth, fetchSentMessages, fetchPendingUsers, fetchMeetings, fetchAllRooms, fetchAllUsers]);
 
     // Always fetch sidebar stats on mount regardless of starting tab
     useEffect(() => {
         fetchTeachers();
         fetchStudents();
+        fetchMembers();
+        fetchAdminStats();
         fetchPendingUsers();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -394,9 +447,11 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
 
                     <div style={{ marginTop: 'auto', fontSize: 11, color: 'var(--text-muted)', padding: '12px 14px 0', borderTop: '1px solid var(--border)' }}>
                         <div style={{ fontWeight: 600, marginBottom: 4, color: 'var(--text)' }}>Platform Stats</div>
+                        <div>{members.length} member{members.length !== 1 ? 's' : ''}</div>
                         <div>{teachers.length} teacher{teachers.length !== 1 ? 's' : ''}</div>
                         <div>{students.length} student{students.length !== 1 ? 's' : ''}</div>
                         {pendingUsers.length > 0 && <div style={{ color: '#f59e0b', marginTop: 2 }}>{pendingUsers.length} pending</div>}
+                        {(adminStats?.liveGuestCount ?? 0) > 0 && <div style={{ color: '#64748b', marginTop: 2 }}>{adminStats?.liveGuestCount} live guest{(adminStats?.liveGuestCount ?? 0) !== 1 ? 's' : ''}</div>}
                         {meetings.filter(m => m.is_active).length > 0 && <div style={{ color: '#a5b4fc', marginTop: 2 }}>{meetings.filter(m => m.is_active).length} active meeting{meetings.filter(m => m.is_active).length !== 1 ? 's' : ''}</div>}
                     </div>
                 </aside>
@@ -408,20 +463,57 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                     {tab === 'overview' && (
                         <div>
                             <PageHeader title="Platform Overview" subtitle="Your platform at a glance" />
-                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 20, marginBottom: 32 }}>
-                                <StatCard icon="◎" label="Teachers" value={teachers.length} accent="#6366f1" />
-                                <StatCard icon="◉" label="Students" value={students.length} accent="#22c55e" />
+                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(5,1fr)', gap: 20, marginBottom: 32 }}>
+                                <StatCard icon="👤" label="Members" value={adminStats?.membersCount ?? members.length} accent="#a78bfa" />
+                                <StatCard icon="◎" label="Teachers" value={adminStats?.teachersCount ?? teachers.length} accent="#6366f1" />
+                                <StatCard icon="◉" label="Students" value={adminStats?.studentsCount ?? students.length} accent="#22c55e" />
                                 <StatCard icon="⏳" label="Pending" value={pendingUsers.length} accent="#f59e0b" />
+                                <StatCard icon="👥" label="Live Guests" value={adminStats?.liveGuestCount ?? 0} accent="#64748b" />
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(2,1fr)', gap: 20, marginBottom: 32 }}>
                                 <StatCard icon="◆" label="Messages Sent" value={sentMessages.length} accent="#8b5cf6" />
                             </div>
+                            {healthStatus && (
+                                <div style={{ marginBottom: 24, padding: 12, borderRadius: 12, background: healthStatus.status === 'ok' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${healthStatus.status === 'ok' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: healthStatus.status === 'ok' ? '#22c55e' : '#ef4444' }} />
+                                    <span style={{ fontSize: 13, fontWeight: 600 }}>App health: {healthStatus.status === 'ok' ? 'Running well' : 'Degraded'}</span>
+                                    {healthStatus.error && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{healthStatus.error}</span>}
+                                </div>
+                            )}
                             <Card title="Quick Actions">
-                                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 12 }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(5,1fr)', gap: 12 }}>
+                                    <BtnFull onClick={() => setTab('members')} color="#a78bfa">Manage Members</BtnFull>
                                     <BtnFull onClick={() => setTab('teachers')} color="#6366f1">Manage Teachers</BtnFull>
                                     <BtnFull onClick={() => setTab('students')} color="#22c55e">Manage Students</BtnFull>
                                     <BtnFull onClick={() => setTab('pending')} color="#f59e0b">Pending {pendingUsers.length > 0 ? `(${pendingUsers.length})` : 'Approvals'}</BtnFull>
                                     <BtnFull onClick={() => { setTab('meetings'); setShowCreateMeeting(true); }} color="#8b5cf6">+ Create Meeting</BtnFull>
                                 </div>
                             </Card>
+                        </div>
+                    )}
+
+                    {/* MEMBERS */}
+                    {tab === 'members' && (
+                        <div>
+                            <PageHeader title="Members" subtitle={`${members.length} registered`} />
+                            {loadingMembers ? <Loading /> : members.length === 0 ? (
+                                <Empty icon="👤" message="No members yet." />
+                            ) : (
+                                <div style={{ display: 'grid', gap: 10 }}>
+                                    {members.map(m => (
+                                        <div key={m.user_id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                                <Avatar name={m.name || m.email} color="#a78bfa" />
+                                                <div>
+                                                    <div style={{ fontWeight: 600, fontSize: 14 }}>{m.name || m.email}</div>
+                                                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{m.email}</div>
+                                                </div>
+                                            </div>
+                                            <span style={{ fontSize: 11, background: 'rgba(167,139,250,0.2)', border: '1px solid rgba(167,139,250,0.4)', borderRadius: 100, padding: '3px 10px', color: '#a78bfa', fontWeight: 600 }}>Member</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -551,15 +643,37 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                                                     {u.created_at && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Signed up {new Date(u.created_at).toLocaleDateString()}</div>}
                                                 </div>
                                             </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                                                 <span style={{ fontSize: 11, background: 'rgba(234,179,8,0.12)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: 100, padding: '3px 10px', color: '#f59e0b', fontWeight: 600 }}>Pending</span>
+                                                <select
+                                                    id={`approve-role-${u.id}`}
+                                                    defaultValue="student"
+                                                    style={{ background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', color: 'var(--text)', fontSize: 12 }}
+                                                >
+                                                    <option value="student">Student</option>
+                                                    <option value="teacher">Teacher</option>
+                                                    <option value="member">Member</option>
+                                                </select>
                                                 <Btn
-                                                    onClick={() => handleApproveUser(u.id, u.name, u.email)}
+                                                    onClick={() => {
+                                                        const sel = document.getElementById(`approve-role-${u.id}`) as HTMLSelectElement;
+                                                        const role = (sel?.value || 'student') as 'member' | 'teacher' | 'student';
+                                                        handleApproveUser(u.id, u.name, u.email, role);
+                                                    }}
                                                     color="#22c55e"
                                                     small
                                                     disabled={approvingId === u.id}
                                                 >
-                                                    {approvingId === u.id ? 'Approving...' : '✓ Approve as Student'}
+                                                    {approvingId === u.id ? 'Approving...' : '✓ Approve'}
+                                                </Btn>
+                                                <Btn
+                                                    onClick={() => handleRejectUser(u.id)}
+                                                    color="#ef444420"
+                                                    textColor="#ef4444"
+                                                    small
+                                                    disabled={rejectingId === u.id}
+                                                >
+                                                    {rejectingId === u.id ? 'Rejecting...' : 'Reject'}
                                                 </Btn>
                                             </div>
                                         </div>
