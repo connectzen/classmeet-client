@@ -3,6 +3,7 @@ import { io } from 'socket.io-client';
 import { useUser } from '../lib/AuthContext';
 import { insforge } from '../lib/insforge';
 import ChatDrawer from '../components/ChatDrawer';
+import QuizDrawer from '../components/QuizDrawer';
 import AuthModal from '../components/AuthModal';
 import UserMenu from '../components/UserMenu';
 import MeetingBanner, { AdminMeeting } from '../components/MeetingBanner';
@@ -79,6 +80,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const displayName = user?.profile?.name || user?.email?.split('@')[0] || '';
     const [chatOpen, setChatOpen] = useState(false);
     const [unreadChatCount, setUnreadChatCount] = useState(0);
+    const [quizOpen, setQuizOpen] = useState(false);
 
     // ── Get time-based greeting ────────────────────────────────────────
     const getGreeting = () => {
@@ -872,6 +874,13 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             {user?.id && userRole && userRole !== 'pending' && userRole !== 'admin' && (
                 <>
                     <button
+                        className="quiz-fab"
+                        onClick={() => setQuizOpen(true)}
+                        title="Quizzes"
+                    >
+                        📝
+                    </button>
+                    <button
                         className="chat-fab"
                         onClick={() => setChatOpen(true)}
                         title="Messages"
@@ -890,6 +899,13 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                         open={chatOpen}
                         onClose={() => setChatOpen(false)}
                         onUnreadChange={setUnreadChatCount}
+                    />
+                    <QuizDrawer
+                        userId={user.id}
+                        userName={displayName}
+                        userRole={userRole}
+                        open={quizOpen}
+                        onClose={() => setQuizOpen(false)}
                     />
                 </>
             )}
