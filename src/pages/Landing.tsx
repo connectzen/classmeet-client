@@ -377,6 +377,10 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         const pollIdT = setInterval(fetchTeacherSessions, 30_000);
         const pollIdM = setInterval(fetchMemberSessions, 30_000);
         const pollIdS = setInterval(fetchStudentTeacherSessions, 30_000);
+        // Poll lists that show other users so profile updates (name/avatar) become visible without relying only on socket
+        const pollStudents = userRole === 'teacher' ? setInterval(fetchTeacherStudents, 30_000) : null;
+        const pollMemberLists = userRole === 'member' ? setInterval(() => { fetchAllStudents(); fetchMemberTeachers(); fetchMemberTeachersWithStudents(); }, 30_000) : null;
+        const pollTeacherNames = userRole === 'student' ? setInterval(fetchTeacherNamesForStudent, 30_000) : null;
         const sock2 = io(SERVER_URL, { transports: ['websocket'] });
         sock2.on('connect', () => {
             sock2.emit('register-user', user.id);
@@ -392,8 +396,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         });
         sock2.on('teacher:session-updated', () => { fetchTeacherSessions(); fetchMemberSessions(); fetchStudentTeacherSessions(); });
         sock2.on('dashboard:data-changed', () => {
-            // Refetch lists immediately so other users' profile changes (e.g. student name/avatar) are visible to teachers/members
-            if (userRole === 'teacher') { fetchTeacherStudents(); }
+            if (userRole === 'teacher') fetchTeacherStudents();
             if (userRole === 'member') { fetchAllStudents(); fetchMemberTeachers(); fetchMemberTeachersWithStudents(); }
             if (userRole === 'student') fetchTeacherNamesForStudent();
             refetchRoleAndDashboard();
@@ -418,6 +421,9 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             clearInterval(pollIdT);
             clearInterval(pollIdM);
             clearInterval(pollIdS);
+            if (pollStudents != null) clearInterval(pollStudents);
+            if (pollMemberLists != null) clearInterval(pollMemberLists);
+            if (pollTeacherNames != null) clearInterval(pollTeacherNames);
             sock2.disconnect();
         };
     }, [user?.id, userRole, fetchTeacherSessions, fetchMemberSessions, fetchStudentTeacherSessions, fetchTeacherStudents, fetchTeacherCoursesCount, fetchAllStudents, fetchMemberCoursesCount, fetchTeacherNamesForStudent, fetchMemberTeachers, fetchMemberTeachersWithStudents, refetchRoleAndDashboard]);
