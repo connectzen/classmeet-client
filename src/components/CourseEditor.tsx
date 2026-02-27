@@ -1,6 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
 import {
     DndContext,
     closestCenter,
@@ -47,21 +45,6 @@ interface Props {
     onSaved: () => void;
 }
 
-const QUILL_MODULES = {
-    toolbar: [
-        [{ header: [1, 2, 3, false] }],
-        ['bold', 'italic', 'underline'],
-        [{ list: 'ordered' }, { list: 'bullet' }],
-        ['clean'],
-    ],
-};
-
-const QUILL_STYLE = {
-    background: 'rgba(0,0,0,0.2)',
-    borderRadius: 8,
-    border: '1px solid rgba(255,255,255,0.1)',
-};
-const QUILL_EDITOR = '.ql-editor { min-height: 100px; color: var(--text); }';
 
 function SortableLessonCard({
     lesson,
@@ -198,14 +181,18 @@ function SortableLessonCard({
                             </div>
                         )}
                         {type === 'text' && (
-                            <div style={{ marginTop: 12 }} onBlur={() => { if (lesson.id) onUpdate(idx, { content: lesson.content }, true); }}>
-                                <style>{QUILL_EDITOR}</style>
-                                <ReactQuill
-                                    theme="snow"
+                            <div style={{ marginTop: 12 }}>
+                                <textarea
                                     value={lesson.content}
-                                    onChange={v => onUpdate(idx, { content: v }, false)}
-                                    modules={QUILL_MODULES}
-                                    style={QUILL_STYLE}
+                                    onChange={e => onUpdate(idx, { content: e.target.value }, false)}
+                                    onBlur={() => { if (lesson.id) onUpdate(idx, { content: lesson.content }, true); }}
+                                    placeholder="Lesson content (supports plain text)"
+                                    rows={6}
+                                    style={{
+                                        width: '100%', padding: '10px 12px', borderRadius: 8,
+                                        border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)',
+                                        color: 'var(--text)', fontSize: 14, resize: 'vertical', boxSizing: 'border-box',
+                                    }}
                                 />
                             </div>
                         )}

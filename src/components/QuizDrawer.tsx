@@ -1114,6 +1114,19 @@ function SubmissionDetail({ quiz, submission, onGraded }: {
                                         fontSize: 12, marginRight: 4,
                                     }}>{o}</span>
                                 ))}</div>
+                            ) : ans.file_url && (q.type === 'recording' || q.type === 'upload') ? (
+                                q.type === 'recording' ? (
+                                    <div>
+                                        <audio src={ans.file_url} controls style={{ width: '100%', maxWidth: 320, borderRadius: 8 }} />
+                                        <a href={ans.file_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, display: 'inline-block' }}>
+                                            Open in new tab
+                                        </a>
+                                    </div>
+                                ) : (
+                                    <a href={ans.file_url} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)' }}>
+                                        📎 View submission
+                                    </a>
+                                )
                             ) : ans.file_url ? (
                                 <a href={ans.file_url} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)' }}>
                                     📎 View submission
@@ -1246,7 +1259,7 @@ function TakeQuiz({ quiz, submissionId, userId, showConfirm, showAlert, onDone }
             questionId: a.questionId,
             answerText: a.answerText,
             selectedOptions: a.selectedOptions,
-            fileUrl: a.fileUrl,
+            fileUrl: a.fileUrl?.startsWith('blob:') ? null : (a.fileUrl || null),
         }));
         if (!payload.length) return;
         await fetch(`${SERVER}/api/submissions/${submissionId}/answers`, {

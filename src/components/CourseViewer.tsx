@@ -173,14 +173,15 @@ export default function CourseViewer({ course, onClose }: Props) {
                                     {lesson.lesson_type === 'text' && (
                                         lesson.content ? (
                                             <div
-                                                className="ql-editor"
                                                 style={{
                                                     color: 'var(--text)',
                                                     lineHeight: 1.6,
                                                     fontSize: 14,
+                                                    whiteSpace: 'pre-wrap',
                                                 }}
-                                                dangerouslySetInnerHTML={{ __html: lesson.content }}
-                                            />
+                                            >
+                                                {lesson.content}
+                                            </div>
                                         ) : (
                                             <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>No content for this lesson.</p>
                                         )
