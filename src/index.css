@@ -592,7 +592,8 @@ button:active:not(:disabled),
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.15s, transform 0.12s;
+  transition: opacity 0.2s, transform 0.2s, background 0.2s, border-color 0.2s;
+  transition-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
   white-space: nowrap;
 }
 .quiz-btn:hover { opacity: 0.85; }
@@ -636,7 +637,8 @@ button:active:not(:disabled),
   outline: none;
   margin-bottom: 4px;
   box-sizing: border-box;
-  transition: border-color 0.15s;
+  transition: border-color 0.2s, background 0.2s;
+  transition-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 .quiz-input:focus { border-color: var(--primary); }
 .quiz-input option { background: var(--surface-2); }
@@ -658,18 +660,18 @@ button:active:not(:disabled),
 
 /* ── Quiz question transitions (take-quiz) ────────────────────────────────── */
 @keyframes quiz-slide-in-right {
-  from { opacity: 0; transform: translateX(24px); }
+  from { opacity: 0; transform: translateX(28px); }
   to   { opacity: 1; transform: translateX(0); }
 }
 @keyframes quiz-slide-in-left {
-  from { opacity: 0; transform: translateX(-24px); }
+  from { opacity: 0; transform: translateX(-28px); }
   to   { opacity: 1; transform: translateX(0); }
 }
 .quiz-question-enter-next {
-  animation: quiz-slide-in-right 0.25s ease-out forwards;
+  animation: quiz-slide-in-right 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 }
 .quiz-question-enter-prev {
-  animation: quiz-slide-in-left 0.25s ease-out forwards;
+  animation: quiz-slide-in-left 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 }
 
 /* Quiz creation polish */
@@ -692,7 +694,7 @@ button:active:not(:disabled),
   font-size: 11px;
   background: var(--surface-3);
   border: 1px solid var(--border);
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 .quiz-step-dot.active {
   background: var(--primary);
@@ -705,10 +707,10 @@ button:active:not(:disabled),
   color: #22c55e;
 }
 .quiz-form-fade-in {
-  animation: quiz-fade-in 0.2s ease-out;
+  animation: quiz-fade-in 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 @keyframes quiz-fade-in {
-  from { opacity: 0; transform: translateY(4px); }
+  from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 .quiz-type-pill {
@@ -721,14 +723,22 @@ button:active:not(:disabled),
   transform: scale(0.98);
 }
 .quiz-builder-card {
-  transition: opacity 0.2s, transform 0.2s;
+  transition: opacity 0.25s, transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.quiz-builder-card.quiz-builder-stagger {
+  opacity: 0;
+  animation: quiz-builder-stagger 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+@keyframes quiz-builder-stagger {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 .quiz-done-bounce {
-  animation: quiz-done-bounce 0.5s ease-out;
+  animation: quiz-done-success 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
-@keyframes quiz-done-bounce {
-  0%   { transform: scale(0.9); opacity: 0; }
-  60%  { transform: scale(1.05); opacity: 1; }
+@keyframes quiz-done-success {
+  0%   { transform: scale(0.85); opacity: 0; }
+  50%  { transform: scale(1.08); opacity: 1; }
   100% { transform: scale(1); opacity: 1; }
 }
 
@@ -2478,6 +2488,11 @@ button:active:not(:disabled),
   }
 }
 
+@keyframes confirmModalFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 .device-picker-card {
   background: var(--surface);
   border: 1.5px solid var(--border);
@@ -2789,3 +2804,14 @@ button:active:not(:disabled),
     gap: 10px;
   }
 }
+
+/* Quill editor dark theme (CourseEditor) */
+.ql-toolbar.ql-snow,
+.ql-container.ql-snow {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  background: rgba(0, 0, 0, 0.2) !important;
+}
+.ql-toolbar .ql-stroke { stroke: rgba(255, 255, 255, 0.3) !important; }
+.ql-toolbar .ql-fill { fill: rgba(255, 255, 255, 0.3) !important; }
+.ql-toolbar .ql-picker { color: var(--text-muted) !important; }
+.ql-editor { color: var(--text) !important; min-height: 100px; }

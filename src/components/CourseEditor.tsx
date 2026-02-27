@@ -1,12 +1,36 @@
 import { useState, useEffect, useCallback } from 'react';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent,
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    useSortable,
+    verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+
+type LessonType = 'text' | 'video' | 'audio';
 
 interface Lesson {
     id?: string;
     title: string;
     content: string;
     order_index?: number;
+    lesson_type?: LessonType;
+    video_url?: string | null;
+    audio_url?: string | null;
 }
 
 interface Course {
@@ -21,6 +45,156 @@ interface Props {
     course?: Course | null;
     onClose: () => void;
     onSaved: () => void;
+}
+
+const QUILL_MODULES = {
+    toolbar: [
+        [{ header: [1, 2, 3, false] }],
+        ['bold', 'italic', 'underline'],
+        [{ list: 'ordered' }, { list: 'bullet' }],
+        ['clean'],
+    ],
+};
+
+const QUILL_STYLE = {
+    background: 'rgba(0,0,0,0.2)',
+    borderRadius: 8,
+    border: '1px solid rgba(255,255,255,0.1)',
+};
+const QUILL_EDITOR = '.ql-editor { min-height: 100px; color: var(--text); }';
+
+function SortableLessonCard({
+    lesson,
+    idx,
+    onUpdate,
+    onDelete,
+    saving,
+}: {
+    lesson: Lesson;
+    idx: number;
+    onUpdate: (idx: number, updates: Partial<Lesson>, save?: boolean) => void;
+    onDelete: (idx: number) => void;
+    saving: boolean;
+}) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+        id: lesson.id || `lesson-${idx}`,
+    });
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+    };
+    const type = lesson.lesson_type || 'text';
+
+    async function handleAudioUpload(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file || !lesson.id) return;
+        const fd = new FormData();
+        fd.append('file', file);
+        const r = await fetch(`${SERVER}/api/quiz/upload`, { method: 'POST', body: fd });
+        const data = await r.json();
+        if (data.url) {
+            onUpdate(idx, { audio_url: data.url }, false);
+            await fetch(`${SERVER}/api/lessons/${lesson.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ audioUrl: data.url }),
+            });
+        }
+        e.target.value = '';
+    }
+
+    return (
+        <div ref={setNodeRef} style={style} className="lesson-card" data-lesson-id={lesson.id}>
+            <div style={{
+                padding: 14, background: 'rgba(255,255,255,0.04)', borderRadius: 12,
+                border: '1px solid rgba(255,255,255,0.08)',
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <div
+                        {...attributes}
+                        {...listeners}
+                        style={{
+                            cursor: 'grab', padding: '6px 8px', borderRadius: 6,
+                            background: 'rgba(255,255,255,0.08)', color: 'var(--text-muted)',
+                            touchAction: 'none',
+                        }}
+                        title="Drag to reorder"
+                    >
+                        ⋮⋮
+                    </div>
+                    <input
+                        value={lesson.title}
+                        onChange={e => onUpdate(idx, { title: e.target.value }, false)}
+                        onBlur={e => { if (lesson.id) onUpdate(idx, { title: e.target.value }, true); }}
+                        placeholder="Lesson title"
+                        style={{
+                            flex: 1, padding: '8px 12px', borderRadius: 8,
+                            border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)',
+                            color: 'var(--text)', fontSize: 14,
+                        }}
+                    />
+                    <select
+                        value={type}
+                        onChange={e => onUpdate(idx, { lesson_type: e.target.value as LessonType }, false)}
+                        onBlur={() => { if (lesson.id) onUpdate(idx, { lesson_type: type }, true); }}
+                        style={{
+                            padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)',
+                            background: 'rgba(0,0,0,0.2)', color: 'var(--text)', fontSize: 12,
+                        }}
+                    >
+                        <option value="text">Text</option>
+                        <option value="video">Video</option>
+                        <option value="audio">Audio</option>
+                    </select>
+                    <button type="button" onClick={() => onDelete(idx)} disabled={saving} style={{ padding: '6px 10px', borderRadius: 6, border: 'none', background: 'rgba(239,68,68,0.2)', color: '#ef4444', fontSize: 12, cursor: saving ? 'not-allowed' : 'pointer' }}>Delete</button>
+                </div>
+                {type === 'video' && (
+                    <div style={{ marginTop: 8 }}>
+                        <input
+                            type="url"
+                            value={lesson.video_url || ''}
+                            onChange={e => onUpdate(idx, { video_url: e.target.value }, false)}
+                            onBlur={() => { if (lesson.id) onUpdate(idx, { video_url: lesson.video_url }, true); }}
+                            placeholder="Paste YouTube or video URL…"
+                            style={{
+                                width: '100%', padding: '8px 12px', borderRadius: 8,
+                                border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)',
+                                color: 'var(--text)', fontSize: 13, boxSizing: 'border-box',
+                            }}
+                        />
+                    </div>
+                )}
+                {type === 'audio' && (
+                    <div style={{ marginTop: 8 }}>
+                        <label style={{
+                            display: 'inline-block', padding: '8px 14px', borderRadius: 8,
+                            background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)',
+                            cursor: 'pointer', fontSize: 13, color: 'var(--primary)',
+                        }}>
+                            📎 Upload audio
+                            <input type="file" accept="audio/*" style={{ display: 'none' }} onChange={handleAudioUpload} />
+                        </label>
+                        {lesson.audio_url && (
+                            <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--text-muted)' }}>✓ Audio uploaded</span>
+                        )}
+                    </div>
+                )}
+                {type === 'text' && (
+                    <div style={{ marginTop: 8 }} onBlur={() => { if (lesson.id) onUpdate(idx, { content: lesson.content }, true); }}>
+                        <style>{QUILL_EDITOR}</style>
+                        <ReactQuill
+                            theme="snow"
+                            value={lesson.content}
+                            onChange={v => onUpdate(idx, { content: v }, false)}
+                            modules={QUILL_MODULES}
+                            style={QUILL_STYLE}
+                        />
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 }
 
 export default function CourseEditor({ userId, course, onClose, onSaved }: Props) {
@@ -39,11 +213,14 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
             const r = await fetch(`${SERVER}/api/courses/${courseId}/lessons`);
             if (r.ok) {
                 const data = await r.json();
-                setLessons((data as { id: string; title: string; content: string | null; order_index: number }[]).map(l => ({
+                setLessons((data as { id: string; title: string; content: string | null; order_index: number; lesson_type?: string; video_url?: string | null; audio_url?: string | null }[]).map(l => ({
                     id: l.id,
                     title: l.title,
                     content: l.content || '',
                     order_index: l.order_index,
+                    lesson_type: (l.lesson_type || 'text') as LessonType,
+                    video_url: l.video_url || null,
+                    audio_url: l.audio_url || null,
                 })));
             }
         } catch { /* ignore */ }
@@ -60,6 +237,11 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
     useEffect(() => {
         if (courseId) fetchLessons();
     }, [courseId, fetchLessons]);
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
 
     async function handleCreateCourse() {
         if (!title.trim() || saving) return;
@@ -102,28 +284,47 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
             const r = await fetch(`${SERVER}/api/courses/${courseId}/lessons`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: 'New Lesson', content: '', orderIndex: lessons.length }),
+                body: JSON.stringify({ title: 'New Lesson', content: '', orderIndex: lessons.length, lessonType: 'text' }),
             });
             if (r.ok) {
                 const l = await r.json();
-                setLessons(prev => [...prev, { id: l.id, title: l.title, content: l.content || '', order_index: l.order_index }]);
+                setLessons(prev => [...prev, {
+                    id: l.id,
+                    title: l.title,
+                    content: l.content || '',
+                    order_index: l.order_index,
+                    lesson_type: (l.lesson_type || 'text') as LessonType,
+                    video_url: l.video_url || null,
+                    audio_url: l.audio_url || null,
+                }]);
             }
         } finally {
             setSaving(false);
         }
     }
 
-    async function handleUpdateLesson(idx: number, field: 'title' | 'content', value: string) {
+    async function handleUpdateLesson(idx: number, updates: Partial<Lesson>) {
         const l = lessons[idx];
         if (!l?.id) return;
+        const payload: Record<string, unknown> = {};
+        if (updates.title !== undefined) payload.title = updates.title;
+        if (updates.content !== undefined) payload.content = updates.content;
+        if (updates.lesson_type !== undefined) payload.lessonType = updates.lesson_type;
+        if (updates.video_url !== undefined) payload.videoUrl = updates.video_url;
+        if (updates.audio_url !== undefined) payload.audioUrl = updates.audio_url;
+        if (Object.keys(payload).length === 0) return;
         try {
             await fetch(`${SERVER}/api/lessons/${l.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ [field]: value }),
+                body: JSON.stringify(payload),
             });
-            setLessons(prev => prev.map((x, i) => i === idx ? { ...x, [field]: value } : x));
+            setLessons(prev => prev.map((x, i) => i === idx ? { ...x, ...updates } : x));
         } catch { /* ignore */ }
+    }
+
+    function updateLessonLocal(idx: number, updates: Partial<Lesson>) {
+        setLessons(prev => prev.map((x, i) => i === idx ? { ...x, ...updates } : x));
     }
 
     async function handleDeleteLesson(idx: number) {
@@ -138,13 +339,15 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
         }
     }
 
-    function moveLesson(idx: number, dir: number) {
-        const newIdx = idx + dir;
-        if (newIdx < 0 || newIdx >= lessons.length) return;
-        const arr = [...lessons];
-        [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
-        setLessons(arr);
-        arr.forEach((l, i) => {
+    async function handleDragEnd(event: DragEndEvent) {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+        const oldIdx = lessons.findIndex(l => (l.id || '') === active.id || `lesson-${lessons.indexOf(l)}` === active.id);
+        const newIdx = lessons.findIndex(l => (l.id || '') === over.id || `lesson-${lessons.indexOf(l)}` === over.id);
+        if (oldIdx === -1 || newIdx === -1) return;
+        const reordered = arrayMove(lessons, oldIdx, newIdx);
+        setLessons(reordered);
+        reordered.forEach((l, i) => {
             if (l.id) fetch(`${SERVER}/api/lessons/${l.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderIndex: i }) }).catch(() => {});
         });
     }
@@ -242,43 +445,22 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
                                 <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>Lessons ({lessons.length})</span>
                                 <button type="button" onClick={handleAddLesson} disabled={saving} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#6366f1', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer' }}>+ Add Lesson</button>
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                {lessons.map((l, idx) => (
-                                    <div key={l.id || idx} style={{
-                                        padding: 14, background: 'rgba(255,255,255,0.04)', borderRadius: 12,
-                                        border: '1px solid rgba(255,255,255,0.08)',
-                                    }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                                            <input
-                                                value={l.title}
-                                                onChange={e => setLessons(prev => prev.map((x, i) => i === idx ? { ...x, title: e.target.value } : x))}
-                                                onBlur={e => { if (l.id) handleUpdateLesson(idx, 'title', e.target.value); }}
-                                                placeholder="Lesson title"
-                                                style={{
-                                                    flex: 1, padding: '8px 12px', borderRadius: 8,
-                                                    border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)',
-                                                    color: 'var(--text)', fontSize: 14,
-                                                }}
+                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                                <SortableContext items={lessons.map((l, i) => l.id || `lesson-${i}`)} strategy={verticalListSortingStrategy}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        {lessons.map((l, idx) => (
+                                            <SortableLessonCard
+                                                key={l.id || idx}
+                                                lesson={l}
+                                                idx={idx}
+                                                onUpdate={(i, u, save) => { updateLessonLocal(i, u); if (save) handleUpdateLesson(i, u); }}
+                                                onDelete={handleDeleteLesson}
+                                                saving={saving}
                                             />
-                                            <button type="button" onClick={() => moveLesson(idx, -1)} disabled={idx === 0} style={{ padding: '6px 10px', borderRadius: 6, border: 'none', background: 'rgba(255,255,255,0.08)', color: 'var(--text)', fontSize: 12, cursor: idx === 0 ? 'not-allowed' : 'pointer' }}>↑</button>
-                                            <button type="button" onClick={() => moveLesson(idx, 1)} disabled={idx === lessons.length - 1} style={{ padding: '6px 10px', borderRadius: 6, border: 'none', background: 'rgba(255,255,255,0.08)', color: 'var(--text)', fontSize: 12, cursor: idx === lessons.length - 1 ? 'not-allowed' : 'pointer' }}>↓</button>
-                                            <button type="button" onClick={() => handleDeleteLesson(idx)} disabled={saving} style={{ padding: '6px 10px', borderRadius: 6, border: 'none', background: 'rgba(239,68,68,0.2)', color: '#ef4444', fontSize: 12, cursor: saving ? 'not-allowed' : 'pointer' }}>Delete</button>
-                                        </div>
-                                        <textarea
-                                            value={l.content}
-                                            onChange={e => setLessons(prev => prev.map((x, i) => i === idx ? { ...x, content: e.target.value } : x))}
-                                            onBlur={e => { if (l.id) handleUpdateLesson(idx, 'content', e.target.value); }}
-                                            placeholder="Lesson content..."
-                                            rows={2}
-                                            style={{
-                                                width: '100%', padding: '8px 12px', borderRadius: 8,
-                                                border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)',
-                                                color: 'var(--text)', fontSize: 13, resize: 'vertical', boxSizing: 'border-box',
-                                            }}
-                                        />
+                                        ))}
                                     </div>
-                                ))}
-                            </div>
+                                </SortableContext>
+                            </DndContext>
                             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
                                 {!isEdit && <button type="button" onClick={() => setStep(1)} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: 'var(--text-muted)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Back</button>}
                                 <button type="button" onClick={() => { onSaved(); onClose(); }} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: '#6366f1', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Done</button>

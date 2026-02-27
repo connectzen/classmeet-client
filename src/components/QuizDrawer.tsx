@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import ConfirmModal from './ConfirmModal';
+import AlertModal from './AlertModal';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -29,6 +31,8 @@ interface Question {
     video_url?: string | null;
     order_index: number;
     points: number;
+    parent_question_id?: string | null;
+    children?: Question[];
 }
 
 interface Answer {
@@ -47,6 +51,8 @@ interface Submission {
     started_at: string;
     submitted_at: string | null;
     score: number | null;
+    teacher_overall_feedback?: string | null;
+    teacher_final_score_override?: number | null;
     answers?: SubmissionAnswer[];
 }
 
@@ -66,7 +72,7 @@ type View =
     | { name: 'list' }
     | { name: 'create' }
     | { name: 'builder'; quizId: string }
-    | { name: 'question-form'; quizId: string; question?: Question }
+    | { name: 'question-form'; quizId: string; question?: Question; parentQuestionId?: string }
     | { name: 'results'; quiz: Quiz }
     | { name: 'submission-detail'; quiz: Quiz; submission: Submission }
     | { name: 'take-quiz'; quiz: Quiz & { questions: Question[] }; submissionId: string }
@@ -78,6 +84,7 @@ interface Props {
     userRole: string;
     open: boolean;
     onClose: () => void;
+    quizScoreUpdateTrigger?: number;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -102,9 +109,26 @@ function fmtTime(s: string) {
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
-export default function QuizDrawer({ userId, userName, userRole, open, onClose }: Props) {
+type ConfirmState = {
+    open: boolean;
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    variant?: 'default' | 'warning' | 'danger';
+    onConfirm: () => void;
+} | null;
+
+export default function QuizDrawer({ userId, userName, userRole, open, onClose, quizScoreUpdateTrigger = 0 }: Props) {
     const canCreate = userRole === 'teacher' || userRole === 'admin' || userRole === 'member';
     const [view, setView] = useState<View>({ name: 'list' });
+    const [confirmState, setConfirmState] = useState<ConfirmState>(null);
+    const [alertState, setAlertState] = useState<{ open: boolean; title: string; message: string } | null>(null);
+    const showConfirm = useCallback((opts: Omit<NonNullable<ConfirmState>, 'open'>) => {
+        setConfirmState({ ...opts, open: true });
+    }, []);
+    const showAlert = useCallback((title: string, message: string) => {
+        setAlertState({ open: true, title, message });
+    }, []);
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
     const [loadingQuizzes, setLoadingQuizzes] = useState(false);
     const [teacherRooms, setTeacherRooms] = useState<TeacherRoom[]>([]);
@@ -136,6 +160,7 @@ export default function QuizDrawer({ userId, userName, userRole, open, onClose }
     }
     useEffect(() => { if (open) { fetchQuizzes(); if (canCreate) { fetchTeacherRooms(); fetchCourses(); } } }, [open]);
     useEffect(() => { if (open && view.name === 'list') fetchQuizzes(); }, [view]);
+    useEffect(() => { if (quizScoreUpdateTrigger > 0) fetchQuizzes(); }, [quizScoreUpdateTrigger, fetchQuizzes]);
 
     async function fetchTeacherRooms() {
         try {
@@ -225,10 +250,19 @@ export default function QuizDrawer({ userId, userName, userRole, open, onClose }
                                 const fullQuiz = await qr.json();
                                 setView({ name: 'take-quiz', quiz: fullQuiz, submissionId: sub.id });
                             }}
-                            onDelete={async (id) => {
-                                if (!confirm('Delete this quiz? This cannot be undone.')) return;
-                                await fetch(`${SERVER}/api/quizzes/${id}`, { method: 'DELETE' });
-                                fetchQuizzes();
+                            onDelete={(id) => {
+                                setConfirmState({
+                                    open: true,
+                                    title: 'Delete Quiz',
+                                    message: 'Delete this quiz? This cannot be undone.',
+                                    confirmLabel: 'Delete',
+                                    variant: 'danger',
+                                    onConfirm: async () => {
+                                        await fetch(`${SERVER}/api/quizzes/${id}`, { method: 'DELETE' });
+                                        fetchQuizzes();
+                                        setConfirmState(null);
+                                    },
+                                });
                             }}
                             onTogglePublish={async (quiz) => {
                                 const endpoint = quiz.status === 'published' ? 'unpublish' : 'publish';
@@ -252,7 +286,8 @@ export default function QuizDrawer({ userId, userName, userRole, open, onClose }
                     {view.name === 'builder' && (
                         <QuizBuilder
                             quizId={view.quizId}
-                            onAddQuestion={(q?) => setView({ name: 'question-form', quizId: view.quizId, question: q })}
+                            showConfirm={showConfirm}
+                            onAddQuestion={(q?, parentQuestionId?) => setView({ name: 'question-form', quizId: view.quizId, question: q, parentQuestionId })}
                             onPublish={async () => {
                                 await fetch(`${SERVER}/api/quizzes/${view.quizId}/publish`, { method: 'POST' });
                                 fetchQuizzes();
@@ -264,6 +299,7 @@ export default function QuizDrawer({ userId, userName, userRole, open, onClose }
                         <QuestionForm
                             quizId={view.quizId}
                             question={view.question}
+                            parentQuestionId={view.parentQuestionId}
                             onSaved={() => setView({ name: 'builder', quizId: view.quizId })}
                             onCancel={goBack}
                         />
@@ -286,6 +322,8 @@ export default function QuizDrawer({ userId, userName, userRole, open, onClose }
                             quiz={view.quiz}
                             submissionId={view.submissionId}
                             userId={userId}
+                            showConfirm={showConfirm}
+                            showAlert={showAlert}
                             onDone={(score) => setView({ name: 'quiz-done', quiz: view.quiz, score })}
                         />
                     )}
@@ -298,6 +336,25 @@ export default function QuizDrawer({ userId, userName, userRole, open, onClose }
                     )}
                 </div>
             </div>
+            {confirmState && (
+                <ConfirmModal
+                    open={confirmState.open}
+                    title={confirmState.title}
+                    message={confirmState.message}
+                    confirmLabel={confirmState.confirmLabel}
+                    variant={confirmState.variant}
+                    onConfirm={() => { confirmState.onConfirm(); setConfirmState(null); }}
+                    onCancel={() => setConfirmState(null)}
+                />
+            )}
+            {alertState && (
+                <AlertModal
+                    open={alertState.open}
+                    title={alertState.title}
+                    message={alertState.message}
+                    onClose={() => setAlertState(null)}
+                />
+            )}
         </>
     );
 }
@@ -469,7 +526,7 @@ function CreateQuizForm({ userId, rooms, courses, onCreated, onCancel }: {
             {courses.length > 0 && (
                 <>
                     <label className="quiz-label" style={{ marginTop: 14 }}>Course (optional)</label>
-                    <select className="quiz-input" value={courseId} onChange={e => { setCourseId(e.target.value); if (e.target.value) setRoomId(''); }}>
+                    <select className="quiz-input" value={courseId} onChange={e => setCourseId(e.target.value)}>
                         <option value="">— No course —</option>
                         {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
                     </select>
@@ -480,7 +537,7 @@ function CreateQuizForm({ userId, rooms, courses, onCreated, onCancel }: {
             {rooms.length === 0 && !courseId ? (
                 <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Select a course above or create a room first.</p>
             ) : (
-                <select className="quiz-input" value={roomId} onChange={e => { setRoomId(e.target.value); if (e.target.value) setCourseId(''); }}>
+                <select className="quiz-input" value={roomId} onChange={e => setRoomId(e.target.value)}>
                     <option value="">— Select a room (optional if course set) —</option>
                     {rooms.map(r => <option key={r.id} value={r.id}>{r.name} ({r.code})</option>)}
                 </select>
@@ -506,9 +563,10 @@ function CreateQuizForm({ userId, rooms, courses, onCreated, onCancel }: {
 }
 
 // ─── Quiz Builder ─────────────────────────────────────────────────────────
-function QuizBuilder({ quizId, onAddQuestion, onPublish }: {
+function QuizBuilder({ quizId, showConfirm, onAddQuestion, onPublish }: {
     quizId: string;
-    onAddQuestion: (q?: Question) => void;
+    showConfirm: (opts: Omit<NonNullable<ConfirmState>, 'open'>) => void;
+    onAddQuestion: (q?: Question, parentQuestionId?: string) => void;
     onPublish: () => void;
 }) {
     const [quiz, setQuiz] = useState<(Quiz & { questions: Question[] }) | null>(null);
@@ -525,10 +583,17 @@ function QuizBuilder({ quizId, onAddQuestion, onPublish }: {
 
     useEffect(() => { load(); }, [load]);
 
-    async function handleDeleteQuestion(id: string) {
-        if (!confirm('Delete this question?')) return;
-        await fetch(`${SERVER}/api/quiz-questions/${id}`, { method: 'DELETE' });
-        load();
+    function handleDeleteQuestion(id: string) {
+        showConfirm({
+            title: 'Delete Question',
+            message: 'Delete this question?',
+            confirmLabel: 'Delete',
+            variant: 'danger',
+            onConfirm: async () => {
+                await fetch(`${SERVER}/api/quiz-questions/${id}`, { method: 'DELETE' });
+                load();
+            },
+        });
     }
 
     if (loading) return <p style={{ padding: 24, color: 'var(--text-muted)', textAlign: 'center' }}>Loading…</p>;
@@ -558,30 +623,62 @@ function QuizBuilder({ quizId, onAddQuestion, onPublish }: {
             )}
 
             {quiz.questions.map((q, i) => (
-                <div key={q.id} className="quiz-builder-card" style={{
-                    background: 'var(--surface-3)', borderRadius: 12, padding: 12,
-                    marginBottom: 8, border: '1px solid var(--border)',
-                    display: 'flex', gap: 10, alignItems: 'flex-start',
-                }}>
-                    <div style={{
-                        width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                        background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 12, fontWeight: 700,
-                    }}>{i + 1}</div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{q.question_text}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: 8 }}>
-                            <span>{TYPE_ICONS[q.type]} {TYPE_LABELS[q.type]}</span>
-                            <span>· {q.points} pt{q.points !== 1 ? 's' : ''}</span>
-                            {(q.type === 'select' || q.type === 'multi-select') && q.options && (
-                                <span>· {q.options.length} options</span>
+                <div key={q.id}>
+                    <div className="quiz-builder-card quiz-builder-stagger" style={{
+                        background: 'var(--surface-3)', borderRadius: 12, padding: 12,
+                        marginBottom: 8, border: '1px solid var(--border)',
+                        display: 'flex', gap: 10, alignItems: 'flex-start',
+                        animationDelay: `${i * 0.05}s`,
+                    }}>
+                        <div style={{
+                            width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                            background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 12, fontWeight: 700,
+                        }}>{i + 1}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{q.question_text}</div>
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                <span>{TYPE_ICONS[q.type]} {TYPE_LABELS[q.type]}</span>
+                                <span>· {q.points} pt{q.points !== 1 ? 's' : ''}</span>
+                                {(q.type === 'select' || q.type === 'multi-select') && q.options && (
+                                    <span>· {q.options.length} options</span>
+                                )}
+                                {q.type === 'video' && q.children?.length ? (
+                                    <span>· {q.children.length} sub-question{q.children.length !== 1 ? 's' : ''}</span>
+                                ) : null}
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                            <button onClick={() => onAddQuestion(q)} className="cd-icon-btn" title="Edit" style={{ fontSize: 14 }}>✏️</button>
+                            {q.type === 'video' && (
+                                <button onClick={() => onAddQuestion(undefined, q.id)} className="cd-icon-btn" title="Add sub-question" style={{ fontSize: 14 }}>➕</button>
                             )}
+                            <button onClick={() => handleDeleteQuestion(q.id)} className="cd-icon-btn" title="Delete" style={{ fontSize: 14 }}>🗑️</button>
                         </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                        <button onClick={() => onAddQuestion(q)} className="cd-icon-btn" title="Edit" style={{ fontSize: 14 }}>✏️</button>
-                        <button onClick={() => handleDeleteQuestion(q.id)} className="cd-icon-btn" title="Delete" style={{ fontSize: 14 }}>🗑️</button>
-                    </div>
+                    {q.type === 'video' && q.children?.length ? (
+                        <div style={{ marginLeft: 24, marginBottom: 8, paddingLeft: 12, borderLeft: '2px solid var(--primary)', opacity: 0.9 }}>
+                            {q.children.map((child, j) => (
+                                <div key={child.id} style={{
+                                    display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 6,
+                                    background: 'var(--surface-2)', borderRadius: 8, padding: 10,
+                                    border: '1px solid var(--border)',
+                                }}>
+                                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>{i + 1}{String.fromCharCode(97 + j)}</span>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontWeight: 500, fontSize: 13 }}>{child.question_text}</div>
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                            {TYPE_ICONS[child.type]} {TYPE_LABELS[child.type]} · {child.points} pt{child.points !== 1 ? 's' : ''}
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 4 }}>
+                                        <button onClick={() => onAddQuestion(child)} className="cd-icon-btn" title="Edit" style={{ fontSize: 12 }}>✏️</button>
+                                        <button onClick={() => handleDeleteQuestion(child.id)} className="cd-icon-btn" title="Delete" style={{ fontSize: 12 }}>🗑️</button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : null}
                 </div>
             ))}
 
@@ -607,11 +704,12 @@ function QuizBuilder({ quizId, onAddQuestion, onPublish }: {
 }
 
 // ─── Question Form ────────────────────────────────────────────────────────
-function QuestionForm({ quizId, question, onSaved, onCancel }: {
-    quizId: string; question?: Question;
+function QuestionForm({ quizId, question, parentQuestionId, onSaved, onCancel }: {
+    quizId: string; question?: Question; parentQuestionId?: string;
     onSaved: () => void; onCancel: () => void;
 }) {
     const editing = !!question;
+    const isSubQuestion = !!parentQuestionId || !!question?.parent_question_id;
     const [type, setType] = useState<QuestionType>(question?.type || 'text');
     const [questionText, setQuestionText] = useState(question?.question_text || '');
     const [options, setOptions] = useState<string[]>(question?.options || ['', '']);
@@ -663,10 +761,12 @@ function QuestionForm({ quizId, question, onSaved, onCancel }: {
                     body: JSON.stringify(payload),
                 });
             } else {
+                const postPayload = { ...payload };
+                if (parentQuestionId) (postPayload as Record<string, unknown>).parentQuestionId = parentQuestionId;
                 r = await fetch(`${SERVER}/api/quizzes/${quizId}/questions`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
+                    body: JSON.stringify(postPayload),
                 });
             }
             if (!r.ok) { const d = await r.json(); setErr(d.error || 'Failed'); setSaving(false); return; }
@@ -678,13 +778,13 @@ function QuestionForm({ quizId, question, onSaved, onCancel }: {
     return (
         <div style={{ padding: 20 }} className="quiz-form-fade-in">
             <h3 style={{ fontWeight: 700, marginBottom: 16, fontSize: 16 }}>
-                {editing ? 'Edit Question' : 'Add Question'}
+                {editing ? 'Edit Question' : isSubQuestion ? 'Add Sub-question (under video)' : 'Add Question'}
             </h3>
 
-            {/* Type Picker */}
+            {/* Type Picker - sub-questions cannot be video type */}
             <label className="quiz-label">Question Type</label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-                {(Object.keys(TYPE_LABELS) as QuestionType[]).map(t => (
+                {(Object.keys(TYPE_LABELS) as QuestionType[]).filter(t => !isSubQuestion || t !== 'video').map(t => (
                     <button
                         key={t}
                         onClick={() => setType(t)}
@@ -891,6 +991,9 @@ function SubmissionDetail({ quiz, submission, onGraded }: {
     const [grades, setGrades] = useState<Record<string, { grade: string; feedback: string }>>({});
     const [savingId, setSavingId] = useState<string | null>(null);
     const [savedSet, setSavedSet] = useState<Set<string>>(new Set());
+    const [overallFeedback, setOverallFeedback] = useState(submission.teacher_overall_feedback || '');
+    const [finalScoreOverride, setFinalScoreOverride] = useState(submission.teacher_final_score_override != null ? String(submission.teacher_final_score_override) : '');
+    const [savingFeedback, setSavingFeedback] = useState(false);
 
     useEffect(() => {
         fetch(`${SERVER}/api/quizzes/${quiz.id}?role=teacher`)
@@ -902,6 +1005,11 @@ function SubmissionDetail({ quiz, submission, onGraded }: {
         });
         setGrades(init);
     }, [quiz.id, submission.id]);
+
+    useEffect(() => {
+        setOverallFeedback(submission.teacher_overall_feedback || '');
+        setFinalScoreOverride(submission.teacher_final_score_override != null ? String(submission.teacher_final_score_override) : '');
+    }, [submission.teacher_overall_feedback, submission.teacher_final_score_override]);
 
     async function saveGrade(answerId: string) {
         setSavingId(answerId);
@@ -916,7 +1024,28 @@ function SubmissionDetail({ quiz, submission, onGraded }: {
         if (result.newScore !== undefined) onGraded({ ...submission, score: result.newScore });
     }
 
+    async function saveFeedback() {
+        setSavingFeedback(true);
+        const r = await fetch(`${SERVER}/api/submissions/${submission.id}/feedback`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                teacherOverallFeedback: overallFeedback,
+                teacherFinalScoreOverride: finalScoreOverride !== '' ? Number(finalScoreOverride) : null,
+            }),
+        });
+        const data = await r.json();
+        setSavingFeedback(false);
+        if (r.ok) onGraded({
+            ...submission,
+            teacher_overall_feedback: data.teacherOverallFeedback ?? overallFeedback,
+            teacher_final_score_override: data.teacherFinalScoreOverride ?? (finalScoreOverride !== '' ? Number(finalScoreOverride) : null),
+        });
+    }
+
     const getAnswerForQuestion = (qId: string) => submission.answers?.find(a => a.question_id === qId);
+    const effectiveScore = submission.teacher_final_score_override != null ? submission.teacher_final_score_override : submission.score;
+    const flatQuestions = questions.flatMap(q => q.children?.length ? [q, ...q.children] : [q]);
 
     return (
         <div style={{ padding: '12px 16px' }}>
@@ -924,11 +1053,44 @@ function SubmissionDetail({ quiz, submission, onGraded }: {
                 <div style={{ fontWeight: 700 }}>{submission.student_name}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
                     {submission.submitted_at ? `Submitted ${fmtDate(submission.submitted_at)}` : 'Not submitted yet'}
-                    {submission.score !== null && ` · Score: ${submission.score}%`}
+                    {effectiveScore != null && ` · Score: ${effectiveScore}%`}
                 </div>
             </div>
 
-            {questions.map((q, i) => {
+            {/* Overall feedback and final score override */}
+            <div style={{ background: 'var(--surface-3)', borderRadius: 12, padding: 14, marginBottom: 14, border: '1px solid var(--border)' }}>
+                <label className="quiz-label">Overall Feedback</label>
+                <textarea
+                    className="quiz-input"
+                    style={{ minHeight: 60, resize: 'vertical', marginBottom: 10 }}
+                    placeholder="Optional overall comment for the student…"
+                    value={overallFeedback}
+                    onChange={e => setOverallFeedback(e.target.value)}
+                />
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <label className="quiz-label" style={{ marginBottom: 0 }}>Final score override %</label>
+                    <input
+                        className="quiz-input"
+                        type="number"
+                        min="0"
+                        max="100"
+                        style={{ width: 70, marginBottom: 0 }}
+                        placeholder="Optional"
+                        value={finalScoreOverride}
+                        onChange={e => setFinalScoreOverride(e.target.value)}
+                    />
+                    <button
+                        onClick={saveFeedback}
+                        disabled={savingFeedback}
+                        className="quiz-btn quiz-btn-primary"
+                        style={{ padding: '6px 14px' }}
+                    >
+                        {savingFeedback ? '…' : '💾 Save Feedback'}
+                    </button>
+                </div>
+            </div>
+
+            {flatQuestions.map((q, i) => {
                 const ans = getAnswerForQuestion(q.id);
                 return (
                     <div key={q.id} style={{
@@ -1006,10 +1168,12 @@ function SubmissionDetail({ quiz, submission, onGraded }: {
 }
 
 // ─── Take Quiz (Student) ──────────────────────────────────────────────────
-function TakeQuiz({ quiz, submissionId, userId, onDone }: {
+function TakeQuiz({ quiz, submissionId, userId, showConfirm, showAlert, onDone }: {
     quiz: Quiz & { questions: Question[] };
     submissionId: string;
     userId: string;
+    showConfirm: (opts: Omit<NonNullable<ConfirmState>, 'open'>) => void;
+    showAlert: (title: string, message: string) => void;
     onDone: (score: number | null) => void;
 }) {
     const [answers, setAnswers] = useState<Record<string, Answer>>({});
@@ -1022,12 +1186,21 @@ function TakeQuiz({ quiz, submissionId, userId, onDone }: {
     const [recording, setRecording] = useState(false);
     const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
     const [uploading, setUploading] = useState(false);
+    const [audioDevices, setAudioDevices] = useState<{ deviceId: string; label: string }[]>([]);
+    const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
+    const [audioLevel, setAudioLevel] = useState(0);
+    const analyserRef = useRef<AnalyserNode | null>(null);
+    const animationRef = useRef<number | null>(null);
     const [localRecordUrls, setLocalRecordUrls] = useState<Record<string, string>>({});
     const chunksRef = useRef<Blob[]>([]);
     const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const q = quiz.questions[currentIdx];
-    const totalQ = quiz.questions.length;
+    // Flatten nested questions (video parent + children) for take-quiz navigation
+    const flatQuestions = (quiz.questions || []).flatMap((q: Question) =>
+        q.children?.length ? [q, ...q.children] : [q]
+    );
+    const q = flatQuestions[currentIdx];
+    const totalQ = flatQuestions.length;
 
     // Timer
     useEffect(() => {
@@ -1043,6 +1216,30 @@ function TakeQuiz({ quiz, submissionId, userId, onDone }: {
         autoSaveTimer.current = setTimeout(() => saveAnswers(), 30000);
         return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
     }, [answers]);
+
+    // Enumerate audio input devices for mic picker
+    useEffect(() => {
+        navigator.mediaDevices.enumerateDevices().then(devices => {
+            const inputs = devices.filter(d => d.kind === 'audioinput').map(d => ({ deviceId: d.deviceId, label: d.label || `Microphone ${d.deviceId.slice(0, 8)}` }));
+            setAudioDevices(inputs);
+            setSelectedDeviceId(prev => (prev || (inputs[0]?.deviceId ?? '')));
+        }).catch(() => {});
+    }, []);
+
+    // Waveform animation during recording
+    useEffect(() => {
+        if (!recording || !analyserRef.current) return;
+        const analyser = analyserRef.current;
+        const data = new Uint8Array(analyser.frequencyBinCount);
+        function tick() {
+            analyser.getByteFrequencyData(data);
+            const avg = data.reduce((a, b) => a + b, 0) / data.length;
+            setAudioLevel(Math.min(100, (avg / 128) * 100));
+            animationRef.current = requestAnimationFrame(tick);
+        }
+        tick();
+        return () => { if (animationRef.current) cancelAnimationFrame(animationRef.current); };
+    }, [recording]);
 
     async function saveAnswers() {
         const payload = Object.values(answers).map(a => ({
@@ -1076,7 +1273,17 @@ function TakeQuiz({ quiz, submissionId, userId, onDone }: {
     async function startRecording() {
         const capturedQId = q.id;
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const constraints: MediaStreamConstraints = {
+                audio: selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : true,
+            };
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            // Set up analyser for waveform
+            const ctx = new AudioContext();
+            const source = ctx.createMediaStreamSource(stream);
+            const analyser = ctx.createAnalyser();
+            analyser.fftSize = 256;
+            source.connect(analyser);
+            analyserRef.current = analyser;
             // Pick the best supported codec
             const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4', '']
                 .find(t => !t || MediaRecorder.isTypeSupported(t)) ?? '';
@@ -1085,6 +1292,8 @@ function TakeQuiz({ quiz, submissionId, userId, onDone }: {
             mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
             mr.onstop = async () => {
                 stream.getTracks().forEach(t => t.stop());
+                analyserRef.current = null;
+                setAudioLevel(0);
                 const blob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' });
                 // Create a local URL immediately so the student can play back right away
                 const localUrl = URL.createObjectURL(blob);
@@ -1104,7 +1313,7 @@ function TakeQuiz({ quiz, submissionId, userId, onDone }: {
             mr.start(250); // collect audio every 250ms for reliability
             setMediaRecorder(mr);
             setRecording(true);
-        } catch { alert('Microphone access denied. Please allow microphone in your browser settings.'); }
+        } catch { showAlert('Microphone Access Denied', 'Please allow microphone in your browser settings.'); }
     }
 
     function stopRecording() {
@@ -1185,8 +1394,8 @@ function TakeQuiz({ quiz, submissionId, userId, onDone }: {
                     </div>
                 )}
 
-                {/* Answer area — dynamic by type */}
-                {(q.type === 'text' || q.type === 'video') && (
+                {/* Answer area — skip for video parent (has children); children have their own answer UI */}
+                {!q.children?.length && (q.type === 'text' || q.type === 'video') && (
                     <textarea
                         className="quiz-input"
                         style={{ minHeight: 100, resize: 'vertical' }}
@@ -1196,7 +1405,7 @@ function TakeQuiz({ quiz, submissionId, userId, onDone }: {
                     />
                 )}
 
-                {q.type === 'select' && q.options && (
+                {!q.children?.length && q.type === 'select' && q.options && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         {q.options.map(opt => (
                             <button
@@ -1217,7 +1426,7 @@ function TakeQuiz({ quiz, submissionId, userId, onDone }: {
                     </div>
                 )}
 
-                {q.type === 'multi-select' && q.options && (
+                {!q.children?.length && q.type === 'multi-select' && q.options && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Select all that apply</p>
                         {q.options.map(opt => {
@@ -1253,7 +1462,7 @@ function TakeQuiz({ quiz, submissionId, userId, onDone }: {
                     </div>
                 )}
 
-                {q.type === 'recording' && (
+                {!q.children?.length && q.type === 'recording' && (
                     <div style={{ textAlign: 'center', padding: '20px 0' }}>
                         {curAns.fileUrl ? (
                             <div>
@@ -1267,23 +1476,61 @@ function TakeQuiz({ quiz, submissionId, userId, onDone }: {
                         ) : uploading ? (
                             <p style={{ color: 'var(--text-muted)' }}>Uploading recording…</p>
                         ) : (
-                            <button
-                                onClick={recording ? stopRecording : startRecording}
-                                style={{
-                                    width: 80, height: 80, borderRadius: '50%', border: 'none', cursor: 'pointer',
-                                    background: recording ? '#ef4444' : 'linear-gradient(135deg,#f59e0b,#d97706)',
-                                    fontSize: 28, boxShadow: recording ? '0 0 0 8px rgba(239,68,68,0.2)' : 'none',
-                                    transition: 'all 0.2s',
-                                }}
-                            >
-                                {recording ? '⏹' : '🎙️'}
-                            </button>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+                                {audioDevices.length > 1 && !recording && (
+                                    <div style={{ width: '100%', maxWidth: 280 }}>
+                                        <label className="quiz-label">Microphone</label>
+                                        <select
+                                            className="quiz-input"
+                                            value={selectedDeviceId}
+                                            onChange={e => setSelectedDeviceId(e.target.value)}
+                                            style={{ marginBottom: 0 }}
+                                        >
+                                            {audioDevices.map(d => (
+                                                <option key={d.deviceId} value={d.deviceId}>{d.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+                                <button
+                                    onClick={recording ? stopRecording : startRecording}
+                                    style={{
+                                        width: 80, height: 80, borderRadius: '50%', border: 'none', cursor: 'pointer',
+                                        background: recording ? '#ef4444' : 'linear-gradient(135deg,#f59e0b,#d97706)',
+                                        fontSize: 28, boxShadow: recording ? '0 0 0 8px rgba(239,68,68,0.2)' : 'none',
+                                        transition: 'all 0.2s',
+                                    }}
+                                >
+                                    {recording ? '⏹' : '🎙️'}
+                                </button>
+                                {recording && (
+                                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 28 }}>
+                                        {[0, 1, 2, 3, 4, 5, 6, 7].map(i => {
+                                            const center = 3.5;
+                                            const factor = 1 - Math.abs(i - center) / (center + 1);
+                                            const h = Math.max(6, 6 + (audioLevel / 100) * 20 * factor);
+                                            return (
+                                                <div
+                                                    key={i}
+                                                    style={{
+                                                        width: 5,
+                                                        height: h,
+                                                        background: 'linear-gradient(to top, #ef4444, #f87171)',
+                                                        borderRadius: 2,
+                                                        transition: 'height 0.08s ease-out',
+                                                    }}
+                                                />
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
                         )}
                         {recording && <p style={{ marginTop: 10, color: '#ef4444', fontSize: 14 }}>Recording… tap to stop</p>}
                     </div>
                 )}
 
-                {q.type === 'upload' && (
+                {!q.children?.length && q.type === 'upload' && (
                     <div style={{ textAlign: 'center', padding: '20px 0' }}>
                         {curAns.fileUrl ? (
                             <div>
@@ -1329,7 +1576,15 @@ function TakeQuiz({ quiz, submissionId, userId, onDone }: {
                     >{uploading ? '⏳ Uploading…' : 'Next →'}</button>
                 ) : (
                     <button
-                        onClick={() => { if (confirm('Submit quiz? You cannot change answers after submitting.')) handleSubmit(); }}
+                        onClick={() => {
+                        showConfirm({
+                            title: 'Submit Quiz',
+                            message: 'Submit quiz? You cannot change answers after submitting.',
+                            confirmLabel: 'Submit',
+                            variant: 'default',
+                            onConfirm: () => handleSubmit(),
+                        });
+                    }}
                         disabled={submitting || uploading || recording}
                         className="quiz-btn quiz-btn-primary"
                         style={{ flex: 2, background: '#22c55e', opacity: (submitting || uploading) ? 0.7 : 1 }}

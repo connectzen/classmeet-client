@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '../lib/AuthContext';
 import AuthModal from '../components/AuthModal';
 import UserMenu from '../components/UserMenu';
+import ConfirmModal from '../components/ConfirmModal';
 
 interface Props {
     role: 'teacher' | 'student';
@@ -42,6 +43,7 @@ function TeacherLobby({ onJoinRoom, onBack }: { onJoinRoom: Props['onJoinRoom'];
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [deleteConfirm, setDeleteConfirm] = useState<{ cls: ClassInfo } | null>(null);
 
     const displayName = user?.profile?.name || user?.email?.split('@')[0] || 'Teacher';
     const [authModal, setAuthModal] = useState<'signin' | 'signup' | null>(null);
@@ -80,9 +82,14 @@ function TeacherLobby({ onJoinRoom, onBack }: { onJoinRoom: Props['onJoinRoom'];
         setLoading(false);
     };
 
-    const handleDeleteClass = async (cls: ClassInfo) => {
+    const handleDeleteClass = (cls: ClassInfo) => {
         if (!user?.id) return;
-        if (!confirm(`Delete "${cls.name}"? All students will be removed.`)) return;
+        setDeleteConfirm({ cls });
+    };
+
+    const doDeleteClass = async () => {
+        if (!deleteConfirm || !user?.id) return;
+        const { cls } = deleteConfirm;
         setDeletingId(cls.id);
         try {
             await fetch(`${SERVER_URL}/api/rooms/${cls.id}`, {
@@ -93,6 +100,7 @@ function TeacherLobby({ onJoinRoom, onBack }: { onJoinRoom: Props['onJoinRoom'];
             setClasses((prev) => prev.filter((c) => c.id !== cls.id));
         } catch { /* ignore */ }
         setDeletingId(null);
+        setDeleteConfirm(null);
     };
 
     return (
@@ -206,6 +214,17 @@ function TeacherLobby({ onJoinRoom, onBack }: { onJoinRoom: Props['onJoinRoom'];
                     </div>
                 )}
             </div>
+            {deleteConfirm && (
+                <ConfirmModal
+                    open={true}
+                    title="Delete Class"
+                    message={`Delete "${deleteConfirm.cls.name}"? All students will be removed.`}
+                    confirmLabel="Delete"
+                    variant="danger"
+                    onConfirm={doDeleteClass}
+                    onCancel={() => setDeleteConfirm(null)}
+                />
+            )}
         </div>
     );
 }

@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useUser } from '../lib/AuthContext';
 import UserMenu from '../components/UserMenu';
 import ChatDrawer from '../components/ChatDrawer';
+import ConfirmModal from '../components/ConfirmModal';
+import AlertModal from '../components/AlertModal';
 import { io } from 'socket.io-client';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
@@ -86,6 +88,10 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
     const [editError, setEditError] = useState('');
     const [savingEdit, setSavingEdit] = useState(false);
     const [deletingMeetingId, setDeletingMeetingId] = useState<string | null>(null);
+
+    type ConfirmOpts = { open: boolean; title: string; message: string; confirmLabel?: string; variant?: 'default' | 'warning' | 'danger'; onConfirm: () => void };
+    const [confirmState, setConfirmState] = useState<ConfirmOpts | null>(null);
+    const [alertState, setAlertState] = useState<{ open: boolean; title: string; message: string } | null>(null);
 
     const displayName = user?.profile?.name || user?.email?.split('@')[0] || 'Admin';
 
@@ -258,16 +264,34 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
         if (r.ok) { setEditTeacher(null); fetchTeachers(); }
     };
 
-    const handleDeleteTeacher = async (userId: string) => {
-        if (!confirm('Remove this teacher? This will also delete their account.')) return;
-        await fetch(`${SERVER_URL}/api/teachers/${userId}`, { method: 'DELETE' });
-        fetchTeachers();
+    const handleDeleteTeacher = (userId: string) => {
+        setConfirmState({
+            open: true,
+            title: 'Remove Teacher',
+            message: 'Remove this teacher? This will also delete their account.',
+            confirmLabel: 'Remove',
+            variant: 'danger',
+            onConfirm: async () => {
+                await fetch(`${SERVER_URL}/api/teachers/${userId}`, { method: 'DELETE' });
+                fetchTeachers();
+                setConfirmState(null);
+            },
+        });
     };
 
-    const handleDeleteStudent = async (userId: string) => {
-        if (!confirm('Remove this student? This will delete their account and all enrollments.')) return;
-        await fetch(`${SERVER_URL}/api/students/${userId}`, { method: 'DELETE' });
-        fetchStudents();
+    const handleDeleteStudent = (userId: string) => {
+        setConfirmState({
+            open: true,
+            title: 'Remove Student',
+            message: 'Remove this student? This will delete their account and all enrollments.',
+            confirmLabel: 'Remove',
+            variant: 'danger',
+            onConfirm: async () => {
+                await fetch(`${SERVER_URL}/api/students/${userId}`, { method: 'DELETE' });
+                fetchStudents();
+                setConfirmState(null);
+            },
+        });
     };
 
     const handleAddMember = async () => {
@@ -294,7 +318,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
         });
         setEditingRoleId(null);
         if (r.ok) { fetchMembers(); fetchTeachers(); fetchStudents(); }
-        else { const d = await r.json(); alert(d.error || 'Failed to update role'); }
+        else { const d = await r.json(); setAlertState({ open: true, title: 'Update Failed', message: d.error || 'Failed to update role' }); }
     };
 
     const handleCreateMeeting = async () => {
@@ -328,17 +352,26 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
         }
     };
 
-    const handleEndMeeting = async (meetingId: string) => {
-        if (!confirm('End this meeting? The room will be closed and the banner will disappear for all users.')) return;
+    const handleEndMeeting = (meetingId: string) => {
         if (!user?.id) return;
-        setEndingMeetingId(meetingId);
-        await fetch(`${SERVER_URL}/api/admin/meetings/${meetingId}`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ adminId: user.id }),
+        setConfirmState({
+            open: true,
+            title: 'End Meeting',
+            message: 'End this meeting? The room will be closed and the banner will disappear for all users.',
+            confirmLabel: 'End Meeting',
+            variant: 'warning',
+            onConfirm: async () => {
+                setEndingMeetingId(meetingId);
+                await fetch(`${SERVER_URL}/api/admin/meetings/${meetingId}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ adminId: user.id }),
+                });
+                setEndingMeetingId(null);
+                fetchMeetings();
+                setConfirmState(null);
+            },
         });
-        setEndingMeetingId(null);
-        fetchMeetings();
     };
 
     const addTargetRole = (role: 'teacher' | 'student') => {
@@ -410,17 +443,26 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
         }
     };
 
-    const handleDeleteMeeting = async (meetingId: string, title: string) => {
-        if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
+    const handleDeleteMeeting = (meetingId: string, title: string) => {
         if (!user?.id) return;
-        setDeletingMeetingId(meetingId);
-        await fetch(`${SERVER_URL}/api/admin/meetings/${meetingId}`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ adminId: user.id }),
+        setConfirmState({
+            open: true,
+            title: 'Delete Meeting',
+            message: `Delete "${title}"? This cannot be undone.`,
+            confirmLabel: 'Delete',
+            variant: 'danger',
+            onConfirm: async () => {
+                setDeletingMeetingId(meetingId);
+                await fetch(`${SERVER_URL}/api/admin/meetings/${meetingId}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ adminId: user.id }),
+                });
+                setDeletingMeetingId(null);
+                fetchMeetings();
+                setConfirmState(null);
+            },
         });
-        setDeletingMeetingId(null);
-        fetchMeetings();
     };
 
     return (
@@ -1044,6 +1086,25 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                         </button>
                     ))}
                 </nav>
+            )}
+            {confirmState && (
+                <ConfirmModal
+                    open={confirmState.open}
+                    title={confirmState.title}
+                    message={confirmState.message}
+                    confirmLabel={confirmState.confirmLabel}
+                    variant={confirmState.variant}
+                    onConfirm={() => { confirmState.onConfirm(); setConfirmState(null); }}
+                    onCancel={() => setConfirmState(null)}
+                />
+            )}
+            {alertState && (
+                <AlertModal
+                    open={alertState.open}
+                    title={alertState.title}
+                    message={alertState.message}
+                    onClose={() => setAlertState(null)}
+                />
             )}
         </div>
     );

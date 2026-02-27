@@ -102,6 +102,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [chatOpen, setChatOpen] = useState(false);
     const [unreadChatCount, setUnreadChatCount] = useState(0);
     const [quizOpen, setQuizOpen] = useState(false);
+    const [quizScoreUpdateTrigger, setQuizScoreUpdateTrigger] = useState(0);
 
     // ── Get time-based greeting ────────────────────────────────────────
     const getGreeting = () => {
@@ -423,6 +424,9 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             setStudentTeacherSessions(prev => prev.filter(s => s.id !== sessionId));
         });
         sock2.on('teacher:session-updated', () => { fetchTeacherSessions(); fetchMemberSessions(); fetchStudentTeacherSessions(); });
+        sock2.on('quiz:score-updated', ({ studentId }: { studentId: string }) => {
+            if (studentId === user?.id) setQuizScoreUpdateTrigger(prev => prev + 1);
+        });
         sock2.on('dashboard:data-changed', () => {
             if (userRole === 'teacher') fetchTeacherStudents();
             if (userRole === 'member') { fetchAllStudents(); fetchMemberTeachers(); fetchMemberTeachersWithStudents(); }
@@ -1509,6 +1513,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                         userRole={userRole}
                         open={quizOpen}
                         onClose={() => setQuizOpen(false)}
+                        quizScoreUpdateTrigger={quizScoreUpdateTrigger}
                     />
                 </>
             )}

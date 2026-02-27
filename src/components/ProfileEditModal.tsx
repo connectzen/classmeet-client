@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { useUser } from '../lib/AuthContext';
 import { insforge } from '../lib/insforge';
+import AlertModal from './AlertModal';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -17,7 +18,10 @@ export default function ProfileEditModal({ onClose }: ProfileEditModalProps) {
     const [saving, setSaving] = useState(false);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [avatarImgError, setAvatarImgError] = useState(false);
+    const [alertState, setAlertState] = useState<{ title: string; message: string } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const showAlert = (title: string, message: string) => setAlertState({ title, message });
 
     const currentAvatarUrlForEffect = previewUrl || avatarUrl || user?.profile?.avatar_url;
     useEffect(() => { setAvatarImgError(false); }, [currentAvatarUrlForEffect]);
@@ -28,13 +32,13 @@ export default function ProfileEditModal({ onClose }: ProfileEditModalProps) {
 
         // Validate file type
         if (!file.type.startsWith('image/')) {
-            alert('Please select an image file');
+            showAlert('Invalid File', 'Please select an image file');
             return;
         }
 
         // Validate file size (5MB max)
         if (file.size > 5 * 1024 * 1024) {
-            alert('File size must be less than 5MB');
+            showAlert('File Too Large', 'File size must be less than 5MB');
             return;
         }
 
@@ -47,7 +51,7 @@ export default function ProfileEditModal({ onClose }: ProfileEditModalProps) {
             reader.readAsDataURL(file);
 
             if (!user?.id) {
-                alert('Please sign in to upload an avatar.');
+                showAlert('Sign In Required', 'Please sign in to upload an avatar.');
                 return;
             }
 
@@ -62,7 +66,7 @@ export default function ProfileEditModal({ onClose }: ProfileEditModalProps) {
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
                 console.error('Upload error:', err);
-                alert(err.error || 'Failed to upload image. Please try again.');
+                showAlert('Upload Failed', err.error || 'Failed to upload image. Please try again.');
                 return;
             }
 
@@ -70,7 +74,7 @@ export default function ProfileEditModal({ onClose }: ProfileEditModalProps) {
             if (data.url) setAvatarUrl(data.url);
         } catch (err) {
             console.error('Upload error:', err);
-            alert('Failed to upload image. Please try again.');
+            showAlert('Upload Failed', 'Failed to upload image. Please try again.');
         } finally {
             setUploading(false);
         }
@@ -78,7 +82,7 @@ export default function ProfileEditModal({ onClose }: ProfileEditModalProps) {
 
     const handleSave = async () => {
         if (!name.trim()) {
-            alert('Please enter your name');
+            showAlert('Name Required', 'Please enter your name');
             return;
         }
 
@@ -93,7 +97,7 @@ export default function ProfileEditModal({ onClose }: ProfileEditModalProps) {
 
             if (error) {
                 console.error('Profile update error:', error);
-                alert('Failed to update profile. Please try again.');
+                showAlert('Update Failed', 'Failed to update profile. Please try again.');
                 return;
             }
 
@@ -119,7 +123,7 @@ export default function ProfileEditModal({ onClose }: ProfileEditModalProps) {
             onClose();
         } catch (err) {
             console.error('Profile update error:', err);
-            alert('Failed to update profile. Please try again.');
+            showAlert('Update Failed', 'Failed to update profile. Please try again.');
         } finally {
             setSaving(false);
         }
@@ -358,6 +362,14 @@ export default function ProfileEditModal({ onClose }: ProfileEditModalProps) {
                     </button>
                 </div>
             </div>
+            {alertState && (
+                <AlertModal
+                    open={true}
+                    title={alertState.title}
+                    message={alertState.message}
+                    onClose={() => setAlertState(null)}
+                />
+            )}
         </div>,
         document.body
     );
