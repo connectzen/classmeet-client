@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useUser } from '../lib/AuthContext';
 import ChatPanel, { ChatMsg } from '../components/ChatPanel';
 import DevicePicker from '../components/DevicePicker';
+import { RoomQuizParticipant, RoomQuizHost } from '../components/RoomQuizPanel';
 import { useSocket, Participant } from '../hooks/useSocket';
 import { useWebRTC } from '../hooks/useWebRTC';
 
@@ -47,7 +48,11 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [codeCopied, setCodeCopied] = useState(false);
     const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
     const [showEndConfirm, setShowEndConfirm] = useState(false);
-    // Always-current ref so spotlight callbacks can normalize without stale closures
+    const [quizToggleOn, setQuizToggleOn] = useState(false);
+    const [roomQuizzes, setRoomQuizzes] = useState<{ id: string; title: string; question_count?: number; room_id?: string }[]>([]);
+    const [loadingRoomQuizzes, setLoadingRoomQuizzes] = useState(false);
+    const [roomQuizSubmitted, setRoomQuizSubmitted] = useState(false);
+    const [dismissedRevealed, setDismissedRevealed] = useState(false);
     const socketIdRef = useRef<string>('');
 
     const copyRoomCode = () => {
@@ -165,7 +170,10 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     }, []);
 
     const { socketId, connected, joinError: socketJoinError, existingParticipants, currentSpotlight,
-        sendSignal, sendMessage, endRoom, muteParticipant, changeSpotlight } = useSocket({
+        roomQuiz, roomQuizSubmissions, roomQuizRevealed,
+        sendSignal, sendMessage, endRoom, muteParticipant, changeSpotlight,
+        startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
+    } = useSocket({
             roomCode, roomId, roomName, name, role, isGuestRoomHost,
             onParticipantJoined: handleParticipantJoined,
             onParticipantLeft: handleParticipantLeft,
@@ -200,9 +208,28 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     // Sync initial spotlight once we know our socketId and the server's current spotlight
     useEffect(() => {
         if (!socketId || currentSpotlight === null) return;
-        // If the server spotlight is our own socket, map it to '__local__'
         setSpotlightId(currentSpotlight === socketId ? '__local__' : currentSpotlight);
     }, [socketId, currentSpotlight]);
+
+    // Fetch quizzes for this room when teacher toggles quiz ON
+    useEffect(() => {
+        if (!quizToggleOn || role !== 'teacher') return;
+        setLoadingRoomQuizzes(true);
+        fetch(`${SERVER_URL}/api/quizzes?roomIds=${encodeURIComponent(roomId)}`)
+            .then(r => r.json())
+            .then((data: { id: string; title: string; question_count?: number; room_id?: string }[]) => {
+                setRoomQuizzes(Array.isArray(data) ? data : []);
+            })
+            .catch(() => setRoomQuizzes([]))
+            .finally(() => setLoadingRoomQuizzes(false));
+    }, [quizToggleOn, role, roomId]);
+
+    useEffect(() => {
+        if (!roomQuiz) setRoomQuizSubmitted(false);
+    }, [roomQuiz]);
+    useEffect(() => {
+        setDismissedRevealed(false);
+    }, [roomQuizRevealed]);
 
     // Controls
     const toggleMic = () => {
@@ -319,14 +346,14 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
             )}
 
             {/* Mobile chat popup */}
-            {isChatOpen && (
+            {isChatOpen ? (
                 <div className="mobile-chat-overlay" onClick={() => setIsChatOpen(false)}>
                     <div className="mobile-chat-sheet" onClick={(e) => e.stopPropagation()}>
                         <button className="mobile-chat-close" onClick={() => setIsChatOpen(false)}>✕</button>
                         <ChatPanel messages={messages} mySocketId={socketId} onSend={sendMessage} />
                     </div>
                 </div>
-            )}
+            ) : null}
 
             {/* Leave room confirmation modal */}
             {showLeaveConfirm && (
@@ -401,6 +428,43 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                     </div>
                 </div>
             )}
+
+            {/* Revealed results overlay (when host reveals final) */}
+            {roomQuizRevealed?.type === 'final' && roomQuizRevealed?.data != null && !dismissedRevealed ? (
+                <div
+                    style={{
+                        position: 'fixed', inset: 0, zIndex: 99998,
+                        background: 'rgba(0,0,0,0.85)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        padding: 24,
+                    }}
+                    onClick={(e) => e.target === e.currentTarget && setDismissedRevealed(true)}
+                >
+                    <div
+                        style={{
+                            background: 'var(--surface-2)', borderRadius: 16, padding: 24,
+                            maxWidth: 480, width: '100%', maxHeight: '80vh', overflowY: 'auto',
+                            border: '1px solid var(--border)',
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                            <h3 style={{ margin: 0, fontSize: 18 }}>Quiz Results</h3>
+                            <button
+                                onClick={() => setDismissedRevealed(true)}
+                                style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13 }}
+                            >Close</button>
+                        </div>
+                        {Array.isArray((roomQuizRevealed.data as { submissions?: { studentName: string; score: number | null }[] }).submissions) &&
+                            ((roomQuizRevealed.data as { submissions: { studentName: string; score: number | null }[] }).submissions).map((s, i) => (
+                                <div key={i} style={{ padding: '10px 0', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between' }}>
+                                    <span>{s.studentName}</span>
+                                    <span>{s.score != null ? `${s.score}%` : '—'}</span>
+                                </div>
+                            ))}
+                    </div>
+                </div>
+            ) : null}
 
             {/* ── HEADER ─────────────────────────────────────────────────── */}
             <div className="room-header">
@@ -491,14 +555,74 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                         ))}
                     </div>
 
-                    {/* Spotlight */}
+                    {/* Spotlight or Quiz (when toggle ON) */}
                     <div className="spotlight-area">
-                        <SpotlightVideo
-                            stream={spotlightStream}
-                            name={spotlightParticipant?.name || name}
-                            isLocal={spotlightId === '__local__'}
-                        />
+                        {quizToggleOn && role === 'teacher' ? (
+                            <RoomQuizHost
+                                roomId={roomId}
+                                quizzes={roomQuizzes}
+                                loadingQuizzes={loadingRoomQuizzes}
+                                activeQuiz={roomQuiz}
+                                submissions={roomQuizSubmissions}
+                                onStartQuiz={startRoomQuiz}
+                                onStopQuiz={() => { stopRoomQuiz(); setQuizToggleOn(false); }}
+                                onReveal={revealRoomQuiz}
+                            />
+                        ) : role !== 'teacher' && roomQuiz ? (
+                            roomQuizSubmitted ? (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 200, background: 'var(--surface-2)', borderRadius: 12 }}>
+                                    <div style={{ textAlign: 'center', padding: 24 }}>
+                                        <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
+                                        <div style={{ fontWeight: 700, fontSize: 18 }}>Submitted!</div>
+                                        <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 4 }}>Waiting for host to reveal results.</div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <RoomQuizParticipant
+                                    quiz={roomQuiz.quiz as { id: string; title: string; questions: unknown[] }}
+                                    userId={user?.id || `guest_${socketId}`}
+                                    userName={name}
+                                    onSubmit={(subId, score) => {
+                                        submitRoomQuiz(subId, roomQuiz.quizId, user?.id || `guest_${socketId}`, name, score);
+                                        setRoomQuizSubmitted(true);
+                                    }}
+                                    onAlert={(title, msg) => alert(`${title}: ${msg}`)}
+                                />
+                            )
+                        ) : (
+                            <SpotlightVideo
+                                stream={spotlightStream}
+                                name={spotlightParticipant?.name || name}
+                                isLocal={spotlightId === '__local__'}
+                            />
+                        )}
                     </div>
+
+                    {/* Quiz Toggle (teacher only) */}
+                    {role === 'teacher' && (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>Quiz</span>
+                            <button
+                                onClick={() => {
+                                    if (quizToggleOn && roomQuiz) stopRoomQuiz();
+                                    setQuizToggleOn(prev => !prev);
+                                    if (!quizToggleOn) setRoomQuizSubmitted(false);
+                                }}
+                                style={{
+                                    width: 52, height: 28, borderRadius: 14, border: 'none', cursor: 'pointer',
+                                    background: quizToggleOn ? '#22c55e' : 'var(--surface-3)',
+                                    position: 'relative', transition: 'background 0.2s',
+                                }}
+                            >
+                                <span style={{
+                                    position: 'absolute', top: 4, left: quizToggleOn ? 28 : 4,
+                                    width: 20, height: 20, borderRadius: '50%', background: '#fff',
+                                    transition: 'left 0.2s',
+                                }} />
+                            </button>
+                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{quizToggleOn ? 'ON' : 'OFF'}</span>
+                        </div>
+                    )}
 
                     {/* Controls */}
                     <div className="room-controls">

@@ -1181,7 +1181,7 @@ function SubmissionDetail({ quiz, submission, onGraded }: {
 }
 
 // ─── Take Quiz (Student) ──────────────────────────────────────────────────
-function TakeQuiz({ quiz, submissionId, userId, showConfirm, showAlert, onDone }: {
+export function TakeQuiz({ quiz, submissionId, userId, showConfirm, showAlert, onDone }: {
     quiz: Quiz & { questions: Question[] };
     submissionId: string;
     userId: string;

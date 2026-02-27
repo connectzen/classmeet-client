@@ -55,6 +55,9 @@ export function useSocket(options: UseSocketOptions) {
     const [joinError, setJoinError] = useState('');
     const [existingParticipants, setExistingParticipants] = useState<Participant[]>([]);
     const [currentSpotlight, setCurrentSpotlight] = useState<string | null>(null);
+    const [roomQuiz, setRoomQuiz] = useState<{ quizId: string; quiz: unknown } | null>(null);
+    const [roomQuizSubmissions, setRoomQuizSubmissions] = useState<{ submissionId: string; studentId: string; studentName: string; score: number | null }[]>([]);
+    const [roomQuizRevealed, setRoomQuizRevealed] = useState<{ type: string; data?: unknown } | null>(null);
 
     useEffect(() => {
         const socket = io(SERVER_URL, { transports: ['websocket'] });
@@ -69,11 +72,14 @@ export function useSocket(options: UseSocketOptions) {
                 error?: string;
                 existingParticipants?: Participant[];
                 currentSpotlight?: string | null;
+                roomQuiz?: { quizId: string; quiz: unknown } | null;
             }) => {
                 if (res.error) setJoinError(res.error);
                 else {
                     setExistingParticipants(res.existingParticipants || []);
                     setCurrentSpotlight(res.currentSpotlight || null);
+                    setRoomQuiz(res.roomQuiz || null);
+                    setRoomQuizSubmissions([]);
                 }
             });
         });
@@ -95,6 +101,21 @@ export function useSocket(options: UseSocketOptions) {
         );
         socket.on('teacher-joined', () => onTeacherJoined());
         socket.on('admin:refresh', (data: { type: string }) => { onAdminRefreshRef.current?.(data); });
+        socket.on('room:quiz-active', ({ quizId, quiz }: { quizId: string; quiz: unknown }) => {
+            setRoomQuiz({ quizId, quiz });
+            setRoomQuizSubmissions([]);
+        });
+        socket.on('room:quiz-inactive', () => {
+            setRoomQuiz(null);
+            setRoomQuizSubmissions([]);
+            setRoomQuizRevealed(null);
+        });
+        socket.on('room:quiz-submission', ({ submissions }: { submissions: { submissionId: string; studentId: string; studentName: string; score: number | null }[] }) => {
+            setRoomQuizSubmissions(submissions || []);
+        });
+        socket.on('room:quiz-revealed', ({ type, data }: { type: string; data?: unknown }) => {
+            setRoomQuizRevealed({ type, data });
+        });
         socket.on('disconnect', () => setConnected(false));
 
         return () => {
@@ -123,5 +144,26 @@ export function useSocket(options: UseSocketOptions) {
         socketRef.current?.emit('spotlight-change', { roomCode, spotlightSocketId });
     }, [roomCode]);
 
-    return { socketId, connected, joinError, existingParticipants, currentSpotlight, sendSignal, sendMessage, endRoom, muteParticipant, changeSpotlight };
+    const startRoomQuiz = useCallback((quizId: string) => {
+        socketRef.current?.emit('room-quiz-start', { roomCode, roomId, quizId });
+    }, [roomCode, roomId]);
+
+    const stopRoomQuiz = useCallback(() => {
+        socketRef.current?.emit('room-quiz-stop', { roomCode });
+    }, [roomCode]);
+
+    const submitRoomQuiz = useCallback((submissionId: string, quizId: string, studentId: string, studentName: string, score: number | null) => {
+        socketRef.current?.emit('room-quiz-submit', { roomCode, submissionId, quizId, studentId, studentName, score });
+    }, [roomCode]);
+
+    const revealRoomQuiz = useCallback((type: 'individual' | 'final', submissionId?: string, data?: unknown) => {
+        socketRef.current?.emit('room-quiz-reveal', { roomCode, type, submissionId, data });
+    }, [roomCode]);
+
+    return {
+        socketId, connected, joinError, existingParticipants, currentSpotlight,
+        roomQuiz, roomQuizSubmissions, roomQuizRevealed,
+        sendSignal, sendMessage, endRoom, muteParticipant, changeSpotlight,
+        startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
+    };
 }

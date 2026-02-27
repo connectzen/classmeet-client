@@ -225,7 +225,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                 body: JSON.stringify({ adminId: user.id }),
             });
             if (r.ok) fetchPendingUsers();
-            else { const d = await r.json(); setApproveError(d.error || 'Failed to reject.'); }
+            else { const d = await r.json(); setApproveError(d.error || 'Failed to delete.'); }
         } finally {
             setRejectingId(null);
         }
@@ -821,7 +821,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                                                     small
                                                     disabled={rejectingId === u.id}
                                                 >
-                                                    {rejectingId === u.id ? 'Rejecting...' : 'Reject'}
+                                                    {rejectingId === u.id ? 'Deleting...' : 'Delete'}
                                                 </Btn>
                                             </div>
                                         </div>
