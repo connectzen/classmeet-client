@@ -812,6 +812,32 @@ function QuestionForm({ quizId, question, parentQuestionId, onSaved, onCancel }:
                 onChange={e => setQuestionText(e.target.value)}
             />
 
+            {/* Points — prominent placement */}
+            <div style={{
+                marginTop: 14, display: 'flex', alignItems: 'center', gap: 12,
+                padding: '10px 14px', background: 'rgba(99,102,241,0.08)', borderRadius: 10,
+                border: '1px solid rgba(99,102,241,0.2)',
+            }}>
+                <label style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0, whiteSpace: 'nowrap' }}>
+                    Points
+                </label>
+                <input
+                    className="quiz-input"
+                    type="number" min="0" step="0.5"
+                    style={{ width: 80, margin: 0, textAlign: 'center', fontWeight: 700, fontSize: 16 }}
+                    value={points} onChange={e => setPoints(e.target.value)}
+                />
+                <span style={{
+                    fontSize: 12, fontWeight: 600, color: '#6366f1',
+                    background: 'rgba(99,102,241,0.15)', borderRadius: 8, padding: '3px 10px',
+                }}>
+                    {Number(points) || 0} pt{Number(points) !== 1 ? 's' : ''}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    Max grade for this question
+                </span>
+            </div>
+
             {/* Options (select / multi-select) */}
             {needsOptions && (
                 <div style={{ marginTop: 14 }}>
@@ -902,16 +928,6 @@ function QuestionForm({ quizId, question, parentQuestionId, onSaved, onCancel }:
                     {uploadingVideo && <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Uploading video…</p>}
                 </div>
             )}
-
-            {/* Points */}
-            <div style={{ marginTop: 14 }}>
-                <label className="quiz-label">Points for this question</label>
-                <input
-                    className="quiz-input"
-                    type="number" min="0" style={{ width: 100 }}
-                    value={points} onChange={e => setPoints(e.target.value)}
-                />
-            </div>
 
             {err && <p style={{ color: '#ef4444', fontSize: 13, marginTop: 8 }}>{err}</p>}
 

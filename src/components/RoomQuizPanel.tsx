@@ -15,10 +15,6 @@ function injectStyles() {
             0%, 100% { transform: scale(1); opacity: 1; }
             50% { transform: scale(1.05); opacity: 0.85; }
         }
-        @keyframes rqp-countdown-ring {
-            from { stroke-dashoffset: 0; }
-            to { stroke-dashoffset: 565; }
-        }
         @keyframes rqp-sparkle {
             0% { transform: translateY(0) scale(1); opacity: 1; }
             100% { transform: translateY(-60px) scale(0); opacity: 0; }
@@ -44,10 +40,21 @@ function injectStyles() {
             from { max-height: 0; opacity: 0; }
             to { max-height: 2000px; opacity: 1; }
         }
-        @keyframes rqp-message-rotate {
-            0%, 20% { opacity: 1; transform: translateY(0); }
-            25%, 95% { opacity: 0; transform: translateY(-10px); }
-            100% { opacity: 1; transform: translateY(0); }
+        @keyframes rqp-name-enter {
+            0% { transform: scale(0.3) rotate(-5deg); opacity: 0; }
+            60% { transform: scale(1.1) rotate(1deg); }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        @keyframes rqp-countdown-num {
+            0% { transform: scale(2); opacity: 0; }
+            30% { transform: scale(1); opacity: 1; }
+            80% { opacity: 1; }
+            100% { transform: scale(0.8); opacity: 0; }
+        }
+        @keyframes rqp-score-reveal {
+            0% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1.3); }
+            100% { transform: scale(1); opacity: 1; }
         }
     `;
     document.head.appendChild(style);
@@ -62,8 +69,13 @@ const ENCOURAGE_MESSAGES = [
     'That was awesome!',
 ];
 
-export function PostSubmitWaiting() {
-    const [secondsLeft, setSecondsLeft] = useState(120);
+interface PostSubmitWaitingProps {
+    studentCount?: number;
+}
+
+export function PostSubmitWaiting({ studentCount = 1 }: PostSubmitWaitingProps) {
+    const totalSeconds = Math.max(120, studentCount * 120);
+    const [secondsLeft, setSecondsLeft] = useState(totalSeconds);
     const [msgIndex, setMsgIndex] = useState(0);
     const countdownDone = secondsLeft <= 0;
 
@@ -82,7 +94,7 @@ export function PostSubmitWaiting() {
 
     const minutes = Math.floor(secondsLeft / 60);
     const secs = secondsLeft % 60;
-    const progress = 1 - secondsLeft / 120;
+    const progress = 1 - secondsLeft / totalSeconds;
     const circumference = 2 * Math.PI * 90;
     const dashOffset = circumference * (1 - progress);
 
@@ -123,7 +135,6 @@ export function PostSubmitWaiting() {
             minHeight: 200, background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)',
             borderRadius: 12, flexDirection: 'column', gap: 20, padding: 24, position: 'relative', overflow: 'hidden',
         }}>
-            {/* Sparkle particles */}
             {sparkles.map((s, i) => (
                 <div key={i} style={{
                     position: 'absolute', bottom: 0, left: s.left,
@@ -134,7 +145,6 @@ export function PostSubmitWaiting() {
                 }} />
             ))}
 
-            {/* Countdown ring */}
             <div style={{ position: 'relative', width: 200, height: 200, animation: 'rqp-pulse 3s ease-in-out infinite' }}>
                 <svg width="200" height="200" viewBox="0 0 200 200" style={{ transform: 'rotate(-90deg)' }}>
                     <circle cx="100" cy="100" r="90" fill="none" stroke="rgba(99,102,241,0.15)" strokeWidth="8" />
@@ -165,7 +175,6 @@ export function PostSubmitWaiting() {
                 </div>
             </div>
 
-            {/* Rotating encouraging messages */}
             <div style={{ height: 28, overflow: 'hidden', position: 'relative', width: '100%', textAlign: 'center' }}>
                 <div key={msgIndex} style={{
                     fontSize: 16, fontWeight: 600, color: '#a5b4fc',
@@ -182,23 +191,49 @@ export function PostSubmitWaiting() {
     );
 }
 
-// ─── StudentResultOverlay (shown when teacher reveals individually) ──────────
-interface StudentResultOverlayProps {
+// ─── InlineResultCard (replaces fullscreen StudentResultOverlay) ──────────────
+// Used for both individual reveals (student sees own result) and class-reveal
+// (everyone sees a student's result with dramatic animation)
+interface InlineResultCardProps {
     score: number | null;
     comment?: string;
     studentName?: string;
+    isClassReveal?: boolean;
     onClose: () => void;
 }
 
-export function StudentResultOverlay({ score, comment, studentName, onClose }: StudentResultOverlayProps) {
+export function InlineResultCard({ score, comment, studentName, isClassReveal, onClose }: InlineResultCardProps) {
+    const [phase, setPhase] = useState<'name' | 'countdown' | 'score'>(isClassReveal ? 'name' : 'score');
+    const [countdownNum, setCountdownNum] = useState(3);
     const [displayScore, setDisplayScore] = useState(0);
     const isGood = score != null && score >= 50;
 
     useEffect(() => { injectStyles(); }, []);
 
-    // Animate score counting up
+    // Class reveal: name phase (2s) -> countdown phase (3s) -> score phase
     useEffect(() => {
-        if (score == null) return;
+        if (!isClassReveal) return;
+        const nameTimer = setTimeout(() => setPhase('countdown'), 2000);
+        return () => clearTimeout(nameTimer);
+    }, [isClassReveal]);
+
+    useEffect(() => {
+        if (phase !== 'countdown') return;
+        if (countdownNum <= 0) { setPhase('score'); return; }
+        const t = setTimeout(() => setCountdownNum(p => p - 1), 1000);
+        return () => clearTimeout(t);
+    }, [phase, countdownNum]);
+
+    // Auto-dismiss after 10s in score phase
+    useEffect(() => {
+        if (phase !== 'score') return;
+        const t = setTimeout(onClose, 10000);
+        return () => clearTimeout(t);
+    }, [phase, onClose]);
+
+    // Score count-up animation
+    useEffect(() => {
+        if (phase !== 'score' || score == null) return;
         const duration = 1500;
         const steps = 30;
         const increment = score / steps;
@@ -213,19 +248,69 @@ export function StudentResultOverlay({ score, comment, studentName, onClose }: S
             }
         }, duration / steps);
         return () => clearInterval(t);
-    }, [score]);
+    }, [phase, score]);
 
     const confettiColors = ['#22c55e', '#6366f1', '#f59e0b', '#ec4899', '#06b6d4', '#a78bfa'];
 
+    // Name phase — dramatic reveal of student name
+    if (phase === 'name') {
+        return (
+            <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%',
+                minHeight: 200, borderRadius: 12, overflow: 'hidden',
+                background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)',
+                flexDirection: 'column', gap: 16, padding: 24,
+            }}>
+                <div style={{
+                    fontSize: 48, fontWeight: 800, color: '#e2e8f0',
+                    animation: 'rqp-name-enter 0.8s ease-out',
+                    textAlign: 'center',
+                }}>
+                    {studentName || 'Student'}
+                </div>
+                <div style={{ fontSize: 14, color: '#94a3b8' }}>Get ready...</div>
+            </div>
+        );
+    }
+
+    // Countdown phase — 3, 2, 1
+    if (phase === 'countdown') {
+        return (
+            <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%',
+                minHeight: 200, borderRadius: 12, overflow: 'hidden',
+                background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)',
+                flexDirection: 'column', gap: 16, padding: 24,
+            }}>
+                {studentName && (
+                    <div style={{ fontSize: 18, fontWeight: 600, color: '#94a3b8' }}>{studentName}</div>
+                )}
+                <div
+                    key={countdownNum}
+                    style={{
+                        fontSize: 120, fontWeight: 800, color: '#818cf8',
+                        animation: 'rqp-countdown-num 1s ease-out',
+                        lineHeight: 1,
+                    }}
+                >
+                    {countdownNum}
+                </div>
+            </div>
+        );
+    }
+
+    // Score phase
     return (
         <div
+            onClick={onClose}
             style={{
-                position: 'fixed', inset: 0, zIndex: 99999,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%',
+                minHeight: 200, borderRadius: 12, overflow: 'hidden', cursor: 'pointer',
                 background: isGood
                     ? 'linear-gradient(135deg, rgba(16,185,129,0.95) 0%, rgba(34,197,94,0.95) 100%)'
                     : 'linear-gradient(135deg, rgba(245,158,11,0.95) 0%, rgba(249,115,22,0.95) 100%)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: 24, animation: 'rqp-fade-in-up 0.4s ease-out',
+                padding: 24, position: 'relative',
+                animation: 'rqp-fade-in-up 0.4s ease-out',
             }}
         >
             {/* Confetti for good scores */}
@@ -241,41 +326,37 @@ export function StudentResultOverlay({ score, comment, studentName, onClose }: S
 
             <div style={{
                 textAlign: 'center', maxWidth: 400, width: '100%',
-                animation: 'rqp-score-pop 0.6s ease-out',
+                animation: 'rqp-score-reveal 0.6s ease-out',
             }}>
-                {/* Icon */}
-                <div style={{ fontSize: 72, marginBottom: 16 }}>
+                <div style={{ fontSize: 60, marginBottom: 12 }}>
                     {isGood ? '🎉' : '💪'}
                 </div>
 
-                {/* Heading */}
-                <h2 style={{ margin: '0 0 8px', fontSize: 28, fontWeight: 800, color: '#fff' }}>
+                <h2 style={{ margin: '0 0 4px', fontSize: 24, fontWeight: 800, color: '#fff' }}>
                     {isGood ? 'Congratulations!' : 'Keep Going!'}
                 </h2>
 
                 {studentName && (
-                    <div style={{ fontSize: 16, color: 'rgba(255,255,255,0.85)', marginBottom: 16 }}>
+                    <div style={{ fontSize: 15, color: 'rgba(255,255,255,0.85)', marginBottom: 12 }}>
                         {studentName}
                     </div>
                 )}
 
-                {/* Score */}
                 {score != null ? (
                     <div style={{
-                        fontSize: 72, fontWeight: 800, color: '#fff',
+                        fontSize: 64, fontWeight: 800, color: '#fff',
                         textShadow: '0 4px 20px rgba(0,0,0,0.2)',
-                        marginBottom: 8,
+                        marginBottom: 6,
                     }}>
                         {displayScore}%
                     </div>
                 ) : (
-                    <div style={{ fontSize: 20, color: 'rgba(255,255,255,0.9)', marginBottom: 16 }}>
+                    <div style={{ fontSize: 18, color: 'rgba(255,255,255,0.9)', marginBottom: 12 }}>
                         Your teacher has reviewed your answers
                     </div>
                 )}
 
-                {/* Sub-message */}
-                <div style={{ fontSize: 15, color: 'rgba(255,255,255,0.85)', marginBottom: 20 }}>
+                <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.85)', marginBottom: 16 }}>
                     {isGood
                         ? 'Excellent work! You really nailed it!'
                         : score != null
@@ -284,29 +365,21 @@ export function StudentResultOverlay({ score, comment, studentName, onClose }: S
                     }
                 </div>
 
-                {/* Teacher comment */}
                 {comment && (
                     <div style={{
-                        background: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: '12px 16px',
-                        marginBottom: 20, backdropFilter: 'blur(10px)',
+                        background: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: '10px 14px',
+                        marginBottom: 12, backdropFilter: 'blur(10px)',
                     }}>
-                        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
+                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 3 }}>
                             Teacher's Comment
                         </div>
-                        <div style={{ fontSize: 14, color: '#fff', lineHeight: 1.5 }}>{comment}</div>
+                        <div style={{ fontSize: 13, color: '#fff', lineHeight: 1.5 }}>{comment}</div>
                     </div>
                 )}
 
-                <button
-                    onClick={onClose}
-                    style={{
-                        padding: '12px 32px', borderRadius: 12, border: '2px solid rgba(255,255,255,0.3)',
-                        background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 15, fontWeight: 600,
-                        cursor: 'pointer', backdropFilter: 'blur(10px)',
-                    }}
-                >
-                    Close
-                </button>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 8 }}>
+                    Tap to dismiss
+                </div>
             </div>
         </div>
     );
@@ -342,15 +415,15 @@ function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate }: Inlin
     const [loading, setLoading] = useState(true);
     const [answers, setAnswers] = useState<GradingAnswer[]>([]);
     const [overallFeedback, setOverallFeedback] = useState('');
-    const [finalScore, setFinalScore] = useState<string>('');
     const [savingId, setSavingId] = useState<string | null>(null);
     const [savingOverall, setSavingOverall] = useState(false);
+    const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+    const [savedOverall, setSavedOverall] = useState(false);
     const [grades, setGrades] = useState<Record<string, { grade: string; feedback: string }>>({});
 
     useEffect(() => {
         let cancelled = false;
         setLoading(true);
-        // Fetch the student's submission with full answers
         fetch(`${SERVER}/api/quizzes/${quizId}/my-submission?studentId=${studentId}`)
             .then(r => r.json())
             .then((data: { id?: string; answers?: GradingAnswer[]; teacher_overall_feedback?: string; teacher_final_score_override?: number | null }) => {
@@ -361,8 +434,6 @@ function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate }: Inlin
                 }));
                 setAnswers(ans);
                 setOverallFeedback(data.teacher_overall_feedback || '');
-                setFinalScore(data.teacher_final_score_override != null ? String(data.teacher_final_score_override) : '');
-                // Init local grade state
                 const g: Record<string, { grade: string; feedback: string }> = {};
                 for (const a of ans) {
                     g[a.id] = {
@@ -390,6 +461,7 @@ function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate }: Inlin
             if (res.ok) {
                 const data = await res.json();
                 if (data.newScore != null && onScoreUpdate) onScoreUpdate(data.newScore);
+                setSavedIds(prev => new Set(prev).add(answerId));
             }
         } catch { /* ignore */ }
         setSavingId(null);
@@ -398,14 +470,14 @@ function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate }: Inlin
     const saveOverall = async () => {
         setSavingOverall(true);
         try {
-            await fetch(`${SERVER}/api/submissions/${submissionId}/feedback`, {
+            const res = await fetch(`${SERVER}/api/submissions/${submissionId}/feedback`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     teacherOverallFeedback: overallFeedback,
-                    teacherFinalScoreOverride: finalScore === '' ? null : Number(finalScore),
                 }),
             });
+            if (res.ok) setSavedOverall(true);
         } catch { /* ignore */ }
         setSavingOverall(false);
     };
@@ -428,6 +500,7 @@ function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate }: Inlin
                         const q = a.question;
                         const isAutoGraded = q.type === 'select' || q.type === 'multi-select';
                         const g = grades[a.id] || { grade: '', feedback: '' };
+                        const isSaved = savedIds.has(a.id);
 
                         return (
                             <div key={a.id} style={{
@@ -453,6 +526,10 @@ function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate }: Inlin
                                         <span style={{ color: 'var(--text)' }}>{a.selected_options.join(', ')}</span>
                                     ) : a.answer_text ? (
                                         <span style={{ color: 'var(--text)' }}>{a.answer_text}</span>
+                                    ) : a.file_url && q.type === 'recording' ? (
+                                        <div style={{ marginTop: 6 }}>
+                                            <audio controls src={a.file_url} style={{ width: '100%', height: 36, borderRadius: 8 }} />
+                                        </div>
                                     ) : a.file_url ? (
                                         <a href={a.file_url} target="_blank" rel="noreferrer" style={{ color: '#6366f1' }}>View file</a>
                                     ) : (
@@ -480,7 +557,10 @@ function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate }: Inlin
                                                 min={0}
                                                 max={q.points}
                                                 value={g.grade}
-                                                onChange={e => setGrades(prev => ({ ...prev, [a.id]: { ...prev[a.id], grade: e.target.value } }))}
+                                                onChange={e => {
+                                                    setGrades(prev => ({ ...prev, [a.id]: { ...prev[a.id], grade: e.target.value } }));
+                                                    setSavedIds(prev => { const n = new Set(prev); n.delete(a.id); return n; });
+                                                }}
                                                 placeholder="0"
                                                 style={{
                                                     width: 60, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)',
@@ -493,17 +573,21 @@ function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate }: Inlin
                                                 disabled={savingId === a.id}
                                                 style={{
                                                     padding: '4px 10px', borderRadius: 6, border: 'none',
-                                                    background: savingId === a.id ? '#94a3b8' : '#6366f1',
+                                                    background: savingId === a.id ? '#94a3b8' : isSaved ? '#22c55e' : '#6366f1',
                                                     color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer',
                                                     marginLeft: 'auto',
+                                                    transition: 'background 0.2s',
                                                 }}
                                             >
-                                                {savingId === a.id ? 'Saving...' : 'Save'}
+                                                {savingId === a.id ? 'Saving...' : isSaved ? 'Saved' : 'Save'}
                                             </button>
                                         </div>
                                         <textarea
                                             value={g.feedback}
-                                            onChange={e => setGrades(prev => ({ ...prev, [a.id]: { ...prev[a.id], feedback: e.target.value } }))}
+                                            onChange={e => {
+                                                setGrades(prev => ({ ...prev, [a.id]: { ...prev[a.id], feedback: e.target.value } }));
+                                                setSavedIds(prev => { const n = new Set(prev); n.delete(a.id); return n; });
+                                            }}
                                             placeholder="Feedback for this answer..."
                                             rows={2}
                                             style={{
@@ -520,7 +604,7 @@ function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate }: Inlin
                 </div>
             )}
 
-            {/* Overall feedback section */}
+            {/* Overall feedback section — no more % override */}
             <div style={{
                 marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)',
                 display: 'flex', flexDirection: 'column', gap: 8,
@@ -530,7 +614,7 @@ function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate }: Inlin
                 </label>
                 <textarea
                     value={overallFeedback}
-                    onChange={e => setOverallFeedback(e.target.value)}
+                    onChange={e => { setOverallFeedback(e.target.value); setSavedOverall(false); }}
                     placeholder="Write an overall comment for this student..."
                     rows={2}
                     style={{
@@ -539,33 +623,18 @@ function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate }: Inlin
                         color: 'var(--text)', fontSize: 13, resize: 'vertical',
                     }}
                 />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Final score override:</label>
-                    <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={finalScore}
-                        onChange={e => setFinalScore(e.target.value)}
-                        placeholder="—"
-                        style={{
-                            width: 70, padding: '4px 8px', borderRadius: 6,
-                            border: '1px solid var(--border)', background: 'var(--surface-2)',
-                            color: 'var(--text)', fontSize: 13,
-                        }}
-                    />
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>%</span>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <button
                         onClick={saveOverall}
                         disabled={savingOverall}
                         style={{
                             padding: '6px 14px', borderRadius: 6, border: 'none',
-                            background: savingOverall ? '#94a3b8' : '#22c55e',
+                            background: savingOverall ? '#94a3b8' : savedOverall ? '#22c55e' : '#6366f1',
                             color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                            marginLeft: 'auto',
+                            transition: 'background 0.2s',
                         }}
                     >
-                        {savingOverall ? 'Saving...' : 'Save Feedback'}
+                        {savingOverall ? 'Saving...' : savedOverall ? 'Saved' : 'Save Feedback'}
                     </button>
                 </div>
             </div>
@@ -601,7 +670,7 @@ interface RoomQuizHostProps {
     revealedStudentIds: Set<string>;
     onStartQuiz: (quizId: string) => void;
     onStopQuiz: () => void;
-    onReveal: (type: 'individual' | 'final', submissionId?: string, data?: unknown) => void;
+    onReveal: (type: 'individual' | 'class-reveal' | 'final', submissionId?: string, data?: unknown) => void;
 }
 
 export function RoomQuizHost({
@@ -678,17 +747,6 @@ export function RoomQuizHost({
                         {submissions.length} submitted
                     </span>
                     <button
-                        onClick={() => onReveal('final', undefined, { submissions })}
-                        style={{
-                            padding: '6px 14px', borderRadius: 8, border: 'none',
-                            background: 'linear-gradient(135deg, #22c55e, #10b981)',
-                            color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                            boxShadow: '0 2px 8px rgba(34,197,94,0.3)',
-                        }}
-                    >
-                        Reveal All Results
-                    </button>
-                    <button
                         onClick={onStopQuiz}
                         style={{
                             padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)',
@@ -720,7 +778,7 @@ export function RoomQuizHost({
                 {/* Submissions list */}
                 <div>
                     <h4 style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>
-                        Submissions
+                        Submissions — click a student to grade, then Reveal to show their result to the class
                     </h4>
                     {submissions.length === 0 ? (
                         <div style={{
@@ -777,7 +835,7 @@ export function RoomQuizHost({
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        onReveal('individual', s.submissionId, {
+                                                        onReveal('class-reveal', s.submissionId, {
                                                             studentId: s.studentId,
                                                             studentName: s.studentName,
                                                             score: getScore(s),
@@ -790,7 +848,7 @@ export function RoomQuizHost({
                                                         cursor: 'pointer', boxShadow: '0 2px 6px rgba(99,102,241,0.3)',
                                                     }}
                                                 >
-                                                    Reveal
+                                                    Reveal to Class
                                                 </button>
                                             )}
 
