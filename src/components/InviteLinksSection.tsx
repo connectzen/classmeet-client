@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -14,6 +14,21 @@ export default function InviteLinksSection({ userId, variant }: Props) {
     const [loadingTeacher, setLoadingTeacher] = useState(false);
     const [copied, setCopied] = useState<'student' | 'teacher' | null>(null);
 
+    const fetchLinks = useCallback(async () => {
+        try {
+            const r = await fetch(`${SERVER}/api/invite-links?createdBy=${userId}`);
+            if (r.ok) {
+                const links = await r.json() as { role: string; url: string }[];
+                for (const l of links) {
+                    if (l.role === 'student') setStudentUrl(l.url);
+                    if (l.role === 'teacher') setTeacherUrl(l.url);
+                }
+            }
+        } catch { /* ignore */ }
+    }, [userId]);
+
+    useEffect(() => { fetchLinks(); }, [fetchLinks]);
+
     async function generateLink(role: 'student' | 'teacher') {
         const setLoading = role === 'student' ? setLoadingStudent : setLoadingTeacher;
         const setUrl = role === 'student' ? setStudentUrl : setTeacherUrl;
@@ -23,6 +38,23 @@ export default function InviteLinksSection({ userId, variant }: Props) {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ role, createdBy: userId }),
+            });
+            const data = await r.json();
+            if (r.ok && data.url) setUrl(data.url);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function regenerateLink(role: 'student' | 'teacher') {
+        const setLoading = role === 'student' ? setLoadingStudent : setLoadingTeacher;
+        const setUrl = role === 'student' ? setStudentUrl : setTeacherUrl;
+        setLoading(true);
+        try {
+            const r = await fetch(`${SERVER}/api/invite-links/regenerate`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ createdBy: userId, role }),
             });
             const data = await r.json();
             if (r.ok && data.url) setUrl(data.url);
@@ -83,7 +115,8 @@ export default function InviteLinksSection({ userId, variant }: Props) {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => generateLink('student')}
+                                disabled={loadingStudent}
+                                onClick={() => regenerateLink('student')}
                                 style={{
                                     padding: '8px 16px',
                                     borderRadius: 8,
@@ -91,10 +124,10 @@ export default function InviteLinksSection({ userId, variant }: Props) {
                                     background: 'transparent',
                                     color: 'var(--text-muted)',
                                     fontSize: 13,
-                                    cursor: 'pointer',
+                                    cursor: loadingStudent ? 'not-allowed' : 'pointer',
                                 }}
                             >
-                                New link
+                                {loadingStudent ? 'Regenerating…' : 'Regenerate link'}
                             </button>
                         </div>
                     ) : (
@@ -159,7 +192,8 @@ export default function InviteLinksSection({ userId, variant }: Props) {
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => generateLink('teacher')}
+                                    disabled={loadingTeacher}
+                                    onClick={() => regenerateLink('teacher')}
                                     style={{
                                         padding: '8px 16px',
                                         borderRadius: 8,
@@ -167,10 +201,10 @@ export default function InviteLinksSection({ userId, variant }: Props) {
                                         background: 'transparent',
                                         color: 'var(--text-muted)',
                                         fontSize: 13,
-                                        cursor: 'pointer',
+                                        cursor: loadingTeacher ? 'not-allowed' : 'pointer',
                                     }}
                                 >
-                                    New link
+                                    {loadingTeacher ? 'Regenerating…' : 'Regenerate link'}
                                 </button>
                             </div>
                         ) : (

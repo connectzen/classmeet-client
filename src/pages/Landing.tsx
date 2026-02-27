@@ -1016,7 +1016,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     </div>
                                 </div>
                             )}
-                            <MemberCoursesSection userId={user!.id} />
+                            <MemberCoursesSection userId={user!.id} onCoursesChange={fetchMemberCoursesCount} />
                             <p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 24 }}>
                                 Create courses and quizzes, and chat with your teachers and students.
                             </p>
@@ -1145,6 +1145,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     </div>
                                 </div>
                             )}
+                            <MemberCoursesSection userId={user!.id} onCoursesChange={fetchTeacherCoursesCount} />
                         </div>
                     )}
 

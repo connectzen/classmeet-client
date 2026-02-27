@@ -1,15 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
+import CourseEditor from './CourseEditor';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
-interface Course { id: string; title: string; created_at?: string; }
+interface Course { id: string; title: string; description?: string | null; created_at?: string; }
 
-export default function MemberCoursesSection({ userId }: { userId: string }) {
+export default function MemberCoursesSection({ userId, onCoursesChange }: { userId: string; onCoursesChange?: () => void }) {
     const [courses, setCourses] = useState<Course[]>([]);
     const [loading, setLoading] = useState(false);
-    const [newTitle, setNewTitle] = useState('');
-    const [creating, setCreating] = useState(false);
-    const [showForm, setShowForm] = useState(false);
+    const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+    const [showCreate, setShowCreate] = useState(false);
 
     const fetchCourses = useCallback(async () => {
         setLoading(true);
@@ -22,29 +22,13 @@ export default function MemberCoursesSection({ userId }: { userId: string }) {
 
     useEffect(() => { fetchCourses(); }, [fetchCourses]);
 
-    async function handleCreate(e: React.FormEvent) {
-        e.preventDefault();
-        if (!newTitle.trim() || creating) return;
-        setCreating(true);
-        try {
-            const r = await fetch(`${SERVER}/api/courses`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: newTitle.trim(), createdBy: userId }),
-            });
-            if (r.ok) { setNewTitle(''); setShowForm(false); fetchCourses(); }
-        } finally {
-            setCreating(false);
-        }
-    }
-
     return (
         <div style={{ marginTop: 20, marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Courses</h3>
                 <button
                     type="button"
-                    onClick={() => setShowForm(!showForm)}
+                    onClick={() => setShowCreate(true)}
                     style={{
                         padding: '6px 14px',
                         borderRadius: 8,
@@ -56,44 +40,71 @@ export default function MemberCoursesSection({ userId }: { userId: string }) {
                         cursor: 'pointer',
                     }}
                 >
-                    {showForm ? 'Cancel' : '+ New Course'}
+                    + New Course
                 </button>
             </div>
-            {showForm && (
-                <form onSubmit={handleCreate} style={{ marginBottom: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <input
-                        type="text"
-                        value={newTitle}
-                        onChange={e => setNewTitle(e.target.value)}
-                        placeholder="Course title"
-                        style={{
-                            flex: 1,
-                            padding: '8px 12px',
-                            borderRadius: 8,
-                            border: '1px solid rgba(255,255,255,0.12)',
-                            background: 'rgba(255,255,255,0.05)',
-                            color: 'var(--text)',
-                            fontSize: 14,
-                        }}
-                    />
-                    <button type="submit" disabled={creating || !newTitle.trim()} style={{
-                        padding: '8px 16px', borderRadius: 8, border: 'none',
-                        background: 'var(--primary, #6366f1)', color: '#fff', fontWeight: 600, fontSize: 13, cursor: creating ? 'not-allowed' : 'pointer',
-                    }}>
-                        {creating ? 'Creating…' : 'Create'}
-                    </button>
-                </form>
-            )}
             {loading ? <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading courses…</p> : courses.length === 0 ? (
-                <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No courses yet. Create one to add quizzes.</p>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No courses yet. Create one to add lessons and quizzes.</p>
             ) : (
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                <div style={{ display: 'grid', gap: 12 }}>
                     {courses.map(c => (
-                        <li key={c.id} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: 14 }}>
-                            {c.title}
-                        </li>
+                        <div
+                            key={c.id}
+                            style={{
+                                padding: 14,
+                                background: 'rgba(255,255,255,0.04)',
+                                borderRadius: 12,
+                                border: '1px solid rgba(255,255,255,0.08)',
+                                transition: 'border-color 0.15s, background 0.15s',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(99,102,241,0.3)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--text)' }}>{c.title}</div>
+                                    {c.description && (
+                                        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                            {c.description}
+                                        </div>
+                                    )}
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setEditingCourse(c)}
+                                    style={{
+                                        padding: '6px 12px',
+                                        borderRadius: 8,
+                                        border: '1px solid rgba(255,255,255,0.2)',
+                                        background: 'transparent',
+                                        color: 'var(--text-muted)',
+                                        fontSize: 12,
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        flexShrink: 0,
+                                    }}
+                                >
+                                    Edit
+                                </button>
+                            </div>
+                        </div>
                     ))}
-                </ul>
+                </div>
+            )}
+            {showCreate && (
+                <CourseEditor
+                    userId={userId}
+                    onClose={() => setShowCreate(false)}
+                    onSaved={() => { setShowCreate(false); fetchCourses(); }}
+                />
+            )}
+            {editingCourse && (
+                <CourseEditor
+                    userId={userId}
+                    course={editingCourse}
+                    onClose={() => setEditingCourse(null)}
+                    onSaved={() => { setEditingCourse(null); fetchCourses(); onCoursesChange?.(); }}
+                />
             )}
         </div>
     );

@@ -444,7 +444,17 @@ function CreateQuizForm({ userId, rooms, courses, onCreated, onCancel }: {
     }
 
     return (
-        <div style={{ padding: 20 }}>
+        <div style={{ padding: 20 }} className="quiz-form-fade-in">
+            <div className="quiz-step-indicator">
+                <span className="quiz-step-dot active">1</span>
+                <span style={{ color: 'var(--text-muted)' }}>Basics</span>
+                <span style={{ margin: '0 4px' }}>→</span>
+                <span className="quiz-step-dot">2</span>
+                <span style={{ color: 'var(--text-muted)' }}>Questions</span>
+                <span style={{ margin: '0 4px' }}>→</span>
+                <span className="quiz-step-dot">3</span>
+                <span style={{ color: 'var(--text-muted)' }}>Publish</span>
+            </div>
             <h3 style={{ fontWeight: 700, marginBottom: 20, fontSize: 17 }}>Create New Quiz</h3>
 
             <label className="quiz-label">Quiz Title</label>
@@ -548,7 +558,7 @@ function QuizBuilder({ quizId, onAddQuestion, onPublish }: {
             )}
 
             {quiz.questions.map((q, i) => (
-                <div key={q.id} style={{
+                <div key={q.id} className="quiz-builder-card" style={{
                     background: 'var(--surface-3)', borderRadius: 12, padding: 12,
                     marginBottom: 8, border: '1px solid var(--border)',
                     display: 'flex', gap: 10, alignItems: 'flex-start',
@@ -666,7 +676,7 @@ function QuestionForm({ quizId, question, onSaved, onCancel }: {
     }
 
     return (
-        <div style={{ padding: 20 }}>
+        <div style={{ padding: 20 }} className="quiz-form-fade-in">
             <h3 style={{ fontWeight: 700, marginBottom: 16, fontSize: 16 }}>
                 {editing ? 'Edit Question' : 'Add Question'}
             </h3>
@@ -678,6 +688,7 @@ function QuestionForm({ quizId, question, onSaved, onCancel }: {
                     <button
                         key={t}
                         onClick={() => setType(t)}
+                        className="quiz-type-pill"
                         style={{
                             padding: '6px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
                             border: '1.5px solid', cursor: 'pointer',
@@ -1003,6 +1014,7 @@ function TakeQuiz({ quiz, submissionId, userId, onDone }: {
 }) {
     const [answers, setAnswers] = useState<Record<string, Answer>>({});
     const [currentIdx, setCurrentIdx] = useState(0);
+    const [direction, setDirection] = useState<'next' | 'prev'>('next');
     const [submitting, setSubmitting] = useState(false);
     const [timeLeft, setTimeLeft] = useState<number | null>(
         quiz.time_limit_minutes ? quiz.time_limit_minutes * 60 : null
@@ -1146,7 +1158,11 @@ function TakeQuiz({ quiz, submissionId, userId, onDone }: {
 
             {/* Question */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-                <div style={{ background: 'var(--surface-2)', borderRadius: 14, padding: 16, marginBottom: 14, border: '1px solid var(--border)' }}>
+                <div
+                    key={currentIdx}
+                    className={direction === 'next' ? 'quiz-question-enter-next' : 'quiz-question-enter-prev'}
+                    style={{ background: 'var(--surface-2)', borderRadius: 14, padding: 16, marginBottom: 14, border: '1px solid var(--border)' }}
+                >
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
                         {TYPE_ICONS[q.type]} {TYPE_LABELS[q.type]} · {q.points} pt{q.points !== 1 ? 's' : ''}
                     </div>
@@ -1298,7 +1314,7 @@ function TakeQuiz({ quiz, submissionId, userId, onDone }: {
             {/* Navigation + Submit */}
             <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', flexShrink: 0, display: 'flex', gap: 8 }}>
                 <button
-                    onClick={() => setCurrentIdx(prev => Math.max(0, prev - 1))}
+                    onClick={() => { setDirection('prev'); setCurrentIdx(prev => Math.max(0, prev - 1)); }}
                     disabled={currentIdx === 0 || uploading || recording}
                     className="quiz-btn quiz-btn-ghost"
                     style={{ flex: 1 }}
@@ -1306,7 +1322,7 @@ function TakeQuiz({ quiz, submissionId, userId, onDone }: {
 
                 {currentIdx < totalQ - 1 ? (
                     <button
-                        onClick={() => setCurrentIdx(prev => prev + 1)}
+                        onClick={() => { setDirection('next'); setCurrentIdx(prev => prev + 1); }}
                         disabled={uploading || recording}
                         className="quiz-btn quiz-btn-primary"
                         style={{ flex: 2, background: uploading ? 'var(--surface-3)' : '#f59e0b' }}
@@ -1334,14 +1350,14 @@ function QuizDone({ quiz, score, onBack }: { quiz: Quiz; score: number | null; o
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, height: '100%', textAlign: 'center' }}>
-            <div style={{ fontSize: 60, marginBottom: 16 }}>{emoji}</div>
+            <div className="quiz-done-bounce" style={{ fontSize: 60, marginBottom: 16 }}>{emoji}</div>
             <h2 style={{ fontWeight: 700, fontSize: 22, marginBottom: 8 }}>Quiz Submitted!</h2>
             <p style={{ color: 'var(--text-muted)', marginBottom: 24, lineHeight: 1.5 }}>
                 You've completed <strong>{quiz.title}</strong>.
             </p>
             {score !== null ? (
                 <>
-                    <div style={{
+                    <div className="quiz-done-bounce" style={{
                         width: 100, height: 100, borderRadius: '50%',
                         border: `4px solid ${color}`,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
