@@ -10,6 +10,8 @@ interface Props {
 export default function InviteLinksSection({ userId, variant }: Props) {
     const [studentUrl, setStudentUrl] = useState<string | null>(null);
     const [teacherUrl, setTeacherUrl] = useState<string | null>(null);
+    const [studentClaimCount, setStudentClaimCount] = useState(0);
+    const [teacherClaimCount, setTeacherClaimCount] = useState(0);
     const [loadingStudent, setLoadingStudent] = useState(false);
     const [loadingTeacher, setLoadingTeacher] = useState(false);
     const [copied, setCopied] = useState<'student' | 'teacher' | null>(null);
@@ -18,10 +20,10 @@ export default function InviteLinksSection({ userId, variant }: Props) {
         try {
             const r = await fetch(`${SERVER}/api/invite-links?createdBy=${userId}`);
             if (r.ok) {
-                const links = await r.json() as { role: string; url: string }[];
+                const links = await r.json() as { role: string; url: string; claim_count?: number }[];
                 for (const l of links) {
-                    if (l.role === 'student') setStudentUrl(l.url);
-                    if (l.role === 'teacher') setTeacherUrl(l.url);
+                    if (l.role === 'student') { setStudentUrl(l.url); setStudentClaimCount(l.claim_count ?? 0); }
+                    if (l.role === 'teacher') { setTeacherUrl(l.url); setTeacherClaimCount(l.claim_count ?? 0); }
                 }
             }
         } catch { /* ignore */ }
@@ -40,7 +42,7 @@ export default function InviteLinksSection({ userId, variant }: Props) {
                 body: JSON.stringify({ role, createdBy: userId }),
             });
             const data = await r.json();
-            if (r.ok && data.url) setUrl(data.url);
+            if (r.ok && data.url) { setUrl(data.url); fetchLinks(); }
         } finally {
             setLoading(false);
         }
@@ -57,7 +59,7 @@ export default function InviteLinksSection({ userId, variant }: Props) {
                 body: JSON.stringify({ createdBy: userId, role }),
             });
             const data = await r.json();
-            if (r.ok && data.url) setUrl(data.url);
+            if (r.ok && data.url) { setUrl(data.url); fetchLinks(); }
         } finally {
             setLoading(false);
         }
@@ -80,7 +82,7 @@ export default function InviteLinksSection({ userId, variant }: Props) {
                     borderRadius: 12,
                     border: '1px solid rgba(255,255,255,0.08)',
                 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 8 }}>Student invite link</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 8 }}>Student invite link {studentClaimCount > 0 && <span style={{ fontWeight: 500, color: 'var(--success)' }}>({studentClaimCount} joined)</span>}</div>
                     {studentUrl ? (
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                             <input
@@ -157,7 +159,7 @@ export default function InviteLinksSection({ userId, variant }: Props) {
                         borderRadius: 12,
                         border: '1px solid rgba(255,255,255,0.08)',
                     }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 8 }}>Teacher invite link</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 8 }}>Teacher invite link {teacherClaimCount > 0 && <span style={{ fontWeight: 500, color: 'var(--success)' }}>({teacherClaimCount} joined)</span>}</div>
                         {teacherUrl ? (
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                                 <input
