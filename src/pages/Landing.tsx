@@ -157,6 +157,8 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
     const [lastSeenByUserId, setLastSeenByUserId] = useState<Record<string, number>>({});
     const [teacherNamesFromApi, setTeacherNamesFromApi] = useState<Record<string, string>>({});
+    const [failedAvatarUrls, setFailedAvatarUrls] = useState<Set<string>>(new Set());
+    const markAvatarFailed = (url: string) => setFailedAvatarUrls(prev => new Set(prev).add(url));
 
     // Schedule modal state
     const [scheduleMode, setScheduleMode] = useState(false);
@@ -894,8 +896,8 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                         {memberTeachersWithStudents.map(({ teacherId, teacherName, students }) => (
                                             <div key={teacherId} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 14 }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                                                    {teacherProfiles[teacherId]?.avatar_url ? (
-                                                        <img src={teacherProfiles[teacherId].avatar_url!} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                                                    {teacherProfiles[teacherId]?.avatar_url && !failedAvatarUrls.has(teacherProfiles[teacherId].avatar_url!) ? (
+                                                        <img src={teacherProfiles[teacherId].avatar_url!} alt="" onError={() => teacherProfiles[teacherId].avatar_url && markAvatarFailed(teacherProfiles[teacherId].avatar_url!)} style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                                                     ) : (
                                                         <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{initialsFor(teacherProfiles[teacherId]?.name || teacherName, 'T')}</div>
                                                     )}
@@ -1131,8 +1133,8 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                 const avatarUrl = teacherProfiles[tid]?.avatar_url;
                                                 return (
                                                     <div key={tid} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '8px 12px' }}>
-                                                        {avatarUrl ? (
-                                                            <img src={avatarUrl} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                                                        {avatarUrl && !failedAvatarUrls.has(avatarUrl) ? (
+                                                            <img src={avatarUrl} alt="" onError={() => markAvatarFailed(avatarUrl)} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                                                         ) : (
                                                             <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{initialsFor(name)}</div>
                                                         )}

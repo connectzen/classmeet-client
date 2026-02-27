@@ -6,9 +6,9 @@ import { io } from 'socket.io-client';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
-interface Teacher { user_id: string; name: string; email: string; created_at: string; room_count: number; }
-interface Student { user_id: string; name: string; email: string; created_at: string; enrollment_count: number; }
-interface Member { user_id: string; name: string; email: string; created_at: string; }
+interface Teacher { user_id: string; name: string; email: string; created_at: string; room_count: number; avatar_url?: string | null; }
+interface Student { user_id: string; name: string; email: string; created_at: string; enrollment_count: number; avatar_url?: string | null; }
+interface Member { user_id: string; name: string; email: string; created_at: string; avatar_url?: string | null; }
 interface InboxMsg { id?: string; [key: string]: unknown; }
 interface Meeting {
     id: string; room_code: string; room_id: string; title: string; description: string;
@@ -58,7 +58,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
     const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
     const [healthStatus, setHealthStatus] = useState<HealthStatus | null>(null);
 
-    const [pendingUsers, setPendingUsers] = useState<{ id: string; name: string; email: string; created_at: string | null; role_interest?: string | null; areas_of_interest?: string | null }[]>([]);
+    const [pendingUsers, setPendingUsers] = useState<{ id: string; name: string; email: string; created_at: string | null; role_interest?: string | null; areas_of_interest?: string | null; avatar_url?: string | null }[]>([]);
     const [loadingPending, setLoadingPending] = useState(false);
     const [approvingId, setApprovingId] = useState<string | null>(null);
     const [rejectingId, setRejectingId] = useState<string | null>(null);
@@ -571,7 +571,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                                     {members.map(m => (
                                         <div key={m.user_id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                                <Avatar name={m.name || m.email} color="#a78bfa" />
+                                                <Avatar name={m.name || m.email} color="#a78bfa" avatarUrl={m.avatar_url} />
                                                 <div>
                                                     <div style={{ fontWeight: 600, fontSize: 14 }}>{m.name || m.email}</div>
                                                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{m.email}</div>
@@ -655,7 +655,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                                             ) : (
                                                 <>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                                        <Avatar name={t.name} color="#6366f1" />
+                                                        <Avatar name={t.name} color="#6366f1" avatarUrl={t.avatar_url} />
                                                         <div>
                                                             <div style={{ fontWeight: 600, fontSize: 14 }}>{t.name}</div>
                                                             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{t.email} · {t.room_count} class{t.room_count !== 1 ? 'es' : ''}</div>
@@ -698,7 +698,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                                     {students.map(s => (
                                         <div key={s.user_id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                                <Avatar name={s.name || s.email} color="#22c55e" />
+                                                <Avatar name={s.name || s.email} color="#22c55e" avatarUrl={s.avatar_url} />
                                                 <div>
                                                     <div style={{ fontWeight: 600, fontSize: 14 }}>{s.name || s.email}</div>
                                                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{s.email} · {s.enrollment_count} enrollment{s.enrollment_count !== 1 ? 's' : ''}</div>
@@ -741,7 +741,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                                     {pendingUsers.map(u => (
                                         <div key={u.id} style={{ background: 'var(--surface)', border: '1px solid rgba(234,179,8,0.25)', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                                <Avatar name={u.name || u.email} color="#f59e0b" />
+                                                <Avatar name={u.name || u.email} color="#f59e0b" avatarUrl={u.avatar_url} />
                                                 <div>
                                                     <div style={{ fontWeight: 600, fontSize: 14 }}>{u.name || '(no name)'}</div>
                                                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{u.email}</div>
@@ -1079,11 +1079,18 @@ function StatCard({ icon, label, value, accent }: { icon: string; label: string;
     );
 }
 
-function Avatar({ name, color }: { name: string; color: string }) {
+function Avatar({ name, color, avatarUrl }: { name: string; color: string; avatarUrl?: string | null }) {
+    const [imgFailed, setImgFailed] = useState(false);
+    const showImg = avatarUrl && !imgFailed;
     const initial = (name || '?')[0].toUpperCase();
+    useEffect(() => setImgFailed(false), [avatarUrl]);
     return (
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: `${color}20`, border: `1px solid ${color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color, flexShrink: 0 }}>
-            {initial}
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: `${color}20`, border: `1px solid ${color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color, flexShrink: 0, overflow: 'hidden' }}>
+            {showImg ? (
+                <img src={avatarUrl!} alt="" onError={() => setImgFailed(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+                initial
+            )}
         </div>
     );
 }

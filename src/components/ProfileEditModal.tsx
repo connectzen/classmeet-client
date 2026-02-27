@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { useUser } from '../lib/AuthContext';
 import { insforge } from '../lib/insforge';
@@ -16,7 +16,11 @@ export default function ProfileEditModal({ onClose }: ProfileEditModalProps) {
     const [uploading, setUploading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [avatarImgError, setAvatarImgError] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const currentAvatarUrlForEffect = previewUrl || avatarUrl || user?.profile?.avatar_url;
+    useEffect(() => { setAvatarImgError(false); }, [currentAvatarUrlForEffect]);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -93,13 +97,13 @@ export default function ProfileEditModal({ onClose }: ProfileEditModalProps) {
                 return;
             }
 
-            // Sync the updated name to user_roles table so it reflects everywhere
+            // Sync the updated name and avatar_url to user_roles table so it reflects everywhere
             if (user?.id) {
                 try {
                     const syncRes = await fetch(`${SERVER_URL}/api/profile/sync-name`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ userId: user.id, name: name.trim() }),
+                        body: JSON.stringify({ userId: user.id, name: name.trim(), avatar_url: avatarUrl || null }),
                     });
                     if (!syncRes.ok) {
                         const syncErr = await syncRes.json().catch(() => ({}));
@@ -122,6 +126,7 @@ export default function ProfileEditModal({ onClose }: ProfileEditModalProps) {
     };
 
     const currentAvatarUrl = previewUrl || avatarUrl || user?.profile?.avatar_url;
+    const showAvatarImg = currentAvatarUrl && !avatarImgError;
     const displayName = user?.profile?.name || user?.email?.split('@')[0] || 'User';
     const initials = displayName
         .split(' ')
@@ -180,10 +185,11 @@ export default function ProfileEditModal({ onClose }: ProfileEditModalProps) {
                     {/* Avatar Section */}
                     <div style={{ textAlign: 'center', marginBottom: 24 }}>
                         <div style={{ position: 'relative', display: 'inline-block' }}>
-                            {currentAvatarUrl ? (
+                            {showAvatarImg ? (
                                 <img
                                     src={currentAvatarUrl}
                                     alt="Profile"
+                                    onError={() => setAvatarImgError(true)}
                                     style={{
                                         width: 100,
                                         height: 100,

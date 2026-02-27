@@ -54,9 +54,11 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
 
     // New DM people picker
     const [showNewDM, setShowNewDM]       = useState(false);
-    const [dmUsers, setDmUsers]           = useState<{ id: string; name: string; email: string; role: string }[]>([]);
+    const [dmUsers, setDmUsers]           = useState<{ id: string; name: string; email: string; role: string; avatar_url?: string | null }[]>([]);
     const [loadingDmUsers, setLoadingDmUsers] = useState(false);
     const [dmSearch, setDmSearch]         = useState('');
+    const [failedAvatarUrls, setFailedAvatarUrls] = useState<Set<string>>(new Set());
+    const markAvatarFailed = (url: string) => setFailedAvatarUrls(prev => new Set(prev).add(url));
 
     const openNewDM = useCallback(async () => {
         setShowNewDM(true);
@@ -66,12 +68,12 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
         try {
             const res = await fetch(`${import.meta.env.VITE_SERVER_URL || 'http://localhost:3001'}/api/chat/partners/${userId}`);
             if (res.ok) {
-                const partners = await res.json() as { id: string; name: string; email: string; role: string }[];
+                const partners = await res.json() as { id: string; name: string; email: string; role: string; avatar_url?: string | null }[];
                 setDmUsers(partners.filter(u => u.id !== userId));
             } else {
                 const fallback = await fetch(`${import.meta.env.VITE_SERVER_URL || 'http://localhost:3001'}/api/all-users`);
                 if (fallback.ok) {
-                    const all = await fallback.json() as { id: string; name: string; email: string; role: string }[];
+                    const all = await fallback.json() as { id: string; name: string; email: string; role: string; avatar_url?: string | null }[];
                     setDmUsers(all.filter(u => {
                         if (u.id === userId || u.role === 'pending') return false;
                         if (userRole === 'student') return u.role === 'teacher';
@@ -258,8 +260,12 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                                         <div key={u.id} onClick={() => handleStartDM(u)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', cursor: 'pointer', transition: 'background 0.15s' }}
                                             onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
                                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                                            <div style={{ width: 38, height: 38, borderRadius: '50%', background: u.role === 'teacher' ? 'rgba(99,102,241,0.15)' : 'rgba(34,197,94,0.15)', border: `2px solid ${u.role === 'teacher' ? '#6366f1' : '#22c55e'}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, color: u.role === 'teacher' ? '#6366f1' : '#22c55e', flexShrink: 0 }}>
-                                                {(u.name || u.email)[0].toUpperCase()}
+                                            <div style={{ width: 38, height: 38, borderRadius: '50%', background: u.role === 'teacher' ? 'rgba(99,102,241,0.15)' : 'rgba(34,197,94,0.15)', border: `2px solid ${u.role === 'teacher' ? '#6366f1' : '#22c55e'}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, color: u.role === 'teacher' ? '#6366f1' : '#22c55e', flexShrink: 0, overflow: 'hidden' }}>
+                                                {u.avatar_url && !failedAvatarUrls.has(u.avatar_url) ? (
+                                                    <img src={u.avatar_url} alt="" onError={() => markAvatarFailed(u.avatar_url!)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    (u.name || u.email)[0].toUpperCase()
+                                                )}
                                             </div>
                                             <div>
                                                 <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>{u.name || u.email}</div>
@@ -300,8 +306,8 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                             >
                                 {/* Avatar */}
                                 <div style={{ width: 42, height: 42, borderRadius: '50%', background: `${getAvatarColor(conv)}22`, border: `2px solid ${getAvatarColor(conv)}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16, color: getAvatarColor(conv), flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
-                                    {conv.type === 'dm' && conv.other_user?.avatar_url ? (
-                                        <img src={conv.other_user.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    {conv.type === 'dm' && conv.other_user?.avatar_url && !failedAvatarUrls.has(conv.other_user.avatar_url) ? (
+                                        <img src={conv.other_user.avatar_url} alt="" onError={() => markAvatarFailed(conv.other_user!.avatar_url!)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : conv.type === 'broadcast' || conv.type === 'group' ? (conv.type === 'broadcast' ? '📢' : '#') : getConvAvatar(conv)}
                                     {conv.unread_count > 0 && (
                                         <div style={{ position: 'absolute', top: -4, right: -4, background: '#6366f1', color: '#fff', borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>
@@ -373,8 +379,10 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                             )}
                             {activeConv && (
                                 <>
-                                    <div style={{ width: 38, height: 38, borderRadius: '50%', background: `${getAvatarColor(activeConv)}22`, border: `2px solid ${getAvatarColor(activeConv)}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, color: getAvatarColor(activeConv), flexShrink: 0 }}>
-                                        {activeConv.type === 'broadcast' ? '📢' : activeConv.type === 'group' ? '#' : getConvAvatar(activeConv)}
+                                    <div style={{ width: 38, height: 38, borderRadius: '50%', background: `${getAvatarColor(activeConv)}22`, border: `2px solid ${getAvatarColor(activeConv)}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, color: getAvatarColor(activeConv), flexShrink: 0, overflow: 'hidden', position: 'relative' }}>
+                                        {activeConv.type === 'dm' && activeConv.other_user?.avatar_url && !failedAvatarUrls.has(activeConv.other_user.avatar_url) ? (
+                                            <img src={activeConv.other_user.avatar_url} alt="" onError={() => markAvatarFailed(activeConv.other_user!.avatar_url!)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        ) : activeConv.type === 'broadcast' ? '📢' : activeConv.type === 'group' ? '#' : getConvAvatar(activeConv)}
                                     </div>
                                     <div>
                                         <div style={{ fontWeight: 600, fontSize: 15 }}>{getConvDisplayName(activeConv)}</div>

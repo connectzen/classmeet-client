@@ -15,8 +15,11 @@ export default function UserMenu({ userRole }: UserMenuProps) {
     const [signingOut, setSigningOut] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showInviteLinks, setShowInviteLinks] = useState(false);
+    const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
     const showInviteLinksItem = userRole === 'teacher' || userRole === 'member';
+
+    useEffect(() => { setAvatarLoadFailed(false); }, [user?.profile?.avatar_url]);
 
     // Close when clicking outside
     useEffect(() => {
@@ -37,6 +40,7 @@ export default function UserMenu({ userRole }: UserMenuProps) {
 
     const displayName = user.profile?.name || user.email?.split('@')[0] || 'User';
     const avatarUrl = user.profile?.avatar_url;
+    const showAvatarImg = avatarUrl && !avatarLoadFailed;
     const initials = displayName
         .split(' ')
         .map((w: string) => w[0])
@@ -95,7 +99,7 @@ export default function UserMenu({ userRole }: UserMenuProps) {
                     title={displayName}
                     style={{
                         width: 36, height: 36, borderRadius: '50%', border: '2px solid rgba(99,102,241,0.5)',
-                        background: avatarUrl ? 'transparent' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                        background: showAvatarImg ? 'transparent' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                         color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         transition: 'border-color 0.2s, box-shadow 0.2s', flexShrink: 0,
@@ -105,8 +109,8 @@ export default function UserMenu({ userRole }: UserMenuProps) {
                     onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.9)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.2)'; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = open ? 'rgba(99,102,241,0.9)' : 'rgba(99,102,241,0.5)'; e.currentTarget.style.boxShadow = open ? '0 0 0 3px rgba(99,102,241,0.3)' : 'none'; }}
                 >
-                    {avatarUrl ? (
-                        <img src={avatarUrl} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    {showAvatarImg ? (
+                        <img src={avatarUrl} alt={displayName} onError={() => setAvatarLoadFailed(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
                         initials
                     )}
@@ -126,10 +130,11 @@ export default function UserMenu({ userRole }: UserMenuProps) {
                     {/* User info */}
                     <div style={{ padding: '10px 12px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: 8 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            {avatarUrl ? (
+                            {showAvatarImg ? (
                                 <img 
                                     src={avatarUrl} 
                                     alt={displayName}
+                                    onError={() => setAvatarLoadFailed(true)}
                                     style={{
                                         width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
                                         objectFit: 'cover',
