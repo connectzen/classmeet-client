@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useChat, type ChatMessage, type Conversation } from '../hooks/useChat';
+import { insforge } from '../lib/insforge';
 
 export type ChatHookResult = ReturnType<typeof useChat>;
 
@@ -59,6 +60,26 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
     const [dmSearch, setDmSearch]         = useState('');
     const [failedAvatarUrls, setFailedAvatarUrls] = useState<Set<string>>(new Set());
     const markAvatarFailed = (url: string) => setFailedAvatarUrls(prev => new Set(prev).add(url));
+    const [partnerProfiles, setPartnerProfiles] = useState<Record<string, { name: string; avatar_url?: string }>>({});
+
+    const fetchPartnerProfiles = useCallback(async (partnerIds: string[]) => {
+        const uniqueIds = Array.from(new Set(partnerIds));
+        const profilesMap: Record<string, { name: string; avatar_url?: string }> = {};
+        await Promise.all(uniqueIds.map(async (id) => {
+            try {
+                const { data, error } = await insforge.auth.getProfile(id);
+                if (!error && data?.profile) {
+                    profilesMap[id] = {
+                        name: (data.profile as any).name || '',
+                        avatar_url: (data.profile as any).avatar_url,
+                    };
+                }
+            } catch (err) {
+                console.error('Error fetching partner profile:', err);
+            }
+        }));
+        setPartnerProfiles(prev => ({ ...prev, ...profilesMap }));
+    }, []);
 
     const openNewDM = useCallback(async () => {
         setShowNewDM(true);
@@ -69,21 +90,25 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
             const res = await fetch(`${import.meta.env.VITE_SERVER_URL || 'http://localhost:3001'}/api/chat/partners/${userId}`);
             if (res.ok) {
                 const partners = await res.json() as { id: string; name: string; email: string; role: string; avatar_url?: string | null }[];
-                setDmUsers(partners.filter(u => u.id !== userId));
+                const filtered = partners.filter(u => u.id !== userId);
+                setDmUsers(filtered);
+                await fetchPartnerProfiles(filtered.map(p => p.id));
             } else {
                 const fallback = await fetch(`${import.meta.env.VITE_SERVER_URL || 'http://localhost:3001'}/api/all-users`);
                 if (fallback.ok) {
                     const all = await fallback.json() as { id: string; name: string; email: string; role: string; avatar_url?: string | null }[];
-                    setDmUsers(all.filter(u => {
+                    const filtered = all.filter(u => {
                         if (u.id === userId || u.role === 'pending') return false;
                         if (userRole === 'student') return u.role === 'teacher';
                         return true;
-                    }));
+                    });
+                    setDmUsers(filtered);
+                    await fetchPartnerProfiles(filtered.map(p => p.id));
                 }
             }
         } catch { /* ignore */ }
         setLoadingDmUsers(false);
-    }, [userId, userRole, dmUsers.length]);
+    }, [userId, userRole, dmUsers.length, fetchPartnerProfiles]);
 
     const handleStartDM = useCallback(async (u: { id: string; name: string; role: string }) => {
         setShowNewDM(false);
@@ -256,13 +281,16 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                             ) : (
                                 dmUsers
                                     .filter(u => (u.name || u.email).toLowerCase().includes(dmSearch.toLowerCase()))
-                                    .map(u => (
+                                    .map(u => {
+                                        const avatarUrl = partnerProfiles[u.id]?.avatar_url || u.avatar_url;
+                                        const showPartnerAvatar = avatarUrl && !failedAvatarUrls.has(avatarUrl);
+                                        return (
                                         <div key={u.id} onClick={() => handleStartDM(u)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', cursor: 'pointer', transition: 'background 0.15s' }}
                                             onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
                                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                                             <div style={{ width: 38, height: 38, borderRadius: '50%', background: u.role === 'teacher' ? 'rgba(99,102,241,0.15)' : 'rgba(34,197,94,0.15)', border: `2px solid ${u.role === 'teacher' ? '#6366f1' : '#22c55e'}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, color: u.role === 'teacher' ? '#6366f1' : '#22c55e', flexShrink: 0, overflow: 'hidden' }}>
-                                                {u.avatar_url && !failedAvatarUrls.has(u.avatar_url) ? (
-                                                    <img src={u.avatar_url} alt="" onError={() => markAvatarFailed(u.avatar_url!)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                {showPartnerAvatar ? (
+                                                    <img src={avatarUrl} alt="" onError={() => markAvatarFailed(avatarUrl)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                 ) : (
                                                     (u.name || u.email)[0].toUpperCase()
                                                 )}
@@ -272,7 +300,8 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                                                 <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1, textTransform: 'capitalize' }}>{u.role}</div>
                                             </div>
                                         </div>
-                                    ))
+                                        );
+                                    })
                             )}
                             {!loadingDmUsers && dmUsers.filter(u => (u.name || u.email).toLowerCase().includes(dmSearch.toLowerCase())).length === 0 && (
                                 <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: 20 }}>No people found</p>

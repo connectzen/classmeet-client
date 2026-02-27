@@ -146,13 +146,14 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [memberSessions, setMemberSessions] = useState<AdminMeeting[]>([]);
     const [studentTeacherSessions, setStudentTeacherSessions] = useState<AdminMeeting[]>([]);
     const [teacherProfiles, setTeacherProfiles] = useState<Record<string, { name: string; avatar_url?: string }>>({});
-    const [teacherStudents, setTeacherStudents] = useState<{ id: string; name: string; email: string }[]>([]);
+    const [studentProfiles, setStudentProfiles] = useState<Record<string, { name: string; avatar_url?: string }>>({});
+    const [teacherStudents, setTeacherStudents] = useState<{ id: string; name: string; email: string; avatar_url?: string | null }[]>([]);
     const [loadingTeacherStudents, setLoadingTeacherStudents] = useState(false);
     const [teacherCoursesCount, setTeacherCoursesCount] = useState(0);
     const [memberCoursesCount, setMemberCoursesCount] = useState(0);
     const [memberTeachers, setMemberTeachers] = useState<{ user_id: string; name: string; email?: string }[]>([]);
     const [loadingMemberTeachers, setLoadingMemberTeachers] = useState(false);
-    const [memberTeachersWithStudents, setMemberTeachersWithStudents] = useState<{ teacherId: string; teacherName: string; students: { id: string; name: string }[] }[]>([]);
+    const [memberTeachersWithStudents, setMemberTeachersWithStudents] = useState<{ teacherId: string; teacherName: string; students: { id: string; name: string; avatar_url?: string | null }[] }[]>([]);
     const [loadingTeachersWithStudents, setLoadingTeachersWithStudents] = useState(false);
     const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
     const [lastSeenByUserId, setLastSeenByUserId] = useState<Record<string, number>>({});
@@ -206,6 +207,25 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         setTeacherProfiles(prev => ({ ...prev, ...profilesMap }));
     }, []);
 
+    const fetchStudentProfiles = useCallback(async (studentIds: string[]) => {
+        const uniqueIds = Array.from(new Set(studentIds));
+        const profilesMap: Record<string, { name: string; avatar_url?: string }> = {};
+        for (const studentId of uniqueIds) {
+            try {
+                const { data, error } = await insforge.auth.getProfile(studentId);
+                if (!error && data && data.profile) {
+                    profilesMap[studentId] = {
+                        name: (data.profile as any).name || 'Student',
+                        avatar_url: (data.profile as any).avatar_url,
+                    };
+                }
+            } catch (err) {
+                console.error('Error fetching student profile:', err);
+            }
+        }
+        setStudentProfiles(prev => ({ ...prev, ...profilesMap }));
+    }, []);
+
     const fetchTeacherSessions = useCallback(async () => {
         if (!user?.id || userRole !== 'teacher') return;
         try {
@@ -235,10 +255,14 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         setLoadingTeacherStudents(true);
         try {
             const r = await fetch(`${SERVER_URL}/api/teacher/${user.id}/students`);
-            if (r.ok) setTeacherStudents(await r.json());
+            if (r.ok) {
+                const students = await r.json();
+                setTeacherStudents(students);
+                await fetchStudentProfiles(students.map((s: { id: string }) => s.id));
+            }
         } catch { /* ignore */ }
         setLoadingTeacherStudents(false);
-    }, [user?.id, userRole]);
+    }, [user?.id, userRole, fetchStudentProfiles]);
 
     const fetchTeacherCoursesCount = useCallback(async () => {
         if (!user?.id || userRole !== 'teacher') return;
@@ -284,20 +308,22 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             const tr = await fetch(`${SERVER_URL}/api/teachers`);
             if (!tr.ok) return;
             const teachers = await tr.json();
-            const result: { teacherId: string; teacherName: string; students: { id: string; name: string }[] }[] = [];
+            const result: { teacherId: string; teacherName: string; students: { id: string; name: string; avatar_url?: string | null }[] }[] = [];
             for (const t of teachers) {
                 const sr = await fetch(`${SERVER_URL}/api/teacher/${t.user_id}/students`);
                 const students = sr.ok ? await sr.json() : [];
                 result.push({
                     teacherId: t.user_id,
                     teacherName: t.name || 'Teacher',
-                    students: students.map((s: { id: string; name: string }) => ({ id: s.id, name: s.name || 'Student' })),
+                    students: students.map((s: { id: string; name: string; avatar_url?: string | null }) => ({ id: s.id, name: s.name || 'Student', avatar_url: s.avatar_url })),
                 });
             }
             setMemberTeachersWithStudents(result);
+            const allStudentIds = result.flatMap(r => r.students.map(s => s.id));
+            await fetchStudentProfiles(allStudentIds);
         } catch { /* ignore */ }
         setLoadingTeachersWithStudents(false);
-    }, [userRole]);
+    }, [userRole, fetchStudentProfiles]);
 
     const fetchStudentTeacherSessions = useCallback(async () => {
         if (!user?.id || userRole !== 'student') return;
@@ -909,13 +935,24 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                     {students.length === 0 ? (
                                                         <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>No students</span>
                                                     ) : (
-                                                        students.map(st => (
+                                                        students.map(st => {
+                                                            const avatarUrl = studentProfiles[st.id]?.avatar_url || st.avatar_url;
+                                                            const showStudentAvatar = avatarUrl && !failedAvatarUrls.has(avatarUrl);
+                                                            return (
                                                             <div key={st.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.2)', borderRadius: 8, padding: '4px 10px' }}>
+                                                                <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0, overflow: 'hidden' }}>
+                                                                    {showStudentAvatar ? (
+                                                                        <img src={avatarUrl} alt="" onError={() => markAvatarFailed(avatarUrl)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                                    ) : (
+                                                                        initialsFor(st.name)
+                                                                    )}
+                                                                </div>
                                                                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: onlineUserIds.has(st.id) ? '#22c55e' : 'var(--text-muted)' }} />
                                                                 <span style={{ fontSize: 12 }}>{st.name}</span>
                                                                 <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{onlineUserIds.has(st.id) ? 'Online' : (lastSeenByUserId[st.id] ? formatLastSeen(lastSeenByUserId[st.id]) : '')}</span>
                                                             </div>
-                                                        ))
+                                                            );
+                                                        })
                                                     )}
                                                 </div>
                                             </div>
@@ -1042,16 +1079,26 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No students assigned yet. Share your invite link from Profile → Invite links.</div>
                                 ) : (
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                                        {teacherStudents.map(st => (
+                                        {teacherStudents.map(st => {
+                                            const avatarUrl = studentProfiles[st.id]?.avatar_url || st.avatar_url;
+                                            const showStudentAvatar = avatarUrl && !failedAvatarUrls.has(avatarUrl);
+                                            return (
                                             <div key={st.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '8px 12px' }}>
-                                                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{initialsFor(st.name, st.email)}</div>
+                                                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0, overflow: 'hidden' }}>
+                                                    {showStudentAvatar ? (
+                                                        <img src={avatarUrl} alt="" onError={() => markAvatarFailed(avatarUrl)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    ) : (
+                                                        initialsFor(st.name, st.email)
+                                                    )}
+                                                </div>
                                                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: onlineUserIds.has(st.id) ? '#22c55e' : 'var(--text-muted)' }} title={onlineUserIds.has(st.id) ? 'Online' : 'Offline'} />
                                                 <div>
                                                     <span style={{ fontWeight: 600, fontSize: 13 }}>{st.name || 'Student'}</span>
                                                     <span style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)' }}>{onlineUserIds.has(st.id) ? 'Online' : (lastSeenByUserId[st.id] ? formatLastSeen(lastSeenByUserId[st.id]) : 'Offline')}</span>
                                                 </div>
                                             </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>
