@@ -57,7 +57,8 @@ export function useSocket(options: UseSocketOptions) {
     const [currentSpotlight, setCurrentSpotlight] = useState<string | null>(null);
     const [roomQuiz, setRoomQuiz] = useState<{ quizId: string; quiz: unknown } | null>(null);
     const [roomQuizSubmissions, setRoomQuizSubmissions] = useState<{ submissionId: string; studentId: string; studentName: string; score: number | null }[]>([]);
-    const [roomQuizRevealed, setRoomQuizRevealed] = useState<{ type: string; data?: unknown } | null>(null);
+    const [roomQuizRevealed, setRoomQuizRevealed] = useState<{ type: string; submissionId?: string; data?: unknown } | null>(null);
+    const [revealedStudentIds, setRevealedStudentIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         const socket = io(SERVER_URL, { transports: ['websocket'] });
@@ -109,12 +110,16 @@ export function useSocket(options: UseSocketOptions) {
             setRoomQuiz(null);
             setRoomQuizSubmissions([]);
             setRoomQuizRevealed(null);
+            setRevealedStudentIds(new Set());
         });
         socket.on('room:quiz-submission', ({ submissions }: { submissions: { submissionId: string; studentId: string; studentName: string; score: number | null }[] }) => {
             setRoomQuizSubmissions(submissions || []);
         });
-        socket.on('room:quiz-revealed', ({ type, data }: { type: string; data?: unknown }) => {
-            setRoomQuizRevealed({ type, data });
+        socket.on('room:quiz-revealed', ({ type, submissionId, data }: { type: string; submissionId?: string; data?: unknown }) => {
+            setRoomQuizRevealed({ type, submissionId, data });
+        });
+        socket.on('room:quiz-student-revealed', ({ studentId }: { studentId: string }) => {
+            setRevealedStudentIds(prev => new Set(prev).add(studentId));
         });
         socket.on('disconnect', () => setConnected(false));
 
@@ -162,7 +167,7 @@ export function useSocket(options: UseSocketOptions) {
 
     return {
         socketId, connected, joinError, existingParticipants, currentSpotlight,
-        roomQuiz, roomQuizSubmissions, roomQuizRevealed,
+        roomQuiz, roomQuizSubmissions, roomQuizRevealed, revealedStudentIds,
         sendSignal, sendMessage, endRoom, muteParticipant, changeSpotlight,
         startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
     };

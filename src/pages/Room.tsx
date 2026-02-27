@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useUser } from '../lib/AuthContext';
 import ChatPanel, { ChatMsg } from '../components/ChatPanel';
 import DevicePicker from '../components/DevicePicker';
-import { RoomQuizParticipant, RoomQuizHost } from '../components/RoomQuizPanel';
+import { RoomQuizParticipant, RoomQuizHost, PostSubmitWaiting, StudentResultOverlay } from '../components/RoomQuizPanel';
 import { useSocket, Participant } from '../hooks/useSocket';
 import { useWebRTC } from '../hooks/useWebRTC';
 
@@ -170,7 +170,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     }, []);
 
     const { socketId, connected, joinError: socketJoinError, existingParticipants, currentSpotlight,
-        roomQuiz, roomQuizSubmissions, roomQuizRevealed,
+        roomQuiz, roomQuizSubmissions, roomQuizRevealed, revealedStudentIds,
         sendSignal, sendMessage, endRoom, muteParticipant, changeSpotlight,
         startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
     } = useSocket({
@@ -429,7 +429,17 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                 </div>
             )}
 
-            {/* Revealed results overlay (when host reveals final) */}
+            {/* Individual reveal overlay (student sees their own result) */}
+            {roomQuizRevealed?.type === 'individual' && roomQuizRevealed?.data != null && !dismissedRevealed ? (
+                <StudentResultOverlay
+                    score={(roomQuizRevealed.data as { score?: number | null }).score ?? null}
+                    comment={(roomQuizRevealed.data as { comment?: string }).comment}
+                    studentName={(roomQuizRevealed.data as { studentName?: string }).studentName}
+                    onClose={() => setDismissedRevealed(true)}
+                />
+            ) : null}
+
+            {/* Revealed results overlay (when teacher reveals all) */}
             {roomQuizRevealed?.type === 'final' && roomQuizRevealed?.data != null && !dismissedRevealed ? (
                 <div
                     style={{
@@ -457,9 +467,17 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                         </div>
                         {Array.isArray((roomQuizRevealed.data as { submissions?: { studentName: string; score: number | null }[] }).submissions) &&
                             ((roomQuizRevealed.data as { submissions: { studentName: string; score: number | null }[] }).submissions).map((s, i) => (
-                                <div key={i} style={{ padding: '10px 0', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between' }}>
-                                    <span>{s.studentName}</span>
-                                    <span>{s.score != null ? `${s.score}%` : '—'}</span>
+                                <div key={i} style={{
+                                    padding: '10px 14px', marginBottom: 6, borderRadius: 8,
+                                    background: 'var(--surface-3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                }}>
+                                    <span style={{ fontWeight: 500 }}>{s.studentName}</span>
+                                    <span style={{
+                                        fontWeight: 700, fontSize: 15,
+                                        color: s.score != null ? (s.score >= 50 ? '#22c55e' : '#f59e0b') : 'var(--text-muted)',
+                                    }}>
+                                        {s.score != null ? `${s.score}%` : '—'}
+                                    </span>
                                 </div>
                             ))}
                     </div>
@@ -564,19 +582,14 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 loadingQuizzes={loadingRoomQuizzes}
                                 activeQuiz={roomQuiz}
                                 submissions={roomQuizSubmissions}
+                                revealedStudentIds={revealedStudentIds}
                                 onStartQuiz={startRoomQuiz}
                                 onStopQuiz={() => { stopRoomQuiz(); setQuizToggleOn(false); }}
                                 onReveal={revealRoomQuiz}
                             />
                         ) : role !== 'teacher' && roomQuiz ? (
                             roomQuizSubmitted ? (
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 200, background: 'var(--surface-2)', borderRadius: 12 }}>
-                                    <div style={{ textAlign: 'center', padding: 24 }}>
-                                        <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
-                                        <div style={{ fontWeight: 700, fontSize: 18 }}>Submitted!</div>
-                                        <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 4 }}>Waiting for host to reveal results.</div>
-                                    </div>
-                                </div>
+                                <PostSubmitWaiting />
                             ) : (
                                 <RoomQuizParticipant
                                     quiz={roomQuiz.quiz as { id: string; title: string; questions: unknown[] }}
