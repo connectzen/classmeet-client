@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import CourseEditor from './CourseEditor';
 import CourseViewer from './CourseViewer';
+import ConfirmModal from './ConfirmModal';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -12,6 +13,8 @@ export default function MemberCoursesSection({ userId, onCoursesChange }: { user
     const [editingCourse, setEditingCourse] = useState<Course | null>(null);
     const [viewingCourse, setViewingCourse] = useState<Course | null>(null);
     const [showCreate, setShowCreate] = useState(false);
+    const [deleteConfirm, setDeleteConfirm] = useState<Course | null>(null);
+    const [deleting, setDeleting] = useState(false);
 
     const fetchCourses = useCallback(async () => {
         setLoading(true);
@@ -23,6 +26,22 @@ export default function MemberCoursesSection({ userId, onCoursesChange }: { user
     }, [userId]);
 
     useEffect(() => { fetchCourses(); }, [fetchCourses]);
+
+    async function handleDeleteCourse(c: Course) {
+        setDeleting(true);
+        try {
+            const r = await fetch(`${SERVER}/api/courses/${c.id}`, { method: 'DELETE' });
+            if (r.ok) {
+                setCourses(prev => prev.filter(x => x.id !== c.id));
+                setDeleteConfirm(null);
+                setEditingCourse(prev => prev?.id === c.id ? null : prev);
+                setViewingCourse(prev => prev?.id === c.id ? null : prev);
+                onCoursesChange?.();
+            }
+        } finally {
+            setDeleting(false);
+        }
+    }
 
     return (
         <div style={{ marginTop: 20, marginBottom: 16 }}>
@@ -104,6 +123,22 @@ export default function MemberCoursesSection({ userId, onCoursesChange }: { user
                                     >
                                         Edit
                                     </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setDeleteConfirm(c)}
+                                        style={{
+                                            padding: '6px 12px',
+                                            borderRadius: 8,
+                                            border: '1px solid rgba(239,68,68,0.4)',
+                                            background: 'rgba(239,68,68,0.1)',
+                                            color: '#f87171',
+                                            fontSize: 12,
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        Delete
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -131,6 +166,17 @@ export default function MemberCoursesSection({ userId, onCoursesChange }: { user
                     onClose={() => setViewingCourse(null)}
                 />
             )}
+            <ConfirmModal
+                open={!!deleteConfirm}
+                title="Delete Course"
+                message={deleteConfirm ? `Are you sure you want to delete "${deleteConfirm.title}"? This will remove the course and all its lessons.` : ''}
+                confirmLabel={deleting ? 'Deleting…' : 'Delete'}
+                cancelLabel="Cancel"
+                variant="danger"
+                confirmDisabled={deleting}
+                onConfirm={() => deleteConfirm && handleDeleteCourse(deleteConfirm)}
+                onCancel={() => !deleting && setDeleteConfirm(null)}
+            />
         </div>
     );
 }

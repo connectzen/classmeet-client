@@ -5,6 +5,7 @@ interface ConfirmModalProps {
     confirmLabel?: string;
     cancelLabel?: string;
     variant?: 'default' | 'warning' | 'danger';
+    confirmDisabled?: boolean;
     onConfirm: () => void;
     onCancel: () => void;
 }
@@ -16,6 +17,7 @@ export default function ConfirmModal({
     confirmLabel = 'OK',
     cancelLabel = 'Cancel',
     variant = 'default',
+    confirmDisabled = false,
     onConfirm,
     onCancel,
 }: ConfirmModalProps) {
@@ -77,6 +79,7 @@ export default function ConfirmModal({
                     <button
                         type="button"
                         onClick={onConfirm}
+                        disabled={confirmDisabled}
                         style={{
                             padding: '10px 20px',
                             borderRadius: 10,
@@ -85,7 +88,8 @@ export default function ConfirmModal({
                             color: '#fff',
                             fontSize: 14,
                             fontWeight: 600,
-                            cursor: 'pointer',
+                            cursor: confirmDisabled ? 'not-allowed' : 'pointer',
+                            opacity: confirmDisabled ? 0.6 : 1,
                         }}
                     >
                         {confirmLabel}

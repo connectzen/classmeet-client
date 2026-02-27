@@ -69,12 +69,16 @@ function SortableLessonCard({
     onUpdate,
     onDelete,
     saving,
+    expanded,
+    onToggleExpand,
 }: {
     lesson: Lesson;
     idx: number;
     onUpdate: (idx: number, updates: Partial<Lesson>, save?: boolean) => void;
     onDelete: (idx: number) => void;
     saving: boolean;
+    expanded: boolean;
+    onToggleExpand: () => void;
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: lesson.id || `lesson-${idx}`,
@@ -110,7 +114,7 @@ function SortableLessonCard({
                 padding: 14, background: 'rgba(255,255,255,0.04)', borderRadius: 12,
                 border: '1px solid rgba(255,255,255,0.08)',
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <div
                         {...attributes}
                         {...listeners}
@@ -123,13 +127,24 @@ function SortableLessonCard({
                     >
                         ⋮⋮
                     </div>
+                    <button
+                        type="button"
+                        onClick={onToggleExpand}
+                        style={{
+                            padding: '4px 8px', borderRadius: 6, border: 'none', background: 'transparent',
+                            color: 'var(--text-muted)', fontSize: 14, cursor: 'pointer',
+                        }}
+                        title={expanded ? 'Collapse' : 'Expand'}
+                    >
+                        {expanded ? '▼' : '▶'}
+                    </button>
                     <input
                         value={lesson.title}
                         onChange={e => onUpdate(idx, { title: e.target.value }, false)}
                         onBlur={e => { if (lesson.id) onUpdate(idx, { title: e.target.value }, true); }}
                         placeholder="Lesson title"
                         style={{
-                            flex: 1, padding: '8px 12px', borderRadius: 8,
+                            flex: 1, minWidth: 100, padding: '8px 12px', borderRadius: 8,
                             border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)',
                             color: 'var(--text)', fontSize: 14,
                         }}
@@ -149,48 +164,52 @@ function SortableLessonCard({
                     </select>
                     <button type="button" onClick={() => onDelete(idx)} disabled={saving} style={{ padding: '6px 10px', borderRadius: 6, border: 'none', background: 'rgba(239,68,68,0.2)', color: '#ef4444', fontSize: 12, cursor: saving ? 'not-allowed' : 'pointer' }}>Delete</button>
                 </div>
-                {type === 'video' && (
-                    <div style={{ marginTop: 8 }}>
-                        <input
-                            type="url"
-                            value={lesson.video_url || ''}
-                            onChange={e => onUpdate(idx, { video_url: e.target.value }, false)}
-                            onBlur={() => { if (lesson.id) onUpdate(idx, { video_url: lesson.video_url }, true); }}
-                            placeholder="Paste YouTube or video URL…"
-                            style={{
-                                width: '100%', padding: '8px 12px', borderRadius: 8,
-                                border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)',
-                                color: 'var(--text)', fontSize: 13, boxSizing: 'border-box',
-                            }}
-                        />
-                    </div>
-                )}
-                {type === 'audio' && (
-                    <div style={{ marginTop: 8 }}>
-                        <label style={{
-                            display: 'inline-block', padding: '8px 14px', borderRadius: 8,
-                            background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)',
-                            cursor: 'pointer', fontSize: 13, color: 'var(--primary)',
-                        }}>
-                            📎 Upload audio
-                            <input type="file" accept="audio/*" style={{ display: 'none' }} onChange={handleAudioUpload} />
-                        </label>
-                        {lesson.audio_url && (
-                            <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--text-muted)' }}>✓ Audio uploaded</span>
+                {expanded && (
+                    <>
+                        {type === 'video' && (
+                            <div style={{ marginTop: 12 }}>
+                                <input
+                                    type="url"
+                                    value={lesson.video_url || ''}
+                                    onChange={e => onUpdate(idx, { video_url: e.target.value }, false)}
+                                    onBlur={() => { if (lesson.id) onUpdate(idx, { video_url: lesson.video_url }, true); }}
+                                    placeholder="Paste YouTube or video URL…"
+                                    style={{
+                                        width: '100%', padding: '8px 12px', borderRadius: 8,
+                                        border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)',
+                                        color: 'var(--text)', fontSize: 13, boxSizing: 'border-box',
+                                    }}
+                                />
+                            </div>
                         )}
-                    </div>
-                )}
-                {type === 'text' && (
-                    <div style={{ marginTop: 8 }} onBlur={() => { if (lesson.id) onUpdate(idx, { content: lesson.content }, true); }}>
-                        <style>{QUILL_EDITOR}</style>
-                        <ReactQuill
-                            theme="snow"
-                            value={lesson.content}
-                            onChange={v => onUpdate(idx, { content: v }, false)}
-                            modules={QUILL_MODULES}
-                            style={QUILL_STYLE}
-                        />
-                    </div>
+                        {type === 'audio' && (
+                            <div style={{ marginTop: 12 }}>
+                                <label style={{
+                                    display: 'inline-block', padding: '8px 14px', borderRadius: 8,
+                                    background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)',
+                                    cursor: 'pointer', fontSize: 13, color: 'var(--primary)',
+                                }}>
+                                    📎 Upload audio
+                                    <input type="file" accept="audio/*" style={{ display: 'none' }} onChange={handleAudioUpload} />
+                                </label>
+                                {lesson.audio_url && (
+                                    <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--text-muted)' }}>✓ Audio uploaded</span>
+                                )}
+                            </div>
+                        )}
+                        {type === 'text' && (
+                            <div style={{ marginTop: 12 }} onBlur={() => { if (lesson.id) onUpdate(idx, { content: lesson.content }, true); }}>
+                                <style>{QUILL_EDITOR}</style>
+                                <ReactQuill
+                                    theme="snow"
+                                    value={lesson.content}
+                                    onChange={v => onUpdate(idx, { content: v }, false)}
+                                    modules={QUILL_MODULES}
+                                    style={QUILL_STYLE}
+                                />
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </div>
@@ -206,6 +225,7 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [courseId, setCourseId] = useState<string | null>(course?.id || null);
+    const [expandedLessonIdx, setExpandedLessonIdx] = useState<number>(0);
 
     const fetchLessons = useCallback(async () => {
         if (!courseId) return;
@@ -213,7 +233,7 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
             const r = await fetch(`${SERVER}/api/courses/${courseId}/lessons`);
             if (r.ok) {
                 const data = await r.json();
-                setLessons((data as { id: string; title: string; content: string | null; order_index: number; lesson_type?: string; video_url?: string | null; audio_url?: string | null }[]).map(l => ({
+                const mapped = (data as { id: string; title: string; content: string | null; order_index: number; lesson_type?: string; video_url?: string | null; audio_url?: string | null }[]).map(l => ({
                     id: l.id,
                     title: l.title,
                     content: l.content || '',
@@ -221,7 +241,9 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
                     lesson_type: (l.lesson_type || 'text') as LessonType,
                     video_url: l.video_url || null,
                     audio_url: l.audio_url || null,
-                })));
+                }));
+                setLessons(mapped);
+                setExpandedLessonIdx(mapped.length > 0 ? 0 : -1);
             }
         } catch { /* ignore */ }
     }, [courseId]);
@@ -288,7 +310,7 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
             });
             if (r.ok) {
                 const l = await r.json();
-                setLessons(prev => [...prev, {
+                const newLesson = {
                     id: l.id,
                     title: l.title,
                     content: l.content || '',
@@ -296,7 +318,9 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
                     lesson_type: (l.lesson_type || 'text') as LessonType,
                     video_url: l.video_url || null,
                     audio_url: l.audio_url || null,
-                }]);
+                };
+                setLessons(prev => [...prev, newLesson]);
+                setExpandedLessonIdx(lessons.length);
             }
         } finally {
             setSaving(false);
@@ -333,7 +357,10 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
         setSaving(true);
         try {
             const r = await fetch(`${SERVER}/api/lessons/${l.id}`, { method: 'DELETE' });
-            if (r.ok) setLessons(prev => prev.filter((_, i) => i !== idx));
+            if (r.ok) {
+                setLessons(prev => prev.filter((_, i) => i !== idx));
+                setExpandedLessonIdx(prev => (prev >= idx && prev > 0 ? prev - 1 : Math.min(prev, lessons.length - 2)));
+            }
         } finally {
             setSaving(false);
         }
@@ -456,6 +483,8 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
                                                 onUpdate={(i, u, save) => { updateLessonLocal(i, u); if (save) handleUpdateLesson(i, u); }}
                                                 onDelete={handleDeleteLesson}
                                                 saving={saving}
+                                                expanded={expandedLessonIdx === idx}
+                                                onToggleExpand={() => setExpandedLessonIdx(prev => prev === idx ? -1 : idx)}
                                             />
                                         ))}
                                     </div>
