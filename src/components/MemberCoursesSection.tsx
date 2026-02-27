@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import CourseEditor from './CourseEditor';
+import CourseViewer from './CourseViewer';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -9,6 +10,7 @@ export default function MemberCoursesSection({ userId, onCoursesChange }: { user
     const [courses, setCourses] = useState<Course[]>([]);
     const [loading, setLoading] = useState(false);
     const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+    const [viewingCourse, setViewingCourse] = useState<Course | null>(null);
     const [showCreate, setShowCreate] = useState(false);
 
     const fetchCourses = useCallback(async () => {
@@ -69,23 +71,40 @@ export default function MemberCoursesSection({ userId, onCoursesChange }: { user
                                         </div>
                                     )}
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setEditingCourse(c)}
-                                    style={{
-                                        padding: '6px 12px',
-                                        borderRadius: 8,
-                                        border: '1px solid rgba(255,255,255,0.2)',
-                                        background: 'transparent',
-                                        color: 'var(--text-muted)',
-                                        fontSize: 12,
-                                        fontWeight: 600,
-                                        cursor: 'pointer',
-                                        flexShrink: 0,
-                                    }}
-                                >
-                                    Edit
-                                </button>
+                                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setViewingCourse(c)}
+                                        style={{
+                                            padding: '6px 12px',
+                                            borderRadius: 8,
+                                            border: '1px solid rgba(99,102,241,0.4)',
+                                            background: 'rgba(99,102,241,0.15)',
+                                            color: '#a5b4fc',
+                                            fontSize: 12,
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        View Lessons
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditingCourse(c)}
+                                        style={{
+                                            padding: '6px 12px',
+                                            borderRadius: 8,
+                                            border: '1px solid rgba(255,255,255,0.2)',
+                                            background: 'transparent',
+                                            color: 'var(--text-muted)',
+                                            fontSize: 12,
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        Edit
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     ))}
@@ -104,6 +123,12 @@ export default function MemberCoursesSection({ userId, onCoursesChange }: { user
                     course={editingCourse}
                     onClose={() => setEditingCourse(null)}
                     onSaved={() => { setEditingCourse(null); fetchCourses(); onCoursesChange?.(); }}
+                />
+            )}
+            {viewingCourse && (
+                <CourseViewer
+                    course={viewingCourse}
+                    onClose={() => setViewingCourse(null)}
                 />
             )}
         </div>

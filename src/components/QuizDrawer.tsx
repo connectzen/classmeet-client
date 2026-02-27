@@ -1468,10 +1468,18 @@ function TakeQuiz({ quiz, submissionId, userId, showConfirm, showAlert, onDone }
                             <div>
                                 <p style={{ color: '#22c55e', marginBottom: 12 }}>✅ Recording saved</p>
                                 <audio src={curAns.fileUrl} controls style={{ width: '100%', borderRadius: 8 }} />
-                                <button
-                                    onClick={() => { setAnswer({ fileUrl: undefined, fileName: undefined }); }}
-                                    className="quiz-btn quiz-btn-ghost" style={{ marginTop: 10 }}
-                                >🔄 Re-record</button>
+                                <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+                                    <button
+                                        onClick={() => {
+                                            if (q && localRecordUrls[q.id]) {
+                                                URL.revokeObjectURL(localRecordUrls[q.id]);
+                                                setLocalRecordUrls(prev => { const next = { ...prev }; delete next[q.id]; return next; });
+                                            }
+                                            setAnswer({ fileUrl: undefined, fileName: undefined });
+                                        }}
+                                        className="quiz-btn quiz-btn-ghost"
+                                    >🗑️ Delete & Re-record</button>
+                                </div>
                             </div>
                         ) : uploading ? (
                             <p style={{ color: 'var(--text-muted)' }}>Uploading recording…</p>
@@ -1498,7 +1506,8 @@ function TakeQuiz({ quiz, submissionId, userId, showConfirm, showAlert, onDone }
                                         width: 80, height: 80, borderRadius: '50%', border: 'none', cursor: 'pointer',
                                         background: recording ? '#ef4444' : 'linear-gradient(135deg,#f59e0b,#d97706)',
                                         fontSize: 28, boxShadow: recording ? '0 0 0 8px rgba(239,68,68,0.2)' : 'none',
-                                        transition: 'all 0.2s',
+                                        transition: 'transform 0.08s ease-out, box-shadow 0.2s, background 0.2s',
+                                        transform: recording ? `scale(${1 + (audioLevel / 100) * 0.15})` : 'scale(1)',
                                     }}
                                 >
                                     {recording ? '⏹' : '🎙️'}
