@@ -1,20 +1,15 @@
 ---
 description: Always push changes to git after making edits
+globs: *
 alwaysApply: true
 ---
 
-# Push After Changes
+# Always Push After Changes
 
-After completing code changes to this project, always push to the remote repository:
+**IMPORTANT**: After making any code changes to this project, you MUST:
 
-1. **Client changes** (in `client/`): Run from `client/` directory:
-   - `git add -A`
-   - `git commit -m "<descriptive message>"`
-   - `git push`
+1. Stage all changes: `git add -A`
+2. Commit with a descriptive message: `git commit -m "..."`
+3. Push to the remote: `git push`
 
-2. **Server changes** (in `server/`): Run from `server/` directory:
-   - `git add -A`
-   - `git commit -m "<descriptive message>"`
-   - `git push`
-
-3. **Both changed**: Push each repository separately (client and server are separate git repos).
+Apply this for both the `client` and `server` repositories (they are separate git repos). Push each one after editing files in that directory.
