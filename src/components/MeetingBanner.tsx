@@ -161,7 +161,7 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                                 height: 260,
                                 borderRadius: 20,
                                 objectFit: 'cover',
-                                objectPosition: 'center top',
+                                objectPosition: 'center center',
                                 border: '3px solid rgba(99,102,241,0.45)',
                                 boxShadow: '0 6px 24px rgba(0,0,0,0.45)',
                                 display: 'block',
