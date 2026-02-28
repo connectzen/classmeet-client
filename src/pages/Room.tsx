@@ -334,7 +334,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
 
     // Build participant list for sidebar
     const allParticipants: ParticipantState[] = [
-        { socketId: '__local__', name, role, isMuted: !micOn },
+        { socketId: '__local__', name, role, isMuted: !micOn, isCamOff: !camOn },
         ...Array.from(participants.values()),
     ];
 
