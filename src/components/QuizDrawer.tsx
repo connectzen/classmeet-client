@@ -10,7 +10,8 @@ type QuestionType = 'text' | 'select' | 'multi-select' | 'recording' | 'video' |
 interface Quiz {
     id: string;
     title: string;
-    room_id: string;
+    room_id: string | null;
+    course_id?: string | null;
     created_by: string;
     time_limit_minutes: number | null;
     status: 'draft' | 'published';
@@ -459,11 +460,23 @@ function QuizList({
                                         </span>
                                     )}
                                 </div>
+                            ) : quiz.room_id ? (
+                                // Live session quiz - show message instead of start button
+                                <div style={{
+                                    display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px',
+                                    background: 'rgba(99,102,241,0.1)', borderRadius: 10,
+                                    border: '1px solid rgba(99,102,241,0.25)',
+                                }}>
+                                    <span style={{ fontSize: 16 }}>🎥</span>
+                                    <span style={{ fontSize: 12, color: '#a5b4fc', fontWeight: 500 }}>
+                                        This quiz is available during live class only
+                                    </span>
+                                </div>
                             ) : (
                                 <button
                                     onClick={() => onTakeQuiz(quiz)}
                                     className="quiz-btn"
-                                    style={{ background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff', fontWeight: 700 }}
+                                    style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', fontWeight: 700 }}
                                 >▶ Start Quiz</button>
                             )
                         )}
