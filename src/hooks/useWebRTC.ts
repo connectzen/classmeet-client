@@ -167,17 +167,26 @@ export function useWebRTC({ localStream, onSendSignal }: UseWebRTCOptions) {
     }, [createPeer]);
 
     // Update tracks on ALL existing peers whenever localStream changes
-    // (covers the case where the stream arrives after peers were already created)
+    // (covers the case where the stream arrives after peers were already created,
+    //  or when the user switches camera/mic via the device picker)
     useEffect(() => {
         if (!localStream) return;
-        peersRef.current.forEach((entry) => {
+        peersRef.current.forEach(async (entry) => {
             const { peer } = entry;
             const senders = peer.getSenders();
-            localStream.getTracks().forEach((track) => {
+            for (const track of localStream.getTracks()) {
                 const sender = senders.find((s) => s.track?.kind === track.kind);
-                if (sender) sender.replaceTrack(track);
-                else peer.addTrack(track, localStream); // triggers onnegotiationneeded
-            });
+                if (sender) {
+                    try {
+                        await sender.replaceTrack(track);
+                    } catch (e) {
+                        console.warn('[WebRTC] replaceTrack failed, adding track instead', e);
+                        try { peer.addTrack(track, localStream); } catch { /* already added */ }
+                    }
+                } else {
+                    peer.addTrack(track, localStream); // triggers onnegotiationneeded
+                }
+            }
         });
     }, [localStream]);
 

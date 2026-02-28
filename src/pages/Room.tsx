@@ -344,9 +344,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         setShowRescheduleModal(false);
         setHasScheduledSession(null);
         endRoom();
-        clearSession();
-        onLeave();
-        // Teacher leaves immediately; countdown runs for any remaining students
+        // Don't call onLeave/clearSession — server will broadcast room-ended,
+        // triggering handleRoomEnded which clears session and redirects everyone
     };
 
     // Build participant list for sidebar
