@@ -1,0 +1,5 @@
+{
+  "installCommand": "git submodule update --init --depth=1 && npm install --prefix client",
+  "buildCommand": "npm run build --prefix client",
+  "outputDirectory": "client/dist"
+}
