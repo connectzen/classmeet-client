@@ -3689,6 +3689,48 @@ input[type="radio"] {
   max-width: none;
 }
 
+/* ── Teacher stats bar — full-width row above the two-column layout ── */
+.teacher-stats-bar {
+  width: 100%;
+  max-width: 1180px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+.teacher-stat-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 18px 20px;
+  transition: border-color var(--t), box-shadow var(--t);
+}
+.teacher-stat-card:hover {
+  border-color: rgba(99,102,241,0.3);
+  box-shadow: var(--shadow-primary);
+}
+.teacher-stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  margin-bottom: 8px;
+}
+.teacher-stat-value {
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: #a5b4fc;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+@media (max-width: 860px) {
+  .teacher-stats-bar { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+  .teacher-stats-bar { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .teacher-stat-value { font-size: 1.8rem; }
+}
+
 .teacher-sidebar {
   background: var(--surface);
   border: 1px solid var(--border);

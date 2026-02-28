@@ -773,15 +773,15 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
 
                     {user && (
                         <>
-                        <p className="hero-subtitle">
-                            {userRole === 'teacher'
-                                ? 'Manage your classes below, or create a new one.'
-                                : userRole === 'member'
-                                ? 'Manage your courses, quizzes, and invite links below.'
-                                : userRole === 'pending'
-                                ? 'Your account is pending admin approval.'
-                                : 'Your enrolled classes are below. Join any live class or enter a code.'}
-                        </p>
+                        {userRole !== 'teacher' && (
+                            <p className="hero-subtitle">
+                                {userRole === 'member'
+                                    ? 'Manage your courses, quizzes, and invite links below.'
+                                    : userRole === 'pending'
+                                    ? 'Your account is pending admin approval.'
+                                    : 'Your enrolled classes are below. Join any live class or enter a code.'}
+                            </p>
+                        )}
                         {/* Resume session banner */}
                         {resumeSession && (
                             <div className="resume-banner">
@@ -1050,6 +1050,28 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                         </div>
                     )}
 
+                    {/* ── Teacher stats bar (replaces subtitle, shown above the two-column layout) ── */}
+                    {userRole === 'teacher' && (
+                        <div className="teacher-stats-bar">
+                            <div className="teacher-stat-card">
+                                <div className="teacher-stat-label">Students</div>
+                                <div className="teacher-stat-value">{loadingTeacherStudents && teacherStudents.length === 0 ? '…' : teacherStudents.length}</div>
+                            </div>
+                            <div className="teacher-stat-card">
+                                <div className="teacher-stat-label">Active Courses</div>
+                                <div className="teacher-stat-value">{teacherCoursesCount}</div>
+                            </div>
+                            <div className="teacher-stat-card">
+                                <div className="teacher-stat-label">Groups</div>
+                                <div className="teacher-stat-value">{loadingTeacherGroups && teacherGroups.length === 0 ? '…' : teacherGroups.length}</div>
+                            </div>
+                            <div className="teacher-stat-card">
+                                <div className="teacher-stat-label">Upcoming Sessions</div>
+                                <div className="teacher-stat-value">{teacherSessions.filter(s => new Date(s.scheduled_at) >= new Date()).length}</div>
+                            </div>
+                        </div>
+                    )}
+
                     {userRole === 'teacher' && (
                         <div className="teacher-dashboard-layout">
 
@@ -1160,28 +1182,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                         </svg>
                                         Schedule Class
                                     </button>
-                                </div>
-
-                                {/* Quick overview */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 20 }}>
-                                    <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
-                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Students</div>
-                                        <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>{loadingTeacherStudents && teacherStudents.length === 0 ? '…' : teacherStudents.length}</div>
-                                    </div>
-                                    <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
-                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Active courses</div>
-                                        <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>{teacherCoursesCount}</div>
-                                    </div>
-                                    <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
-                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Groups</div>
-                                        <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>{loadingTeacherGroups && teacherGroups.length === 0 ? '…' : teacherGroups.length}</div>
-                                    </div>
-                                    <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
-                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Upcoming sessions</div>
-                                        <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>
-                                            {teacherSessions.filter(s => new Date(s.scheduled_at) >= new Date()).length}
-                                        </div>
-                                    </div>
                                 </div>
 
                                 {/* Teacher-owned session banners */}
