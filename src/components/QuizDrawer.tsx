@@ -547,7 +547,7 @@ function CreateQuizForm({ userId, rooms, courses, onCreated, onCancel }: {
             ) : (
                 <select className="quiz-input" value={roomId} onChange={e => setRoomId(e.target.value)}>
                     <option value="">— Select a room (optional if course set) —</option>
-                    {rooms.map(r => <option key={r.id} value={r.id}>{r.name} ({r.code})</option>)}
+                    {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                 </select>
             )}
 
