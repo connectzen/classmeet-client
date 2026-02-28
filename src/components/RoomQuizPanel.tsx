@@ -328,103 +328,104 @@ export function InlineResultCard({ score, comment, studentName, isClassReveal, c
         );
     }
 
-    // Score phase
+    // Score phase — cardRef wraps only content to capture (button is outside so it's excluded from screenshot)
     return (
-        <div
-            ref={cardRef}
-            onClick={onClose}
-            style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%',
-                minHeight: 200, borderRadius: 12, overflow: 'hidden', cursor: 'pointer',
-                background: isGood
-                    ? 'linear-gradient(135deg, rgba(16,185,129,0.95) 0%, rgba(34,197,94,0.95) 100%)'
-                    : 'linear-gradient(135deg, rgba(245,158,11,0.95) 0%, rgba(249,115,22,0.95) 100%)',
-                padding: 24, position: 'relative',
-                animation: 'rqp-fade-in-up 0.4s ease-out',
-            }}
-        >
-            {/* Confetti for good scores */}
-            {isGood && confettiColors.map((c, i) => (
-                <div key={i} style={{
-                    position: 'absolute', top: '10%',
-                    left: `${10 + i * 15}%`,
-                    width: 8, height: 8, borderRadius: i % 2 === 0 ? '50%' : 2,
-                    background: c,
-                    animation: `rqp-confetti-fall 2s ease-in ${i * 0.2}s infinite`,
-                }} />
-            ))}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%' }}>
+            <div
+                ref={cardRef}
+                onClick={onClose}
+                style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1,
+                    minHeight: 200, borderRadius: 12, overflow: 'hidden', cursor: 'pointer',
+                    background: isGood
+                        ? 'linear-gradient(135deg, rgba(16,185,129,0.95) 0%, rgba(34,197,94,0.95) 100%)'
+                        : 'linear-gradient(135deg, rgba(245,158,11,0.95) 0%, rgba(249,115,22,0.95) 100%)',
+                    padding: 24, position: 'relative',
+                    animation: 'rqp-fade-in-up 0.4s ease-out',
+                }}
+            >
+                {/* Confetti for good scores */}
+                {isGood && confettiColors.map((c, i) => (
+                    <div key={i} style={{
+                        position: 'absolute', top: '10%',
+                        left: `${10 + i * 15}%`,
+                        width: 8, height: 8, borderRadius: i % 2 === 0 ? '50%' : 2,
+                        background: c,
+                        animation: `rqp-confetti-fall 2s ease-in ${i * 0.2}s infinite`,
+                    }} />
+                ))}
 
-            <div style={{
-                textAlign: 'center', maxWidth: 400, width: '100%',
-                animation: 'rqp-score-reveal 0.6s ease-out',
-            }}>
-                <div style={{ fontSize: 60, marginBottom: 12 }}>
-                    {isGood ? '🎉' : '💪'}
-                </div>
-
-                <h2 style={{ margin: '0 0 4px', fontSize: 24, fontWeight: 800, color: '#fff' }}>
-                    {isGood ? 'Congratulations!' : 'Keep Going!'}
-                </h2>
-
-                {studentName && (
-                    <div style={{ fontSize: 15, color: 'rgba(255,255,255,0.85)', marginBottom: 12 }}>
-                        {studentName}
+                <div style={{
+                    textAlign: 'center', maxWidth: 400, width: '100%',
+                    animation: 'rqp-score-reveal 0.6s ease-out',
+                }}>
+                    <div style={{ fontSize: 60, marginBottom: 12 }}>
+                        {isGood ? '🎉' : '💪'}
                     </div>
-                )}
 
-                {score != null ? (
-                    <div style={{
-                        fontSize: 64, fontWeight: 800, color: '#fff',
-                        textShadow: '0 4px 20px rgba(0,0,0,0.2)',
-                        marginBottom: 6,
-                    }}>
-                        {displayScore}%
-                    </div>
-                ) : (
-                    <div style={{ fontSize: 18, color: 'rgba(255,255,255,0.9)', marginBottom: 12 }}>
-                        Your teacher has reviewed your answers
-                    </div>
-                )}
+                    <h2 style={{ margin: '0 0 4px', fontSize: 24, fontWeight: 800, color: '#fff' }}>
+                        {isGood ? 'Congratulations!' : 'Keep Going!'}
+                    </h2>
 
-                <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.85)', marginBottom: 16 }}>
-                    {isGood
-                        ? 'Excellent work! You really nailed it!'
-                        : score != null
-                            ? 'Don\'t worry — every attempt makes you stronger!'
-                            : ''
-                    }
-                </div>
-
-                {comment && (
-                    <div style={{
-                        background: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: '10px 14px',
-                        marginBottom: 12, backdropFilter: 'blur(10px)',
-                    }}>
-                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 3 }}>
-                            Teacher's Comment
+                    {studentName && (
+                        <div style={{ fontSize: 15, color: 'rgba(255,255,255,0.85)', marginBottom: 12 }}>
+                            {studentName}
                         </div>
-                        <div style={{ fontSize: 13, color: '#fff', lineHeight: 1.5 }}>{comment}</div>
+                    )}
+
+                    {score != null ? (
+                        <div style={{
+                            fontSize: 64, fontWeight: 800, color: '#fff',
+                            textShadow: '0 4px 20px rgba(0,0,0,0.2)',
+                            marginBottom: 6,
+                        }}>
+                            {displayScore}%
+                        </div>
+                    ) : (
+                        <div style={{ fontSize: 18, color: 'rgba(255,255,255,0.9)', marginBottom: 12 }}>
+                            Your teacher has reviewed your answers
+                        </div>
+                    )}
+
+                    <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.85)', marginBottom: 16 }}>
+                        {isGood
+                            ? 'Excellent work! You really nailed it!'
+                            : score != null
+                                ? 'Don\'t worry — every attempt makes you stronger!'
+                                : ''
+                        }
                     </div>
-                )}
 
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 8 }}>
-                    Tap or press Esc to dismiss
+                    {comment && (
+                        <div style={{
+                            background: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: '10px 14px',
+                            marginBottom: 12, backdropFilter: 'blur(10px)',
+                        }}>
+                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 3 }}>
+                                Teacher's Comment
+                            </div>
+                            <div style={{ fontSize: 13, color: '#fff', lineHeight: 1.5 }}>{comment}</div>
+                        </div>
+                    )}
+
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 8 }}>
+                        Tap or press Esc to dismiss
+                    </div>
                 </div>
-
-                {canDownload && (
-                    <button
-                        onClick={handleDownload}
-                        disabled={downloadState === 'downloading'}
-                        style={{
-                            marginTop: 16, padding: '10px 20px', fontSize: 14, fontWeight: 600,
-                            background: 'rgba(255,255,255,0.25)', border: '2px solid rgba(255,255,255,0.5)',
-                            borderRadius: 10, color: '#fff', cursor: downloadState === 'downloading' ? 'wait' : 'pointer',
-                        }}
-                    >
-                        {downloadState === 'downloading' ? 'Downloading…' : downloadState === 'downloaded' ? '✓ Downloaded' : '📥 Download Result'}
-                    </button>
-                )}
             </div>
+            {canDownload && (
+                <button
+                    onClick={handleDownload}
+                    disabled={downloadState === 'downloading'}
+                    style={{
+                        marginTop: 16, padding: '10px 20px', fontSize: 14, fontWeight: 600,
+                        background: 'rgba(255,255,255,0.25)', border: '2px solid rgba(255,255,255,0.5)',
+                        borderRadius: 10, color: '#fff', cursor: downloadState === 'downloading' ? 'wait' : 'pointer',
+                    }}
+                >
+                    {downloadState === 'downloading' ? 'Downloading…' : downloadState === 'downloaded' ? '✓ Downloaded' : '📥 Download Result'}
+                </button>
+            )}
         </div>
     );
 }

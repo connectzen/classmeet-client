@@ -298,6 +298,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const handleRescheduleSaved = () => {
         setShowRescheduleModal(false);
         setHasScheduledSession(null);
+        endRoom();
+        // Countdown starts, room-ended will trigger redirect
     };
 
     // Build participant list for sidebar
@@ -441,21 +443,22 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                         </div>
                         <p style={{ margin: 0, padding: '20px 24px', fontSize: 15, color: 'var(--text-muted, #94a3b8)', lineHeight: 1.5 }}>
                             {hasScheduledSession === true
-                                ? 'You can reschedule this class to a new date and time, or end it now. The class will count down before ending.'
+                                ? 'Reschedule this class to a new date and time. The class will end automatically after you save.'
                                 : hasScheduledSession === false
                                     ? 'End the class? A countdown will start before the session ends.'
                                     : 'Loading…'}
                         </p>
                         <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', padding: '16px 24px 24px', flexWrap: 'wrap' }}>
                             <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setShowEndConfirm(false); setHasScheduledSession(null); }}>Cancel</button>
-                            {hasScheduledSession === true && (
+                            {hasScheduledSession === true ? (
                                 <button type="button" className="btn btn-primary" onClick={handleRescheduleClick}>
                                     Reschedule
                                 </button>
-                            )}
-                            <button type="button" className="btn btn-primary" style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)' }} onClick={confirmEndRoom} disabled={hasScheduledSession === null}>
-                                End class
-                            </button>
+                            ) : hasScheduledSession === false ? (
+                                <button type="button" className="btn btn-primary" style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)' }} onClick={confirmEndRoom}>
+                                    End class
+                                </button>
+                            ) : null}
                         </div>
                     </div>
                 </div>

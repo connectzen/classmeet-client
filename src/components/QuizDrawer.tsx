@@ -654,6 +654,10 @@ function QuizBuilder({ quizId, showConfirm, onAddQuestion, onPublish }: {
 }) {
     const [quiz, setQuiz] = useState<(Quiz & { questions: Question[] }) | null>(null);
     const [loading, setLoading] = useState(true);
+    const [editQuizMode, setEditQuizMode] = useState(false);
+    const [editTitle, setEditTitle] = useState('');
+    const [editTimeLimit, setEditTimeLimit] = useState('');
+    const [savingQuiz, setSavingQuiz] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -665,6 +669,13 @@ function QuizBuilder({ quizId, showConfirm, onAddQuestion, onPublish }: {
     }, [quizId]);
 
     useEffect(() => { load(); }, [load]);
+
+    useEffect(() => {
+        if (quiz) {
+            setEditTitle(quiz.title);
+            setEditTimeLimit(quiz.time_limit_minutes != null ? String(quiz.time_limit_minutes) : '');
+        }
+    }, [quiz]);
 
     function handleDeleteQuestion(id: string) {
         showConfirm({
@@ -679,6 +690,27 @@ function QuizBuilder({ quizId, showConfirm, onAddQuestion, onPublish }: {
         });
     }
 
+    async function handleSaveQuiz() {
+        if (!quiz || !editTitle.trim()) return;
+        setSavingQuiz(true);
+        try {
+            const r = await fetch(`${SERVER}/api/quizzes/${quiz.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: editTitle.trim(),
+                    timeLimitMinutes: editTimeLimit ? Number(editTimeLimit) : null,
+                }),
+            });
+            if (r.ok) {
+                setEditQuizMode(false);
+                load();
+            }
+        } finally {
+            setSavingQuiz(false);
+        }
+    }
+
     if (loading) return <p style={{ padding: 24, color: 'var(--text-muted)', textAlign: 'center' }}>Loading…</p>;
     if (!quiz) return <p style={{ padding: 24, color: '#ef4444' }}>Quiz not found.</p>;
 
@@ -689,15 +721,52 @@ function QuizBuilder({ quizId, showConfirm, onAddQuestion, onPublish }: {
                 borderRadius: 12, padding: 16,
                 border: '1px solid rgba(99,102,241,0.3)', marginBottom: 16,
             }}>
-                <div style={{ fontWeight: 700, fontSize: 17, color: '#f1f5f9' }}>{quiz.title}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-                    {quiz.questions.length} questions
-                    {quiz.time_limit_minutes ? ` · ${quiz.time_limit_minutes} min limit` : ''}
-                    {' · '}
-                    <span style={{ color: quiz.status === 'published' ? '#22c55e' : '#f59e0b' }}>
-                        {quiz.status === 'published' ? '✅ Published' : '🟡 Draft'}
-                    </span>
-                </div>
+                {editQuizMode ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#94a3b8', marginBottom: 4 }}>Quiz Title</label>
+                            <input
+                                className="quiz-input"
+                                value={editTitle}
+                                onChange={e => setEditTitle(e.target.value)}
+                                style={{ width: '100%', boxSizing: 'border-box' }}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#94a3b8', marginBottom: 4 }}>Time limit (minutes)</label>
+                            <input
+                                className="quiz-input"
+                                type="number"
+                                min="0"
+                                placeholder="No limit"
+                                value={editTimeLimit}
+                                onChange={e => setEditTimeLimit(e.target.value)}
+                                style={{ width: '100%', boxSizing: 'border-box' }}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <button onClick={() => setEditQuizMode(false)} className="quiz-btn quiz-btn-ghost" disabled={savingQuiz}>Cancel</button>
+                            <button onClick={handleSaveQuiz} className="quiz-btn quiz-btn-primary" disabled={savingQuiz || !editTitle.trim()}>
+                                {savingQuiz ? 'Saving…' : 'Save'}
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                        <div>
+                            <div style={{ fontWeight: 700, fontSize: 17, color: '#f1f5f9' }}>{quiz.title}</div>
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                                {quiz.questions.length} questions
+                                {quiz.time_limit_minutes ? ` · ${quiz.time_limit_minutes} min limit` : ''}
+                                {' · '}
+                                <span style={{ color: quiz.status === 'published' ? '#22c55e' : '#f59e0b' }}>
+                                    {quiz.status === 'published' ? '✅ Published' : '🟡 Draft'}
+                                </span>
+                            </div>
+                        </div>
+                        <button onClick={() => setEditQuizMode(true)} className="cd-icon-btn" title="Edit quiz" style={{ flexShrink: 0 }}>✏️</button>
+                    </div>
+                )}
             </div>
 
             {quiz.questions.length === 0 && (

@@ -138,12 +138,13 @@ function SortableLessonCard({
                         onBlur={() => { if (lesson.id) onUpdate(idx, { lesson_type: type }, true); }}
                         style={{
                             padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)',
-                            background: 'rgba(0,0,0,0.2)', color: 'var(--text)', fontSize: 12,
+                            background: '#1e1b4b', color: '#e2e8f0', fontSize: 12,
+                            colorScheme: 'dark',
                         }}
                     >
-                        <option value="text">Text</option>
-                        <option value="video">Video</option>
-                        <option value="audio">Audio</option>
+                        <option value="text" style={{ background: '#1e1b4b', color: '#e2e8f0' }}>Text</option>
+                        <option value="video" style={{ background: '#1e1b4b', color: '#e2e8f0' }}>Video</option>
+                        <option value="audio" style={{ background: '#1e1b4b', color: '#e2e8f0' }}>Audio</option>
                     </select>
                     <button type="button" onClick={() => onDelete(idx)} disabled={saving} style={{ padding: '6px 10px', borderRadius: 6, border: 'none', background: 'rgba(239,68,68,0.2)', color: '#ef4444', fontSize: 12, cursor: saving ? 'not-allowed' : 'pointer' }}>Delete</button>
                 </div>
