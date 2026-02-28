@@ -195,22 +195,23 @@ export default function QuizDrawer({ userId, userName, userRole, open, onClose, 
                 transform: open ? 'translate(-50%, -50%) scale(1)' : 'translate(-50%, -50%) scale(0.95)',
                 width: 'min(720px, 94vw)',
                 maxHeight: '90vh',
-                background: 'var(--bg)',
-                border: '1px solid var(--border)',
+                background: 'linear-gradient(180deg, #1e1b4b 0%, #0f172a 100%)',
+                border: '1px solid rgba(99,102,241,0.3)',
                 borderRadius: 16,
                 zIndex: 1000,
                 opacity: open ? 1 : 0,
                 pointerEvents: open ? 'auto' : 'none',
                 transition: 'transform 0.25s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease',
                 display: 'flex', flexDirection: 'column',
-                boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+                boxShadow: '0 20px 60px rgba(99,102,241,0.15), 0 8px 32px rgba(0,0,0,0.4)',
                 overflow: 'hidden',
             }}>
                 {/* Header */}
                 <div style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '16px 24px', borderBottom: '1px solid var(--border)',
-                    background: 'var(--surface)', flexShrink: 0,
+                    padding: '16px 24px', borderBottom: '1px solid rgba(99,102,241,0.2)',
+                    background: 'linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(139,92,246,0.1) 100%)',
+                    flexShrink: 0,
                     borderRadius: '16px 16px 0 0',
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -608,12 +609,13 @@ function QuizBuilder({ quizId, showConfirm, onAddQuestion, onPublish }: {
     if (!quiz) return <p style={{ padding: 24, color: '#ef4444' }}>Quiz not found.</p>;
 
     return (
-        <div style={{ padding: '12px 16px' }}>
+        <div style={{ padding: '16px 20px' }}>
             <div style={{
-                background: 'var(--surface-2)', borderRadius: 12, padding: 14,
-                border: '1px solid var(--border)', marginBottom: 14,
+                background: 'linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(139,92,246,0.15) 100%)',
+                borderRadius: 12, padding: 16,
+                border: '1px solid rgba(99,102,241,0.3)', marginBottom: 16,
             }}>
-                <div style={{ fontWeight: 700, fontSize: 16 }}>{quiz.title}</div>
+                <div style={{ fontWeight: 700, fontSize: 17, color: '#f1f5f9' }}>{quiz.title}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
                     {quiz.questions.length} questions
                     {quiz.time_limit_minutes ? ` · ${quiz.time_limit_minutes} min limit` : ''}
@@ -633,19 +635,19 @@ function QuizBuilder({ quizId, showConfirm, onAddQuestion, onPublish }: {
             {quiz.questions.map((q, i) => (
                 <div key={q.id}>
                     <div className="quiz-builder-card quiz-builder-stagger" style={{
-                        background: 'var(--surface-3)', borderRadius: 12, padding: 12,
-                        marginBottom: 8, border: '1px solid var(--border)',
+                        background: 'rgba(30, 27, 75, 0.6)', borderRadius: 12, padding: 12,
+                        marginBottom: 8, border: '1px solid rgba(99,102,241,0.2)',
                         display: 'flex', gap: 10, alignItems: 'flex-start',
                         animationDelay: `${i * 0.05}s`,
                     }}>
                         <div style={{
                             width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                            background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 12, fontWeight: 700,
+                            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 12, fontWeight: 700, color: '#fff',
                         }}>{i + 1}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{q.question_text}</div>
-                            <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4, color: '#f1f5f9' }}>{q.question_text}</div>
+                            <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                                 <span>{TYPE_ICONS[q.type]} {TYPE_LABELS[q.type]}</span>
                                 <span>· {q.points} pt{q.points !== 1 ? 's' : ''}</span>
                                 {(q.type === 'select' || q.type === 'multi-select') && q.options && (
