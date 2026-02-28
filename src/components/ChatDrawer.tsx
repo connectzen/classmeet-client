@@ -127,11 +127,36 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef   = useRef<HTMLInputElement>(null);
     const typingTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const drawerRef      = useRef<HTMLDivElement>(null);
 
     // Scroll to bottom when active conversation messages change
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, activeConvId]);
+
+    // Dynamically resize slide-over drawer when mobile keyboard opens/closes
+    useEffect(() => {
+        if (inline || !open) return;
+        const el = drawerRef.current;
+        if (!el) return;
+
+        const updateHeight = () => {
+            const vv = window.visualViewport;
+            if (vv) {
+                el.style.height = `${vv.height}px`;
+                el.style.top = `${vv.offsetTop}px`;
+            }
+        };
+
+        updateHeight();
+        window.visualViewport?.addEventListener('resize', updateHeight);
+        window.visualViewport?.addEventListener('scroll', updateHeight);
+
+        return () => {
+            window.visualViewport?.removeEventListener('resize', updateHeight);
+            window.visualViewport?.removeEventListener('scroll', updateHeight);
+        };
+    }, [open, inline]);
 
     // Close emoji picker when clicking outside
     useEffect(() => {
@@ -755,7 +780,7 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
             {open && (
                 <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 999, backdropFilter: 'blur(2px)' }} />
             )}
-            <div style={{
+            <div ref={drawerRef} style={{
                 position: 'fixed',
                 top: 'env(safe-area-inset-top, 0)',
                 right: 0,
