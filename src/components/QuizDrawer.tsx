@@ -1722,23 +1722,31 @@ export function TakeQuiz({ quiz, submissionId, userId, showConfirm, showAlert, o
 // ─── Quiz Done (Student) ──────────────────────────────────────────────────
 function QuizDone({ quiz, score, onBack }: { quiz: Quiz; score: number | null; onBack: () => void; }) {
     const cardRef = useRef<HTMLDivElement>(null);
-    const [downloading, setDownloading] = useState(false);
+    const [downloadState, setDownloadState] = useState<'idle' | 'downloading' | 'downloaded'>('idle');
     const isPureZero = score === 0;
     const color = score === null || isPureZero ? '#7b7b99' : score >= 70 ? '#22c55e' : score >= 40 ? '#f59e0b' : '#ef4444';
     const emoji = score === null || isPureZero ? '📝' : score >= 70 ? '🎉' : score >= 40 ? '👍' : '💪';
 
+    useEffect(() => {
+        if (downloadState !== 'downloaded') return;
+        const t = setTimeout(() => setDownloadState('idle'), 1500);
+        return () => clearTimeout(t);
+    }, [downloadState]);
+
     const handleDownload = useCallback(async () => {
-        if (!cardRef.current || downloading) return;
-        setDownloading(true);
+        if (!cardRef.current || downloadState !== 'idle') return;
+        setDownloadState('downloading');
         try {
             const dataUrl = await toPng(cardRef.current, { backgroundColor: '#1e1b4b', pixelRatio: 2 });
             const a = document.createElement('a');
             a.href = dataUrl;
             a.download = `quiz-result-${quiz.title.replace(/[^a-z0-9]/gi, '-')}-${Date.now()}.png`;
             a.click();
-        } catch { /* ignore */ }
-        setDownloading(false);
-    }, [downloading, quiz.title]);
+            setDownloadState('downloaded');
+        } catch {
+            setDownloadState('idle');
+        }
+    }, [downloadState, quiz.title]);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, height: '100%', textAlign: 'center' }}>
@@ -1776,15 +1784,15 @@ function QuizDone({ quiz, score, onBack }: { quiz: Quiz; score: number | null; o
             </div>
             <button
                 onClick={handleDownload}
-                disabled={downloading}
+                disabled={downloadState === 'downloading'}
                 style={{
                     marginTop: 16, padding: '10px 20px', fontSize: 14, fontWeight: 600,
                     background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.5)',
-                    borderRadius: 10, color: '#a5b4fc', cursor: downloading ? 'wait' : 'pointer',
+                    borderRadius: 10, color: '#a5b4fc', cursor: downloadState === 'downloading' ? 'wait' : 'pointer',
                     width: '100%', maxWidth: 280,
                 }}
             >
-                {downloading ? 'Downloading…' : '📥 Download Result'}
+                {downloadState === 'downloading' ? 'Downloading…' : downloadState === 'downloaded' ? '✓ Downloaded' : '📥 Download Result'}
             </button>
             <button onClick={onBack} className="quiz-btn quiz-btn-primary" style={{ width: '100%', maxWidth: 280, marginTop: 12 }}>
                 Back to Quizzes

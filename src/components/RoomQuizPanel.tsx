@@ -209,27 +209,34 @@ export function InlineResultCard({ score, comment, studentName, isClassReveal, c
     const [phase, setPhase] = useState<'name' | 'countdown' | 'score'>(isClassReveal ? 'name' : 'score');
     const [countdownNum, setCountdownNum] = useState(3);
     const [displayScore, setDisplayScore] = useState(0);
-    const [downloading, setDownloading] = useState(false);
+    const [downloadState, setDownloadState] = useState<'idle' | 'downloading' | 'downloaded'>('idle');
     const cardRef = useRef<HTMLDivElement>(null);
     const isGood = score != null && score >= 50;
     const canDownload = !isClassReveal || !revealedStudentId || !currentUserId || currentUserId === revealedStudentId;
 
     useEffect(() => { injectStyles(); }, []);
 
+    useEffect(() => {
+        if (downloadState !== 'downloaded') return;
+        const t = setTimeout(() => setDownloadState('idle'), 1500);
+        return () => clearTimeout(t);
+    }, [downloadState]);
 
     const handleDownload = useCallback(async (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!cardRef.current || downloading) return;
-        setDownloading(true);
+        if (!cardRef.current || downloadState !== 'idle') return;
+        setDownloadState('downloading');
         try {
             const dataUrl = await toPng(cardRef.current, { backgroundColor: isGood ? '#10b981' : '#f59e0b', pixelRatio: 2 });
             const a = document.createElement('a');
             a.href = dataUrl;
             a.download = `quiz-result-${studentName || 'student'}-${Date.now()}.png`;
             a.click();
-        } catch { /* ignore */ }
-        setDownloading(false);
-    }, [downloading, isGood, studentName]);
+            setDownloadState('downloaded');
+        } catch {
+            setDownloadState('idle');
+        }
+    }, [downloadState, isGood, studentName]);
 
     // Class reveal: name phase (2s) -> countdown phase (3s) -> score phase
     useEffect(() => {
@@ -407,14 +414,14 @@ export function InlineResultCard({ score, comment, studentName, isClassReveal, c
                 {canDownload && (
                     <button
                         onClick={handleDownload}
-                        disabled={downloading}
+                        disabled={downloadState === 'downloading'}
                         style={{
                             marginTop: 16, padding: '10px 20px', fontSize: 14, fontWeight: 600,
                             background: 'rgba(255,255,255,0.25)', border: '2px solid rgba(255,255,255,0.5)',
-                            borderRadius: 10, color: '#fff', cursor: downloading ? 'wait' : 'pointer',
+                            borderRadius: 10, color: '#fff', cursor: downloadState === 'downloading' ? 'wait' : 'pointer',
                         }}
                     >
-                        {downloading ? 'Downloading…' : '📥 Download Result'}
+                        {downloadState === 'downloading' ? 'Downloading…' : downloadState === 'downloaded' ? '✓ Downloaded' : '📥 Download Result'}
                     </button>
                 )}
             </div>
