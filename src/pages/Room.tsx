@@ -92,19 +92,57 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
 
     // Get local media stream
     useEffect(() => {
-        const constraints: MediaStreamConstraints = {
-            video: activeVideoDeviceId ? { deviceId: { exact: activeVideoDeviceId } } : true,
-            audio: activeAudioDeviceId ? { deviceId: { exact: activeAudioDeviceId } } : true,
-        };
-        navigator.mediaDevices.getUserMedia(constraints)
-            .then((stream) => {
-                setLocalStream((prev) => { prev?.getTracks().forEach((t) => t.stop()); return stream; });
+        let cancelled = false;
+
+        (async () => {
+            // Stop existing tracks to release camera hardware
+            // (mobile browsers require this before switching to rear camera)
+            setLocalStream((prev) => { prev?.getTracks().forEach((t) => t.stop()); return null; });
+
+            let videoConstraint: MediaTrackConstraints | boolean = true;
+            if (activeVideoDeviceId) {
+                const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+                if (isMobile) {
+                    // On mobile, facingMode is the reliable way to switch cameras
+                    try {
+                        const devices = await navigator.mediaDevices.enumerateDevices();
+                        const selected = devices.find(d => d.deviceId === activeVideoDeviceId);
+                        const label = (selected?.label || '').toLowerCase();
+                        if (label.includes('back') || label.includes('rear') || label.includes('environment')) {
+                            videoConstraint = { facingMode: { exact: 'environment' } };
+                        } else if (label.includes('front') || label.includes('user') || label.includes('selfie')) {
+                            videoConstraint = { facingMode: { exact: 'user' } };
+                        } else {
+                            videoConstraint = { deviceId: { exact: activeVideoDeviceId } };
+                        }
+                    } catch {
+                        videoConstraint = { deviceId: { exact: activeVideoDeviceId } };
+                    }
+                } else {
+                    videoConstraint = { deviceId: { exact: activeVideoDeviceId } };
+                }
+            }
+
+            const constraints: MediaStreamConstraints = {
+                video: videoConstraint,
+                audio: activeAudioDeviceId ? { deviceId: { exact: activeAudioDeviceId } } : true,
+            };
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
+                setLocalStream(stream);
                 setMicOn(true); setCamOn(true);
-            })
-            .catch(() => {
-                navigator.mediaDevices.getUserMedia({ video: false, audio: true })
-                    .then(setLocalStream).catch(console.error);
-            });
+            } catch {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+                    if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
+                    setLocalStream(stream);
+                } catch (e) { console.error(e); }
+            }
+        })();
+
+        return () => { cancelled = true; };
     }, [activeVideoDeviceId, activeAudioDeviceId]);
 
     // ── Socket event handlers ────────────────────────────────────────────
@@ -268,9 +306,25 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         } else if (!camOn) {
             // No video track — try to acquire camera now (initial getUserMedia may have failed for video)
             try {
-                const vs = await navigator.mediaDevices.getUserMedia({
-                    video: activeVideoDeviceId ? { deviceId: { exact: activeVideoDeviceId } } : true,
-                });
+                let videoConstraint: MediaTrackConstraints | boolean = true;
+                if (activeVideoDeviceId) {
+                    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+                    if (isMobile) {
+                        const devices = await navigator.mediaDevices.enumerateDevices();
+                        const selected = devices.find(d => d.deviceId === activeVideoDeviceId);
+                        const label = (selected?.label || '').toLowerCase();
+                        if (label.includes('back') || label.includes('rear') || label.includes('environment')) {
+                            videoConstraint = { facingMode: { exact: 'environment' } };
+                        } else if (label.includes('front') || label.includes('user') || label.includes('selfie')) {
+                            videoConstraint = { facingMode: { exact: 'user' } };
+                        } else {
+                            videoConstraint = { deviceId: { exact: activeVideoDeviceId } };
+                        }
+                    } else {
+                        videoConstraint = { deviceId: { exact: activeVideoDeviceId } };
+                    }
+                }
+                const vs = await navigator.mediaDevices.getUserMedia({ video: videoConstraint });
                 const vt = vs.getVideoTracks()[0];
                 // Build a new stream so the useWebRTC effect fires and adds the track to all peers
                 const newStream = new MediaStream([...localStream.getTracks(), vt]);
@@ -332,7 +386,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         setShowEndConfirm(false);
         setHasScheduledSession(null);
         endRoom();
-        // Don't call onLeave/clearSession — countdown will run, room-ended will trigger redirect
+        // Teacher leaves after socket delivers end-room event; server handles student countdown
+        setTimeout(() => { clearSession(); onLeave(); }, 500);
     };
 
     const handleRescheduleClick = () => {
@@ -344,8 +399,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         setShowRescheduleModal(false);
         setHasScheduledSession(null);
         endRoom();
-        // Don't call onLeave/clearSession — server will broadcast room-ended,
-        // triggering handleRoomEnded which clears session and redirects everyone
+        // Teacher leaves after socket delivers end-room event; server handles student countdown
+        setTimeout(() => { clearSession(); onLeave(); }, 500);
     };
 
     // Build participant list for sidebar
