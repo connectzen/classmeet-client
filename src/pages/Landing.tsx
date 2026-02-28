@@ -729,7 +729,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             </nav>
 
             {/* â”€â”€ Scrollable body â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-            <div className="landing-scroll-body">
+            <div className={`landing-scroll-body${userRole === 'teacher' ? ' teacher-fixed-view' : ''}`}>
 
                 {/* â”€â”€ Hero â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="landing-hero">
@@ -1050,28 +1050,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                         </div>
                     )}
 
-                    {/* ── Teacher stats bar (replaces subtitle, shown above the two-column layout) ── */}
-                    {userRole === 'teacher' && (
-                        <div className="teacher-stats-bar">
-                            <div className="teacher-stat-card">
-                                <div className="teacher-stat-label">Students</div>
-                                <div className="teacher-stat-value">{loadingTeacherStudents && teacherStudents.length === 0 ? '…' : teacherStudents.length}</div>
-                            </div>
-                            <div className="teacher-stat-card">
-                                <div className="teacher-stat-label">Active Courses</div>
-                                <div className="teacher-stat-value">{teacherCoursesCount}</div>
-                            </div>
-                            <div className="teacher-stat-card">
-                                <div className="teacher-stat-label">Groups</div>
-                                <div className="teacher-stat-value">{loadingTeacherGroups && teacherGroups.length === 0 ? '…' : teacherGroups.length}</div>
-                            </div>
-                            <div className="teacher-stat-card">
-                                <div className="teacher-stat-label">Upcoming Sessions</div>
-                                <div className="teacher-stat-value">{teacherSessions.filter(s => new Date(s.scheduled_at) >= new Date()).length}</div>
-                            </div>
-                        </div>
-                    )}
-
                     {userRole === 'teacher' && (
                         <div className="teacher-dashboard-layout">
 
@@ -1154,6 +1132,26 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     )}
                                 </div>
                             </aside>
+
+                            {/* ── STAT CARDS (inside grid, right column via CSS) ── */}
+                            <div className="teacher-stats-bar">
+                                <div className="teacher-stat-card">
+                                    <div className="teacher-stat-label">Students</div>
+                                    <div className="teacher-stat-value">{loadingTeacherStudents && teacherStudents.length === 0 ? '…' : teacherStudents.length}</div>
+                                </div>
+                                <div className="teacher-stat-card">
+                                    <div className="teacher-stat-label">Active Courses</div>
+                                    <div className="teacher-stat-value">{teacherCoursesCount}</div>
+                                </div>
+                                <div className="teacher-stat-card">
+                                    <div className="teacher-stat-label">Groups</div>
+                                    <div className="teacher-stat-value">{loadingTeacherGroups && teacherGroups.length === 0 ? '…' : teacherGroups.length}</div>
+                                </div>
+                                <div className="teacher-stat-card">
+                                    <div className="teacher-stat-label">Upcoming Sessions</div>
+                                    <div className="teacher-stat-value">{teacherSessions.filter(s => new Date(s.scheduled_at) >= new Date()).length}</div>
+                                </div>
+                            </div>
 
                             {/* ── MAIN PANEL ── */}
                             <div className="dashboard-panel enter-up">

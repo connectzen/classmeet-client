@@ -257,6 +257,43 @@ button:active:not(:disabled),
   gap: 40px;
 }
 
+/* Teacher fixed dashboard — no page scroll, fill viewport */
+.landing-scroll-body.teacher-fixed-view {
+  overflow: hidden;
+  padding-top: 72px;
+  padding-bottom: 16px;
+  gap: 0;
+}
+.teacher-fixed-view .landing-hero { display: none; }
+
+.teacher-fixed-view .teacher-dashboard-layout {
+  flex: 1;
+  min-height: 0;
+  grid-template-rows: auto 1fr;
+  gap: 16px;
+}
+
+.teacher-fixed-view .teacher-sidebar {
+  grid-row: 1 / -1;
+  grid-column: 1;
+  position: static;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.teacher-fixed-view .teacher-stats-bar {
+  grid-column: 2;
+  grid-row: 1;
+  max-width: none;
+}
+
+.teacher-fixed-view .dashboard-panel {
+  grid-column: 2;
+  grid-row: 2;
+  overflow-y: auto;
+  min-height: 0;
+}
+
 /* Hero inside scroll body — centred, constrained width */
 .landing-scroll-body .landing-hero {
   max-width: 640px;
@@ -3778,6 +3815,31 @@ input[type="radio"] {
     position: static;
     max-height: none;
     order: 2;
+  }
+  /* Revert fixed layout to normal scrollable on mobile */
+  .landing-scroll-body.teacher-fixed-view {
+    overflow-y: auto;
+    gap: 20px;
+    padding-bottom: 80px;
+  }
+  .teacher-fixed-view .landing-hero { display: block; }
+  .teacher-fixed-view .teacher-dashboard-layout {
+    flex: none;
+    grid-template-rows: auto;
+  }
+  .teacher-fixed-view .teacher-sidebar {
+    grid-row: auto;
+    grid-column: 1;
+    overflow-y: visible;
+  }
+  .teacher-fixed-view .teacher-stats-bar {
+    grid-column: 1;
+    grid-row: auto;
+  }
+  .teacher-fixed-view .dashboard-panel {
+    grid-column: 1;
+    grid-row: auto;
+    overflow-y: visible;
   }
 }
 .gap-4 { gap: var(--sp-4); }
