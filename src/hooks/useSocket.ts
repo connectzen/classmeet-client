@@ -47,9 +47,34 @@ export function useSocket(options: UseSocketOptions) {
         onSpotlightChanged, onTeacherJoined, onAdminRefresh,
     } = options;
 
-    // Keep a ref so the single registered socket listener always calls the latest callback
+    // Keep refs so the single registered socket listeners always call the latest callbacks
     const onAdminRefreshRef = useRef<typeof onAdminRefresh>(onAdminRefresh);
-    useEffect(() => { onAdminRefreshRef.current = onAdminRefresh; }, [onAdminRefresh]);
+    const onParticipantJoinedRef = useRef(onParticipantJoined);
+    const onParticipantLeftRef = useRef(onParticipantLeft);
+    const onSignalRef = useRef(onSignal);
+    const onChatMessageRef = useRef(onChatMessage);
+    const onRoomEndedRef = useRef(onRoomEnded);
+    const onForceMuteRef = useRef(onForceMute);
+    const onForceCamRef = useRef(onForceCam);
+    const onParticipantMuteChangedRef = useRef(onParticipantMuteChanged);
+    const onParticipantCamChangedRef = useRef(onParticipantCamChanged);
+    const onTeacherDisconnectedRef = useRef(onTeacherDisconnected);
+    const onSpotlightChangedRef = useRef(onSpotlightChanged);
+    const onTeacherJoinedRef = useRef(onTeacherJoined);
+
+    onAdminRefreshRef.current = onAdminRefresh;
+    onParticipantJoinedRef.current = onParticipantJoined;
+    onParticipantLeftRef.current = onParticipantLeft;
+    onSignalRef.current = onSignal;
+    onChatMessageRef.current = onChatMessage;
+    onRoomEndedRef.current = onRoomEnded;
+    onForceMuteRef.current = onForceMute;
+    onForceCamRef.current = onForceCam;
+    onParticipantMuteChangedRef.current = onParticipantMuteChanged;
+    onParticipantCamChangedRef.current = onParticipantCamChanged;
+    onTeacherDisconnectedRef.current = onTeacherDisconnected;
+    onSpotlightChangedRef.current = onSpotlightChanged;
+    onTeacherJoinedRef.current = onTeacherJoined;
 
     const socketRef = useRef<Socket | null>(null);
     const [socketId, setSocketId] = useState('');
@@ -87,26 +112,26 @@ export function useSocket(options: UseSocketOptions) {
             });
         });
 
-        socket.on('participant-joined', onParticipantJoined);
-        socket.on('participant-left', ({ socketId: sid }: { socketId: string }) => onParticipantLeft(sid));
-        socket.on('signal', onSignal);
-        socket.on('chat-message', onChatMessage);
-        socket.on('room-ended', onRoomEnded);
-        socket.on('force-mute', ({ muted }: { muted: boolean }) => onForceMute(muted));
-        socket.on('force-cam', ({ camOn }: { camOn: boolean }) => onForceCam(camOn));
+        socket.on('participant-joined', (data: Participant) => onParticipantJoinedRef.current(data));
+        socket.on('participant-left', ({ socketId: sid }: { socketId: string }) => onParticipantLeftRef.current(sid));
+        socket.on('signal', (data: { from: string; signal: unknown }) => onSignalRef.current(data));
+        socket.on('chat-message', (data: ChatMessage) => onChatMessageRef.current(data));
+        socket.on('room-ended', () => onRoomEndedRef.current());
+        socket.on('force-mute', ({ muted }: { muted: boolean }) => onForceMuteRef.current(muted));
+        socket.on('force-cam', ({ camOn }: { camOn: boolean }) => onForceCamRef.current(camOn));
         socket.on('participant-mute-changed', ({ socketId: sid, muted }: { socketId: string; muted: boolean }) =>
-            onParticipantMuteChanged(sid, muted)
+            onParticipantMuteChangedRef.current(sid, muted)
         );
         socket.on('participant-cam-changed', ({ socketId: sid, camOn }: { socketId: string; camOn: boolean }) =>
-            onParticipantCamChanged(sid, camOn)
+            onParticipantCamChangedRef.current(sid, camOn)
         );
         socket.on('teacher-disconnected', ({ graceSeconds }: { graceSeconds: number }) =>
-            onTeacherDisconnected(graceSeconds)
+            onTeacherDisconnectedRef.current(graceSeconds)
         );
         socket.on('spotlight-changed', ({ spotlightSocketId }: { spotlightSocketId: string }) =>
-            onSpotlightChanged(spotlightSocketId)
+            onSpotlightChangedRef.current(spotlightSocketId)
         );
-        socket.on('teacher-joined', () => onTeacherJoined());
+        socket.on('teacher-joined', () => onTeacherJoinedRef.current());
         socket.on('admin:refresh', (data: { type: string }) => { onAdminRefreshRef.current?.(data); });
         socket.on('room:quiz-active', ({ quizId, quiz }: { quizId: string; quiz: unknown }) => {
             setRoomQuiz({ quizId, quiz });

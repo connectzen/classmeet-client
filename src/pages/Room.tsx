@@ -566,7 +566,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                     onClick={isTeacher ? () => handleSpotlightClick(p.socketId) : undefined}
                                     title={isTeacher ? `Spotlight ${p.name}` : undefined}
                                 >
-                                    <VideoTileInline stream={stream} name={p.name} muted={isLocal} />
+                                    <VideoTileInline stream={stream} name={p.name} muted={isLocal} isCamOff={p.isCamOff} />
                                     <div className="rps-overlay">
                                         <span className="rps-name">{p.name}</span>
                                         <div className="rps-badges">
@@ -618,6 +618,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                     stream={p.socketId === '__local__' ? localStream : (remoteStreams.get(p.socketId) || null)}
                                     name={p.name}
                                     muted={p.socketId === '__local__'}
+                                    isCamOff={p.isCamOff}
                                 />
                                 <span className="mobile-thumb-name">{p.name.split(' ')[0]}</span>
                             </div>
@@ -668,6 +669,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 stream={spotlightStream}
                                 name={spotlightParticipant?.name || name}
                                 isLocal={spotlightId === '__local__'}
+                                isCamOff={spotlightParticipant?.isCamOff}
                             />
                         )}
                     </div>
@@ -743,13 +745,16 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
 
 // ── Inline video components ───────────────────────────────────────────────
 
-function SpotlightVideo({ stream, name, isLocal }: { stream: MediaStream | null; name: string; isLocal: boolean }) {
+function SpotlightVideo({ stream, name, isLocal, isCamOff }: { stream: MediaStream | null; name: string; isLocal: boolean; isCamOff?: boolean }) {
     const ref = useRef<HTMLVideoElement>(null);
     useEffect(() => { if (ref.current) ref.current.srcObject = stream; }, [stream]);
+    const showAvatar = !stream || isCamOff;
     return (
         <div className="spotlight-video-wrap">
-            <video ref={ref} autoPlay playsInline muted={isLocal} className="spotlight-video" />
-            {!stream && (
+            {!showAvatar && (
+                <video ref={ref} autoPlay playsInline muted={isLocal} className="spotlight-video" />
+            )}
+            {showAvatar && (
                 <div className="spotlight-placeholder">
                     <div className="spotlight-avatar">{name.charAt(0).toUpperCase()}</div>
                 </div>
@@ -759,13 +764,16 @@ function SpotlightVideo({ stream, name, isLocal }: { stream: MediaStream | null;
     );
 }
 
-function VideoTileInline({ stream, name, muted }: { stream: MediaStream | null; name: string; muted?: boolean }) {
+function VideoTileInline({ stream, name, muted, isCamOff }: { stream: MediaStream | null; name: string; muted?: boolean; isCamOff?: boolean }) {
     const ref = useRef<HTMLVideoElement>(null);
     useEffect(() => { if (ref.current) ref.current.srcObject = stream; }, [stream]);
+    const showAvatar = !stream || isCamOff;
     return (
         <div className="thumb-video-wrap">
-            <video ref={ref} autoPlay playsInline muted={muted} className="thumb-video" />
-            {!stream && <div className="thumb-avatar">{name.charAt(0).toUpperCase()}</div>}
+            {!showAvatar && (
+                <video ref={ref} autoPlay playsInline muted={muted} className="thumb-video" />
+            )}
+            {showAvatar && <div className="thumb-avatar">{name.charAt(0).toUpperCase()}</div>}
         </div>
     );
 }
