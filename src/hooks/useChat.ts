@@ -219,7 +219,18 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
             body: JSON.stringify({ userId, userRole, userName, otherId, otherRole, otherName }),
         });
         const data = await res.json();
-        await fetchConversations();
+        // Optimistically insert the new conversation so it appears immediately
+        const optimistic: Conversation = {
+            conversation_id: data.id,
+            type: 'dm',
+            name: null,
+            last_message: null,
+            unread_count: 0,
+            other_user: { user_id: otherId, user_name: otherName, user_role: otherRole, avatar_url: null },
+        };
+        setConversations(prev => prev.some(c => c.conversation_id === data.id) ? prev : [optimistic, ...prev]);
+        // Then fetch in the background to get server truth
+        fetchConversations();
         return data.id;
     }, [userId, userRole, userName, fetchConversations]);
 

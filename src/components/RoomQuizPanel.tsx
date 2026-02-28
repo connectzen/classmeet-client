@@ -336,12 +336,9 @@ export function InlineResultCard({ score, comment, studentName, isClassReveal, c
     // Score phase — cardRef wraps only content to capture (button is outside so it's excluded from screenshot)
     return (
         <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            zIndex: 9999,
+            width: '100%',
+            height: '100%',
+            flex: 1,
             background: isGood
                 ? 'linear-gradient(135deg, rgba(16,185,129,1) 0%, rgba(34,197,94,1) 100%)'
                 : 'linear-gradient(135deg, rgba(245,158,11,1) 0%, rgba(249,115,22,1) 100%)',
@@ -349,8 +346,8 @@ export function InlineResultCard({ score, comment, studentName, isClassReveal, c
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            minHeight: '100vh',
-            minWidth: '100vw',
+            borderRadius: 12,
+            overflow: 'hidden',
             padding: 0,
         }}>
             <div
@@ -358,8 +355,8 @@ export function InlineResultCard({ score, comment, studentName, isClassReveal, c
                 onClick={onClose}
                 style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    width: '100vw', height: '100vh',
-                    borderRadius: 0, overflow: 'hidden', cursor: 'pointer',
+                    width: '100%', height: '100%',
+                    borderRadius: 12, overflow: 'hidden', cursor: 'pointer',
                     background: 'transparent',
                     position: 'relative',
                     animation: 'rqp-fade-in-up 0.4s ease-out',

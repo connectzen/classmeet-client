@@ -21,6 +21,7 @@ interface Props {
 
 interface ParticipantState extends Participant {
     isMuted: boolean;
+    isCamOff: boolean;
 }
 
 // Save session to localStorage for rejoin
@@ -108,7 +109,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
 
     // ── Socket event handlers ────────────────────────────────────────────
     const handleParticipantJoined = useCallback((p: Participant) => {
-        setParticipants((prev) => new Map(prev).set(p.socketId, { ...p, isMuted: false }));
+        setParticipants((prev) => new Map(prev).set(p.socketId, { ...p, isMuted: false, isCamOff: false }));
         addNewPeer(p.socketId);
         // If a teacher just joined and we had a countdown, cancel it
         if (p.role === 'teacher') setTeacherGraceCountdown(null);
@@ -149,6 +150,21 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         });
     }, []);
 
+    const handleParticipantCamChanged = useCallback((sid: string, camOn: boolean) => {
+        setParticipants((prev) => {
+            const next = new Map(prev);
+            const p = next.get(sid);
+            if (p) next.set(sid, { ...p, isCamOff: !camOn });
+            return next;
+        });
+    }, []);
+
+    const handleForceCam = useCallback((camOn: boolean) => {
+        if (!localStream) return;
+        const track = localStream.getVideoTracks()[0];
+        if (track) { track.enabled = camOn; setCamOn(camOn); }
+    }, [localStream]);
+
     const handleTeacherDisconnected = useCallback((graceSeconds: number) => {
         setTeacherGraceCountdown(graceSeconds);
         const interval = setInterval(() => {
@@ -174,7 +190,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
 
     const { socketId, connected, joinError: socketJoinError, existingParticipants, currentSpotlight,
         roomQuiz, roomQuizSubmissions, roomQuizRevealed, revealedStudentIds,
-        sendSignal, sendMessage, endRoom, muteParticipant, changeSpotlight,
+        sendSignal, sendMessage, endRoom, muteParticipant, camParticipant, broadcastSelfCam, changeSpotlight,
         startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
     } = useSocket({
             roomCode, roomId, roomName, name, role, isGuestRoomHost,
@@ -184,7 +200,9 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
             onChatMessage: handleChatMessage,
             onRoomEnded: handleRoomEnded,
             onForceMute: handleForceMute,
+            onForceCam: handleForceCam,
             onParticipantMuteChanged: handleParticipantMuteChanged,
+            onParticipantCamChanged: handleParticipantCamChanged,
             onTeacherDisconnected: handleTeacherDisconnected,
             onSpotlightChanged: handleSpotlightChanged,
             onTeacherJoined: handleTeacherJoined,
@@ -202,7 +220,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     useEffect(() => {
         if (socketId && existingParticipants.length > 0 && localStream) {
             existingParticipants.forEach((p) =>
-                setParticipants((prev) => new Map(prev).set(p.socketId, { ...p, isMuted: false }))
+                setParticipants((prev) => new Map(prev).set(p.socketId, { ...p, isMuted: false, isCamOff: false }))
             );
             initiatePeerConnections(existingParticipants);
         }
@@ -243,7 +261,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const toggleCam = () => {
         if (!localStream) return;
         const track = localStream.getVideoTracks()[0];
-        if (track) { track.enabled = !track.enabled; setCamOn(track.enabled); }
+        if (track) { track.enabled = !track.enabled; setCamOn(track.enabled); broadcastSelfCam(track.enabled); }
     };
 
     const handleDeviceApply = (videoId: string | null, audioId: string | null) => {
@@ -260,6 +278,16 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
             return next;
         });
     }, [muteParticipant]);
+
+    const handleCamParticipant = useCallback((targetSocketId: string, camOn: boolean) => {
+        camParticipant(targetSocketId, camOn);
+        setParticipants((prev) => {
+            const next = new Map(prev);
+            const p = next.get(targetSocketId);
+            if (p) next.set(targetSocketId, { ...p, isCamOff: !camOn });
+            return next;
+        });
+    }, [camParticipant]);
 
     const handleLeaveIntentional = () => {
         setShowLeaveConfirm(true);
@@ -526,17 +554,29 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                         <span className="rps-name">{p.name}</span>
                                         <div className="rps-badges">
                                             {p.isMuted && <span className="rps-badge-muted">🔇</span>}
+                                            {p.isCamOff && <span className="rps-badge-muted">🚫</span>}
                                             {isSpotlit && <span className="rps-badge-spotlight">✨</span>}
                                         </div>
                                     </div>
                                     {isTeacher && !isLocal && (
-                                        <button
-                                            className={`rps-mute-btn ${p.isMuted ? 'rps-mute-btn-on' : ''}`}
-                                            onClick={(e) => { e.stopPropagation(); handleMuteParticipant(p.socketId, !p.isMuted); }}
-                                            title={p.isMuted ? 'Unmute' : 'Mute'}
-                                        >
-                                            {p.isMuted ? '🔊' : '🔇'}
-                                        </button>
+                                        <>
+                                            <button
+                                                className={`rps-mute-btn ${p.isMuted ? 'rps-mute-btn-on' : ''}`}
+                                                onClick={(e) => { e.stopPropagation(); handleMuteParticipant(p.socketId, !p.isMuted); }}
+                                                title={p.isMuted ? 'Unmute' : 'Mute'}
+                                                style={{ top: 4 }}
+                                            >
+                                                {p.isMuted ? '🔊' : '🔇'}
+                                            </button>
+                                            <button
+                                                className={`rps-mute-btn ${p.isCamOff ? 'rps-mute-btn-on' : ''}`}
+                                                onClick={(e) => { e.stopPropagation(); handleCamParticipant(p.socketId, !!p.isCamOff); }}
+                                                title={p.isCamOff ? 'Turn camera on' : 'Turn camera off'}
+                                                style={{ top: 30 }}
+                                            >
+                                                {p.isCamOff ? '📷' : '🚫'}
+                                            </button>
+                                        </>
                                     )}
                                     <span className={`rps-role-tag rps-role-${p.role}`}>{p.role}</span>
                                 </div>

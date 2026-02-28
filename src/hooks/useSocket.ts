@@ -29,7 +29,9 @@ interface UseSocketOptions {
     onChatMessage: (msg: ChatMessage) => void;
     onRoomEnded: () => void;
     onForceMute: (muted: boolean) => void;
+    onForceCam: (camOn: boolean) => void;
     onParticipantMuteChanged: (socketId: string, muted: boolean) => void;
+    onParticipantCamChanged: (socketId: string, camOn: boolean) => void;
     onTeacherDisconnected: (graceSeconds: number) => void;
     onSpotlightChanged: (spotlightSocketId: string) => void;
     onTeacherJoined: () => void;
@@ -41,7 +43,7 @@ export function useSocket(options: UseSocketOptions) {
         roomCode, roomId, roomName, name, role, isGuestRoomHost,
         onParticipantJoined, onParticipantLeft,
         onSignal, onChatMessage, onRoomEnded,
-        onForceMute, onParticipantMuteChanged, onTeacherDisconnected,
+        onForceMute, onForceCam, onParticipantMuteChanged, onParticipantCamChanged, onTeacherDisconnected,
         onSpotlightChanged, onTeacherJoined, onAdminRefresh,
     } = options;
 
@@ -91,8 +93,12 @@ export function useSocket(options: UseSocketOptions) {
         socket.on('chat-message', onChatMessage);
         socket.on('room-ended', onRoomEnded);
         socket.on('force-mute', ({ muted }: { muted: boolean }) => onForceMute(muted));
+        socket.on('force-cam', ({ camOn }: { camOn: boolean }) => onForceCam(camOn));
         socket.on('participant-mute-changed', ({ socketId: sid, muted }: { socketId: string; muted: boolean }) =>
             onParticipantMuteChanged(sid, muted)
+        );
+        socket.on('participant-cam-changed', ({ socketId: sid, camOn }: { socketId: string; camOn: boolean }) =>
+            onParticipantCamChanged(sid, camOn)
         );
         socket.on('teacher-disconnected', ({ graceSeconds }: { graceSeconds: number }) =>
             onTeacherDisconnected(graceSeconds)
@@ -145,6 +151,14 @@ export function useSocket(options: UseSocketOptions) {
         socketRef.current?.emit('mute-participant', { targetSocketId, muted });
     }, []);
 
+    const camParticipant = useCallback((targetSocketId: string, camOn: boolean) => {
+        socketRef.current?.emit('cam-participant', { targetSocketId, camOn });
+    }, []);
+
+    const broadcastSelfCam = useCallback((camOn: boolean) => {
+        socketRef.current?.emit('self-cam-changed', { camOn });
+    }, []);
+
     const changeSpotlight = useCallback((spotlightSocketId: string) => {
         socketRef.current?.emit('spotlight-change', { roomCode, spotlightSocketId });
     }, [roomCode]);
@@ -168,7 +182,7 @@ export function useSocket(options: UseSocketOptions) {
     return {
         socketId, connected, joinError, existingParticipants, currentSpotlight,
         roomQuiz, roomQuizSubmissions, roomQuizRevealed, revealedStudentIds,
-        sendSignal, sendMessage, endRoom, muteParticipant, changeSpotlight,
+        sendSignal, sendMessage, endRoom, muteParticipant, camParticipant, broadcastSelfCam, changeSpotlight,
         startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
     };
 }
