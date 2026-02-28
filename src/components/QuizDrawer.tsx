@@ -21,6 +21,8 @@ interface Quiz {
     submission_count?: number;
     submitted_at?: string | null;
     my_score?: number | null;
+    target_group_ids?: string[];
+    target_student_ids?: string[];
 }
 
 interface Question {
@@ -74,6 +76,7 @@ type View =
     | { name: 'list' }
     | { name: 'create' }
     | { name: 'builder'; quizId: string }
+    | { name: 'edit-quiz'; quiz: Quiz }
     | { name: 'question-form'; quizId: string; question?: Question; parentQuestionId?: string }
     | { name: 'results'; quiz: Quiz }
     | { name: 'submission-detail'; quiz: Quiz; submission: Submission }
@@ -174,6 +177,7 @@ export default function QuizDrawer({ userId, userName, userRole, open, onClose, 
     // ── Back navigation ────────────────────────────────────────────────────
     function goBack() {
         if (view.name === 'question-form') { setView({ name: 'builder', quizId: view.quizId }); return; }
+        if (view.name === 'edit-quiz') { setView({ name: 'builder', quizId: view.quiz.id }); return; }
         if (view.name === 'submission-detail') { setView({ name: 'results', quiz: view.quiz }); return; }
         setView({ name: 'list' });
     }
@@ -226,6 +230,7 @@ export default function QuizDrawer({ userId, userName, userRole, open, onClose, 
                             {view.name === 'list' && '📝 Quizzes'}
                             {view.name === 'create' && '📝 New Quiz'}
                             {view.name === 'builder' && '🔧 Quiz Builder'}
+                            {view.name === 'edit-quiz' && '✏️ Edit Quiz'}
                             {view.name === 'question-form' && (view.question ? '✏️ Edit Question' : '➕ Add Question')}
                             {view.name === 'results' && `📊 Results — ${view.quiz.title}`}
                             {view.name === 'submission-detail' && `👤 ${view.submission.student_name}`}
@@ -299,11 +304,22 @@ export default function QuizDrawer({ userId, userName, userRole, open, onClose, 
                             quizId={view.quizId}
                             showConfirm={showConfirm}
                             onAddQuestion={(q?, parentQuestionId?) => setView({ name: 'question-form', quizId: view.quizId, question: q, parentQuestionId })}
+                            onEditQuiz={(q) => setView({ name: 'edit-quiz', quiz: q })}
                             onPublish={async () => {
                                 await fetch(`${SERVER}/api/quizzes/${view.quizId}/publish`, { method: 'POST' });
                                 fetchQuizzes();
                                 setView({ name: 'list' });
                             }}
+                        />
+                    )}
+                    {view.name === 'edit-quiz' && (
+                        <EditQuizForm
+                            quiz={view.quiz}
+                            userId={userId}
+                            rooms={teacherRooms}
+                            courses={courses}
+                            onSaved={() => { fetchQuizzes(); setView({ name: 'builder', quizId: view.quiz.id }); }}
+                            onCancel={goBack}
                         />
                     )}
                     {view.name === 'question-form' && (
@@ -645,19 +661,165 @@ function CreateQuizForm({ userId, rooms, courses, onCreated, onCancel }: {
     );
 }
 
+// ─── Edit Quiz Form (full form like Create, for editing quiz basics + assignment) ───
+function EditQuizForm({ quiz, userId, rooms, courses, onSaved, onCancel }: {
+    quiz: Quiz;
+    userId: string;
+    rooms: TeacherRoom[];
+    courses: { id: string; title: string }[];
+    onSaved: () => void;
+    onCancel: () => void;
+}) {
+    const [title, setTitle] = useState(quiz.title);
+    const [roomId, setRoomId] = useState(quiz.room_id && !quiz.room_id.startsWith('course-only-') && quiz.room_id !== 'group-targeted' ? quiz.room_id : '');
+    const [courseId, setCourseId] = useState(quiz.course_id || '');
+    const [timeLimit, setTimeLimit] = useState(quiz.time_limit_minutes != null ? String(quiz.time_limit_minutes) : '');
+    const [targetGroupIds, setTargetGroupIds] = useState<string[]>(quiz.target_group_ids || []);
+    const [targetStudentIds, setTargetStudentIds] = useState<string[]>(quiz.target_student_ids || []);
+    const [groups, setGroups] = useState<{ id: string; name: string; member_count: number }[]>([]);
+    const [students, setStudents] = useState<{ id: string; name: string; email?: string }[]>([]);
+    const [saving, setSaving] = useState(false);
+    const [err, setErr] = useState('');
+
+    useEffect(() => {
+        if (!userId) return;
+        fetch(`${SERVER}/api/teacher/${userId}/groups`).then(r => r.ok ? r.json() : []).then(setGroups);
+        fetch(`${SERVER}/api/teacher/${userId}/students`).then(r => r.ok ? r.json() : []).then(setStudents);
+    }, [userId]);
+
+    function toggleGroup(id: string) {
+        setTargetGroupIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    }
+    function toggleStudent(id: string) {
+        setTargetStudentIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    }
+
+    async function handleSave() {
+        if (!title.trim()) { setErr('Title is required'); return; }
+        const hasRoom = !!roomId;
+        const hasCourse = !!courseId;
+        const hasGroups = targetGroupIds.length > 0;
+        const hasStudents = targetStudentIds.length > 0;
+        if (!hasRoom && !hasCourse && !hasGroups && !hasStudents) {
+            setErr('Select at least a room, course, group(s), or student(s)');
+            return;
+        }
+        setSaving(true); setErr('');
+        try {
+            const r = await fetch(`${SERVER}/api/quizzes/${quiz.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: title.trim(),
+                    roomId: roomId || undefined,
+                    courseId: courseId || undefined,
+                    timeLimitMinutes: timeLimit ? Number(timeLimit) : null,
+                    targetGroupIds: hasGroups ? targetGroupIds : undefined,
+                    targetStudentIds: hasStudents ? targetStudentIds : undefined,
+                }),
+            });
+            const data = await r.json();
+            if (!r.ok) { setErr(data.error || 'Failed'); setSaving(false); return; }
+            onSaved();
+        } catch { setErr('Server unreachable'); }
+        setSaving(false);
+    }
+
+    return (
+        <div style={{ padding: 28 }} className="quiz-form-fade-in">
+            <h3 style={{ fontWeight: 700, marginBottom: 24, fontSize: 19 }}>Edit Quiz</h3>
+
+            <label className="quiz-label">Quiz Title</label>
+            <input
+                className="quiz-input"
+                placeholder="e.g. Chapter 3 Review Quiz"
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+            />
+
+            {courses.length > 0 && (
+                <>
+                    <label className="quiz-label" style={{ marginTop: 18 }}>Course (optional)</label>
+                    <select className="quiz-input" value={courseId} onChange={e => setCourseId(e.target.value)}>
+                        <option value="">— No course —</option>
+                        {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                    </select>
+                </>
+            )}
+
+            <label className="quiz-label" style={{ marginTop: 18 }}>Assign to Room</label>
+            {rooms.length === 0 && !courseId && groups.length === 0 && students.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Select a course, create a room, or assign to groups/students below.</p>
+            ) : (
+                <select className="quiz-input" value={roomId} onChange={e => setRoomId(e.target.value)}>
+                    <option value="">— Select a room (optional) —</option>
+                    {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>
+            )}
+
+            {(groups.length > 0 || students.length > 0) && (
+                <div style={{ marginTop: 18 }}>
+                    <label className="quiz-label">Assign to group(s) or student(s)</label>
+                    <p style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 8 }}>Select groups or individual students. At least one of room, course, group, or student is required.</p>
+                    {groups.length > 0 && (
+                        <div style={{ marginBottom: 10 }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Groups</div>
+                            <div style={{ maxHeight: 100, overflowY: 'auto', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 8, background: 'rgba(99,102,241,0.05)' }}>
+                                {groups.map(g => (
+                                    <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(99,102,241,0.1)' }}>
+                                        <input type="checkbox" checked={targetGroupIds.includes(g.id)} onChange={() => toggleGroup(g.id)} style={{ accentColor: '#6366f1' }} />
+                                        <span style={{ fontSize: 13, fontWeight: 500 }}>{g.name}</span>
+                                        <span style={{ fontSize: 11, color: '#64748b' }}>({g.member_count} members)</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    {students.length > 0 && (
+                        <div>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Individual students</div>
+                            <div style={{ maxHeight: 100, overflowY: 'auto', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 8, background: 'rgba(99,102,241,0.05)' }}>
+                                {students.map(s => (
+                                    <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(99,102,241,0.1)' }}>
+                                        <input type="checkbox" checked={targetStudentIds.includes(s.id)} onChange={() => toggleStudent(s.id)} style={{ accentColor: '#6366f1' }} />
+                                        <span style={{ fontSize: 13, fontWeight: 500 }}>{s.name || s.email || 'Student'}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            <label className="quiz-label" style={{ marginTop: 18 }}>Time Limit (minutes) — optional</label>
+            <input
+                className="quiz-input"
+                type="number" min="1" placeholder="e.g. 30"
+                value={timeLimit} onChange={e => setTimeLimit(e.target.value)}
+            />
+
+            {err && <p style={{ color: '#ef4444', fontSize: 13, marginTop: 10 }}>{err}</p>}
+
+            <div style={{ display: 'flex', gap: 12, marginTop: 28 }}>
+                <button onClick={onCancel} className="quiz-btn quiz-btn-ghost" style={{ flex: 1 }}>Cancel</button>
+                <button onClick={handleSave} disabled={saving} className="quiz-btn quiz-btn-primary" style={{ flex: 2 }}>
+                    {saving ? 'Saving…' : 'Save'}
+                </button>
+            </div>
+        </div>
+    );
+}
+
 // ─── Quiz Builder ─────────────────────────────────────────────────────────
-function QuizBuilder({ quizId, showConfirm, onAddQuestion, onPublish }: {
+function QuizBuilder({ quizId, showConfirm, onAddQuestion, onEditQuiz, onPublish }: {
     quizId: string;
     showConfirm: (opts: Omit<NonNullable<ConfirmState>, 'open'>) => void;
     onAddQuestion: (q?: Question, parentQuestionId?: string) => void;
+    onEditQuiz: (quiz: Quiz) => void;
     onPublish: () => void;
 }) {
     const [quiz, setQuiz] = useState<(Quiz & { questions: Question[] }) | null>(null);
     const [loading, setLoading] = useState(true);
-    const [editQuizMode, setEditQuizMode] = useState(false);
-    const [editTitle, setEditTitle] = useState('');
-    const [editTimeLimit, setEditTimeLimit] = useState('');
-    const [savingQuiz, setSavingQuiz] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -669,13 +831,6 @@ function QuizBuilder({ quizId, showConfirm, onAddQuestion, onPublish }: {
     }, [quizId]);
 
     useEffect(() => { load(); }, [load]);
-
-    useEffect(() => {
-        if (quiz) {
-            setEditTitle(quiz.title);
-            setEditTimeLimit(quiz.time_limit_minutes != null ? String(quiz.time_limit_minutes) : '');
-        }
-    }, [quiz]);
 
     function handleDeleteQuestion(id: string) {
         showConfirm({
@@ -690,27 +845,6 @@ function QuizBuilder({ quizId, showConfirm, onAddQuestion, onPublish }: {
         });
     }
 
-    async function handleSaveQuiz() {
-        if (!quiz || !editTitle.trim()) return;
-        setSavingQuiz(true);
-        try {
-            const r = await fetch(`${SERVER}/api/quizzes/${quiz.id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    title: editTitle.trim(),
-                    timeLimitMinutes: editTimeLimit ? Number(editTimeLimit) : null,
-                }),
-            });
-            if (r.ok) {
-                setEditQuizMode(false);
-                load();
-            }
-        } finally {
-            setSavingQuiz(false);
-        }
-    }
-
     if (loading) return <p style={{ padding: 24, color: 'var(--text-muted)', textAlign: 'center' }}>Loading…</p>;
     if (!quiz) return <p style={{ padding: 24, color: '#ef4444' }}>Quiz not found.</p>;
 
@@ -721,52 +855,20 @@ function QuizBuilder({ quizId, showConfirm, onAddQuestion, onPublish }: {
                 borderRadius: 12, padding: 16,
                 border: '1px solid rgba(99,102,241,0.3)', marginBottom: 16,
             }}>
-                {editQuizMode ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                        <div>
-                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#94a3b8', marginBottom: 4 }}>Quiz Title</label>
-                            <input
-                                className="quiz-input"
-                                value={editTitle}
-                                onChange={e => setEditTitle(e.target.value)}
-                                style={{ width: '100%', boxSizing: 'border-box' }}
-                            />
-                        </div>
-                        <div>
-                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#94a3b8', marginBottom: 4 }}>Time limit (minutes)</label>
-                            <input
-                                className="quiz-input"
-                                type="number"
-                                min="0"
-                                placeholder="No limit"
-                                value={editTimeLimit}
-                                onChange={e => setEditTimeLimit(e.target.value)}
-                                style={{ width: '100%', boxSizing: 'border-box' }}
-                            />
-                        </div>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <button onClick={() => setEditQuizMode(false)} className="quiz-btn quiz-btn-ghost" disabled={savingQuiz}>Cancel</button>
-                            <button onClick={handleSaveQuiz} className="quiz-btn quiz-btn-primary" disabled={savingQuiz || !editTitle.trim()}>
-                                {savingQuiz ? 'Saving…' : 'Save'}
-                            </button>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                    <div>
+                        <div style={{ fontWeight: 700, fontSize: 17, color: '#f1f5f9' }}>{quiz.title}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                            {quiz.questions.length} questions
+                            {quiz.time_limit_minutes ? ` · ${quiz.time_limit_minutes} min limit` : ''}
+                            {' · '}
+                            <span style={{ color: quiz.status === 'published' ? '#22c55e' : '#f59e0b' }}>
+                                {quiz.status === 'published' ? '✅ Published' : '🟡 Draft'}
+                            </span>
                         </div>
                     </div>
-                ) : (
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                        <div>
-                            <div style={{ fontWeight: 700, fontSize: 17, color: '#f1f5f9' }}>{quiz.title}</div>
-                            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-                                {quiz.questions.length} questions
-                                {quiz.time_limit_minutes ? ` · ${quiz.time_limit_minutes} min limit` : ''}
-                                {' · '}
-                                <span style={{ color: quiz.status === 'published' ? '#22c55e' : '#f59e0b' }}>
-                                    {quiz.status === 'published' ? '✅ Published' : '🟡 Draft'}
-                                </span>
-                            </div>
-                        </div>
-                        <button onClick={() => setEditQuizMode(true)} className="cd-icon-btn" title="Edit quiz" style={{ flexShrink: 0 }}>✏️</button>
-                    </div>
-                )}
+                    <button onClick={() => onEditQuiz(quiz)} className="cd-icon-btn" title="Edit quiz" style={{ flexShrink: 0 }}>✏️</button>
+                </div>
             </div>
 
             {quiz.questions.length === 0 && (
