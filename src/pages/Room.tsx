@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useUser } from '../lib/AuthContext';
 import ChatPanel, { ChatMsg } from '../components/ChatPanel';
 import DevicePicker from '../components/DevicePicker';
+import RescheduleSessionModal from '../components/RescheduleSessionModal';
 import { RoomQuizParticipant, RoomQuizHost, PostSubmitWaiting, InlineResultCard } from '../components/RoomQuizPanel';
 import { useSocket, Participant } from '../hooks/useSocket';
 import { useWebRTC } from '../hooks/useWebRTC';
@@ -48,6 +49,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [codeCopied, setCodeCopied] = useState(false);
     const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
     const [showEndConfirm, setShowEndConfirm] = useState(false);
+    const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+    const [hasScheduledSession, setHasScheduledSession] = useState<boolean | null>(null);
     const [quizToggleOn, setQuizToggleOn] = useState(false);
     const [roomQuizzes, setRoomQuizzes] = useState<{ id: string; title: string; question_count?: number; room_id?: string }[]>([]);
     const [loadingRoomQuizzes, setLoadingRoomQuizzes] = useState(false);
@@ -270,13 +273,31 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
 
     const handleEndRoom = () => {
         setShowEndConfirm(true);
+        if (role === 'teacher') {
+            fetch(`${SERVER_URL}/api/session-by-code/${roomCode.toUpperCase()}`)
+                .then((r) => (r.ok ? r.json() : null))
+                .then((data) => setHasScheduledSession(!!data))
+                .catch(() => setHasScheduledSession(false));
+        } else {
+            setHasScheduledSession(false);
+        }
     };
 
     const confirmEndRoom = () => {
         setShowEndConfirm(false);
-        clearSession();
+        setHasScheduledSession(null);
         endRoom();
-        onLeave();
+        // Don't call onLeave/clearSession — countdown will run, room-ended will trigger redirect
+    };
+
+    const handleRescheduleClick = () => {
+        setShowEndConfirm(false);
+        setShowRescheduleModal(true);
+    };
+
+    const handleRescheduleSaved = () => {
+        setShowRescheduleModal(false);
+        setHasScheduledSession(null);
     };
 
     // Build participant list for sidebar
@@ -392,7 +413,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                 </div>
             )}
 
-            {/* End class confirmation modal */}
+            {/* End class confirmation modal — Reschedule or End Class */}
             {showEndConfirm && (
                 <div
                     style={{
@@ -401,7 +422,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         padding: 20,
                     }}
-                    onClick={() => setShowEndConfirm(false)}
+                    onClick={() => { setShowEndConfirm(false); setHasScheduledSession(null); }}
                 >
                     <div
                         style={{
@@ -416,17 +437,38 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div style={{ padding: '24px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--text, #e8e8f0)' }}>End the class for everyone?</h2>
+                            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--text, #e8e8f0)' }}>Reschedule the class?</h2>
                         </div>
                         <p style={{ margin: 0, padding: '20px 24px', fontSize: 15, color: 'var(--text-muted, #94a3b8)', lineHeight: 1.5 }}>
-                            This cannot be undone.
+                            {hasScheduledSession === true
+                                ? 'You can reschedule this class to a new date and time, or end it now. The class will count down before ending.'
+                                : hasScheduledSession === false
+                                    ? 'End the class? A countdown will start before the session ends.'
+                                    : 'Loading…'}
                         </p>
-                        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', padding: '16px 24px 24px' }}>
-                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowEndConfirm(false)}>Cancel</button>
-                            <button type="button" className="btn btn-primary" style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)' }} onClick={confirmEndRoom}>End class</button>
+                        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', padding: '16px 24px 24px', flexWrap: 'wrap' }}>
+                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setShowEndConfirm(false); setHasScheduledSession(null); }}>Cancel</button>
+                            {hasScheduledSession === true && (
+                                <button type="button" className="btn btn-primary" onClick={handleRescheduleClick}>
+                                    Reschedule
+                                </button>
+                            )}
+                            <button type="button" className="btn btn-primary" style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)' }} onClick={confirmEndRoom} disabled={hasScheduledSession === null}>
+                                End class
+                            </button>
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Reschedule session modal (from End Class flow) */}
+            {showRescheduleModal && role === 'teacher' && user?.id && (
+                <RescheduleSessionModal
+                    roomCode={roomCode}
+                    userId={user.id}
+                    onSaved={handleRescheduleSaved}
+                    onCancel={() => setShowRescheduleModal(false)}
+                />
             )}
 
             {/* Quiz reveal overlays removed — now inline in spotlight area */}
