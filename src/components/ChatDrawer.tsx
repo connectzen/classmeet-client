@@ -437,18 +437,18 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <div style={{ fontWeight: 600, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
                                             {getConvDisplayName(activeConv)}
-                                            {activeConv.type === 'dm' && activeConv.other_user?.id && onlineIds.has(activeConv.other_user.id) && (
+                                            {activeConv.type === 'dm' && activeConv.other_user?.user_id && onlineIds.has(activeConv.other_user.user_id) && (
                                                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', flexShrink: 0 }} title="Online" />
                                             )}
                                         </div>
                                         <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                                             {activeConv.type === 'broadcast' ? 'Broadcast channel' 
                                              : activeConv.type === 'group' ? 'Group' 
-                                             : activeConv.type === 'dm' && activeConv.other_user?.id ? (
-                                                 onlineIds.has(activeConv.other_user.id) 
+                                             : activeConv.type === 'dm' && activeConv.other_user?.user_id ? (
+                                                 onlineIds.has(activeConv.other_user.user_id) 
                                                      ? <span style={{ color: '#22c55e' }}>online</span>
-                                                     : lastSeen[activeConv.other_user.id] 
-                                                         ? formatLastSeen(lastSeen[activeConv.other_user.id])
+                                                     : lastSeen[activeConv.other_user.user_id] 
+                                                         ? formatLastSeen(lastSeen[activeConv.other_user.user_id])
                                                          : activeConv.other_user?.user_role || 'user'
                                              ) : activeConv.other_user?.user_role || 'user'}
                                         </div>

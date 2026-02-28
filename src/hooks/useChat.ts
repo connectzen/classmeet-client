@@ -42,6 +42,10 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
     const [typing, setTyping]               = useState<Record<string, string>>({});
     const [onlineIds, setOnlineIds]         = useState<Set<string>>(new Set());
     const [lastSeen, setLastSeen]           = useState<Record<string, number>>({});
+    const socketRef = useRef<Socket | null>(null);
+    const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+    useEffect(() => {
         const sock = io(SERVER_URL, { transports: ['websocket'], autoConnect: true });
         socketRef.current = sock;
 
@@ -135,7 +139,7 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
         sock.on('chat:conversationDeleted', ({ conversationId }: { conversationId: string }) => {
             setConversations(prev => prev.filter(c => c.conversation_id !== conversationId));
             setMessages(prev => { const n = { ...prev }; delete n[conversationId]; return n; });
-            setActiveConvId(prev => prev === conversationId ? null : prev);
+            setActiveConvId(prev => (prev === conversationId ? null : prev));
         });
 
         return () => { sock.disconnect(); };
@@ -269,7 +273,7 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
         // Optimistically remove from UI immediately
         setConversations(prev => prev.filter(c => c.conversation_id !== convId));
         setMessages(prev => { const n = { ...prev }; delete n[convId]; return n; });
-        setActiveConvId(prev => prev === convId ? null : prev);
+        setActiveConvId(prev => (prev === convId ? null : prev));
         await fetch(`${SERVER_URL}/api/chat/conversations/${convId}`, { method: 'DELETE' });
     }, []);
     return {

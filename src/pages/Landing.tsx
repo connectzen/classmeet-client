@@ -150,6 +150,8 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [studentProfiles, setStudentProfiles] = useState<Record<string, { name: string; avatar_url?: string }>>({});
     const [teacherStudents, setTeacherStudents] = useState<{ id: string; name: string; email: string; avatar_url?: string | null }[]>([]);
     const [loadingTeacherStudents, setLoadingTeacherStudents] = useState(false);
+    const [teacherGroups, setTeacherGroups] = useState<{ id: string; name: string; member_count: number; created_at: string }[]>([]);
+    const [loadingTeacherGroups, setLoadingTeacherGroups] = useState(false);
     const [teacherCoursesCount, setTeacherCoursesCount] = useState(0);
     const [memberCoursesCount, setMemberCoursesCount] = useState(0);
     const [memberTeachers, setMemberTeachers] = useState<{ user_id: string; name: string; email?: string }[]>([]);
@@ -173,6 +175,15 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [scheduling, setScheduling] = useState(false);
     const [scheduleError, setScheduleError] = useState('');
     const [loadingStudentsList, setLoadingStudentsList] = useState(false);
+
+    // Student groups modal state
+    const [groupModalMode, setGroupModalMode] = useState<'create' | 'edit' | 'manage' | null>(null);
+    const [editingGroup, setEditingGroup] = useState<{ id: string; name: string; member_count: number } | null>(null);
+    const [newGroupName, setNewGroupName] = useState('');
+    const [groupMembers, setGroupMembers] = useState<{ id: string; name: string; email?: string }[]>([]);
+    const [groupMemberIds, setGroupMemberIds] = useState<string[]>([]);
+    const [savingGroup, setSavingGroup] = useState(false);
+    const [groupError, setGroupError] = useState('');
 
     // Edit session state
     const [editSessionMode, setEditSessionMode] = useState(false);
@@ -264,6 +275,16 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         } catch { /* ignore */ }
         setLoadingTeacherStudents(false);
     }, [user?.id, userRole, fetchStudentProfiles]);
+
+    const fetchTeacherGroups = useCallback(async () => {
+        if (!user?.id || userRole !== 'teacher') return;
+        setLoadingTeacherGroups(true);
+        try {
+            const r = await fetch(`${SERVER_URL}/api/teacher/${user.id}/groups`);
+            if (r.ok) setTeacherGroups(await r.json());
+        } catch { /* ignore */ }
+        setLoadingTeacherGroups(false);
+    }, [user?.id, userRole]);
 
     const fetchTeacherCoursesCount = useCallback(async () => {
         if (!user?.id || userRole !== 'teacher') return;
@@ -378,12 +399,12 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                 fetchTeacherSessions();
                 fetchMemberSessions();
                 fetchStudentTeacherSessions();
-                if (d.role === 'teacher') { fetchTeacherStudents(); fetchTeacherCoursesCount(); }
+                if (d.role === 'teacher') { fetchTeacherStudents(); fetchTeacherGroups(); fetchTeacherCoursesCount(); }
                 if (d.role === 'member') { fetchAllStudents(); fetchMemberCoursesCount(); fetchMemberTeachers(); fetchMemberTeachersWithStudents(); }
                 if (d.role === 'student') fetchTeacherNamesForStudent();
             })
             .catch(() => setUserRole('pending'));
-    }, [user?.id, user?.email, onAdminView, fetchTeacherSessions, fetchMemberSessions, fetchStudentTeacherSessions, fetchTeacherStudents, fetchTeacherCoursesCount, fetchAllStudents, fetchMemberCoursesCount, fetchTeacherNamesForStudent, fetchMemberTeachers, fetchMemberTeachersWithStudents]);
+    }, [user?.id, user?.email, onAdminView, fetchTeacherSessions, fetchMemberSessions, fetchStudentTeacherSessions, fetchTeacherStudents, fetchTeacherGroups, fetchTeacherCoursesCount, fetchAllStudents, fetchMemberCoursesCount, fetchTeacherNamesForStudent, fetchMemberTeachers, fetchMemberTeachersWithStudents]);
 
     useEffect(() => {
         if (!user?.id || !userRole || userRole === 'pending') return;
@@ -392,6 +413,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         fetchStudentTeacherSessions();
         if (userRole === 'teacher') {
             fetchTeacherStudents();
+            fetchTeacherGroups();
             fetchTeacherCoursesCount();
         }
         if (userRole === 'member') {
@@ -428,7 +450,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             if (studentId === user?.id) setQuizScoreUpdateTrigger(prev => prev + 1);
         });
         sock2.on('dashboard:data-changed', () => {
-            if (userRole === 'teacher') fetchTeacherStudents();
+            if (userRole === 'teacher') { fetchTeacherStudents(); fetchTeacherGroups(); }
             if (userRole === 'member') { fetchAllStudents(); fetchMemberTeachers(); fetchMemberTeachersWithStudents(); }
             if (userRole === 'student') fetchTeacherNamesForStudent();
             refetchRoleAndDashboard();
@@ -458,7 +480,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             if (pollTeacherNames != null) clearInterval(pollTeacherNames);
             sock2.disconnect();
         };
-    }, [user?.id, userRole, fetchTeacherSessions, fetchMemberSessions, fetchStudentTeacherSessions, fetchTeacherStudents, fetchTeacherCoursesCount, fetchAllStudents, fetchMemberCoursesCount, fetchTeacherNamesForStudent, fetchMemberTeachers, fetchMemberTeachersWithStudents, refetchRoleAndDashboard]);
+    }, [user?.id, userRole, fetchTeacherSessions, fetchMemberSessions, fetchStudentTeacherSessions, fetchTeacherStudents, fetchTeacherGroups, fetchTeacherCoursesCount, fetchAllStudents, fetchMemberCoursesCount, fetchTeacherNamesForStudent, fetchMemberTeachers, fetchMemberTeachersWithStudents, refetchRoleAndDashboard]);
 
     // Refetch role and dashboard when user returns to tab
     useEffect(() => {
@@ -1067,6 +1089,10 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>{teacherCoursesCount}</div>
                                 </div>
                                 <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Groups</div>
+                                    <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>{loadingTeacherGroups && teacherGroups.length === 0 ? '…' : teacherGroups.length}</div>
+                                </div>
+                                <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
                                     <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Upcoming sessions</div>
                                     <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>
                                         {teacherSessions.filter(s => new Date(s.scheduled_at) >= new Date()).length}
@@ -1103,6 +1129,54 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                             </div>
                                             );
                                         })}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Student Groups */}
+                            <div style={{ marginBottom: 20 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Student Groups</div>
+                                    <button
+                                        onClick={() => { setGroupModalMode('create'); setNewGroupName(''); setGroupError(''); }}
+                                        style={{
+                                            background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)',
+                                            borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600,
+                                            color: '#a5b4fc', cursor: 'pointer',
+                                        }}
+                                    >+ New Group</button>
+                                </div>
+                                {loadingTeacherGroups && teacherGroups.length === 0 ? (
+                                    <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>
+                                ) : teacherGroups.length === 0 ? (
+                                    <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No groups yet. Create groups to assign quizzes to specific students.</div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                                        {teacherGroups.map(g => (
+                                            <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 14px' }}>
+                                                <div>
+                                                    <div style={{ fontWeight: 600, fontSize: 14 }}>{g.name}</div>
+                                                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{g.member_count} member{g.member_count !== 1 ? 's' : ''}</div>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: 6 }}>
+                                                    <button
+                                                        onClick={async () => { setEditingGroup(g); setGroupModalMode('manage'); setGroupError(''); const r = await fetch(`${SERVER_URL}/api/groups/${g.id}/members`); const members = r.ok ? await r.json() : []; setGroupMembers(members); setGroupMemberIds(members.map((m: { id: string }) => m.id)); }}
+                                                        title="Manage members"
+                                                        style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 6, padding: '4px 8px', fontSize: 11, fontWeight: 600, color: '#a5b4fc', cursor: 'pointer' }}
+                                                    >Members</button>
+                                                    <button
+                                                        onClick={() => { setEditingGroup(g); setNewGroupName(g.name); setGroupModalMode('edit'); setGroupError(''); }}
+                                                        title="Edit group"
+                                                        style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 6, padding: '4px 8px', fontSize: 11, fontWeight: 600, color: '#a5b4fc', cursor: 'pointer' }}
+                                                    >Edit</button>
+                                                    <button
+                                                        onClick={async () => { if (confirm(`Delete group "${g.name}"?`)) { await fetch(`${SERVER_URL}/api/groups/${g.id}`, { method: 'DELETE' }); fetchTeacherGroups(); } }}
+                                                        title="Delete group"
+                                                        style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: 6, padding: '4px 8px', fontSize: 11, fontWeight: 600, color: '#fca5a5', cursor: 'pointer' }}
+                                                    >Delete</button>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
                             </div>
@@ -1473,6 +1547,149 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                 {updatingSession ? 'Updating…' : 'Update session'}
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Group Modal (create / edit / manage) */}
+            {groupModalMode && user?.id && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 1000,
+                    background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+                    overflowY: 'auto',
+                }} onClick={() => { setGroupModalMode(null); setEditingGroup(null); setNewGroupName(''); setGroupError(''); }}>
+                    <div style={{
+                        background: 'linear-gradient(135deg, #1e1b4b 0%, #1e2a4a 100%)',
+                        border: '1px solid rgba(99,102,241,0.4)',
+                        borderRadius: 20, padding: '32px 28px', width: '100%', maxWidth: 520,
+                        boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+                        margin: 'auto',
+                        maxHeight: '90vh',
+                        overflowY: 'auto',
+                    }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+                            <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#f1f5f9' }}>
+                                {groupModalMode === 'create' ? 'Create Group' : groupModalMode === 'edit' ? 'Edit Group' : `Manage: ${editingGroup?.name || ''}`}
+                            </h3>
+                            <button onClick={() => { setGroupModalMode(null); setEditingGroup(null); setNewGroupName(''); setGroupError(''); }} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
+                        </div>
+
+                        {groupError && <div className="error-banner" style={{ marginBottom: 16 }}>{groupError}</div>}
+
+                        {groupModalMode === 'create' && (
+                            <>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Group Name *</label>
+                                    <input
+                                        className="form-input"
+                                        type="text"
+                                        placeholder="e.g. Grade 1, Math Club"
+                                        value={newGroupName}
+                                        onChange={e => setNewGroupName(e.target.value)}
+                                        style={{ width: '100%', boxSizing: 'border-box' }}
+                                    />
+                                </div>
+                                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 24 }}>
+                                    <button className="btn-ghost btn-sm" onClick={() => setGroupModalMode(null)}>Cancel</button>
+                                    <button
+                                        className="btn btn-primary"
+                                        disabled={savingGroup || !newGroupName.trim()}
+                                        onClick={async () => {
+                                            setSavingGroup(true); setGroupError('');
+                                            try {
+                                                const r = await fetch(`${SERVER_URL}/api/teacher/${user.id}/groups`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newGroupName.trim() }) });
+                                                const data = await r.json();
+                                                if (!r.ok) { setGroupError(data.error || 'Failed'); setSavingGroup(false); return; }
+                                                fetchTeacherGroups();
+                                                setGroupModalMode(null); setNewGroupName('');
+                                            } catch { setGroupError('Server unreachable'); }
+                                            setSavingGroup(false);
+                                        }}
+                                    >{savingGroup ? 'Creating…' : 'Create'}</button>
+                                </div>
+                            </>
+                        )}
+
+                        {groupModalMode === 'edit' && editingGroup && (
+                            <>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Group Name *</label>
+                                    <input
+                                        className="form-input"
+                                        type="text"
+                                        value={newGroupName}
+                                        onChange={e => setNewGroupName(e.target.value)}
+                                        style={{ width: '100%', boxSizing: 'border-box' }}
+                                    />
+                                </div>
+                                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 24 }}>
+                                    <button className="btn-ghost btn-sm" onClick={() => setGroupModalMode(null)}>Cancel</button>
+                                    <button
+                                        className="btn btn-primary"
+                                        disabled={savingGroup || !newGroupName.trim()}
+                                        onClick={async () => {
+                                            setSavingGroup(true); setGroupError('');
+                                            try {
+                                                const r = await fetch(`${SERVER_URL}/api/groups/${editingGroup.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newGroupName.trim() }) });
+                                                const data = await r.json();
+                                                if (!r.ok) { setGroupError(data.error || 'Failed'); setSavingGroup(false); return; }
+                                                fetchTeacherGroups();
+                                                setGroupModalMode(null); setEditingGroup(null); setNewGroupName('');
+                                            } catch { setGroupError('Server unreachable'); }
+                                            setSavingGroup(false);
+                                        }}
+                                    >{savingGroup ? 'Saving…' : 'Save'}</button>
+                                </div>
+                            </>
+                        )}
+
+                        {groupModalMode === 'manage' && editingGroup && (
+                            <>
+                                <div style={{ marginBottom: 16 }}>
+                                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Current members ({groupMembers.length})</label>
+                                    {groupMembers.length === 0 ? (
+                                        <div style={{ fontSize: 13, color: '#64748b' }}>No members yet.</div>
+                                    ) : (
+                                        <div style={{ maxHeight: 120, overflowY: 'auto', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 10, background: 'rgba(99,102,241,0.05)' }}>
+                                            {groupMembers.map(m => (
+                                                <div key={m.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderBottom: '1px solid rgba(99,102,241,0.1)' }}>
+                                                    <span style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{m.name || m.email || 'Student'}</span>
+                                                    <button
+                                                        onClick={async () => { await fetch(`${SERVER_URL}/api/groups/${editingGroup.id}/members/${m.id}`, { method: 'DELETE' }); const r = await fetch(`${SERVER_URL}/api/groups/${editingGroup.id}/members`); const members = r.ok ? await r.json() : []; setGroupMembers(members); setGroupMemberIds(members.map((x: { id: string }) => x.id)); fetchTeacherGroups(); }}
+                                                        style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 6, padding: '4px 8px', fontSize: 11, color: '#fca5a5', cursor: 'pointer' }}
+                                                    >Remove</button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Add students</label>
+                                    {teacherStudents.length === 0 ? (
+                                        <div style={{ fontSize: 13, color: '#64748b' }}>No students assigned yet.</div>
+                                    ) : (
+                                        <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 10, background: 'rgba(99,102,241,0.05)' }}>
+                                            {teacherStudents.filter(s => !groupMemberIds.includes(s.id)).map(s => (
+                                                <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderBottom: '1px solid rgba(99,102,241,0.1)' }}>
+                                                    <span style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{s.name || s.email || 'Student'}</span>
+                                                    <button
+                                                        onClick={async () => { await fetch(`${SERVER_URL}/api/groups/${editingGroup.id}/members`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ studentIds: [s.id] }) }); const r = await fetch(`${SERVER_URL}/api/groups/${editingGroup.id}/members`); const members = r.ok ? await r.json() : []; setGroupMembers(members); setGroupMemberIds(members.map((x: { id: string }) => x.id)); fetchTeacherGroups(); }}
+                                                        style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 6, padding: '4px 8px', fontSize: 11, color: '#a5b4fc', cursor: 'pointer' }}
+                                                    >Add</button>
+                                                </div>
+                                            ))}
+                                            {teacherStudents.filter(s => !groupMemberIds.includes(s.id)).length === 0 && (
+                                                <div style={{ padding: 12, fontSize: 13, color: '#64748b' }}>All students are already in this group.</div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
+                                    <button className="btn-ghost btn-sm" onClick={() => { setGroupModalMode(null); setEditingGroup(null); }}>Done</button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             )}

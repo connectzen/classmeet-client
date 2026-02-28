@@ -496,12 +496,36 @@ function CreateQuizForm({ userId, rooms, courses, onCreated, onCancel }: {
     const [roomId, setRoomId] = useState('');
     const [courseId, setCourseId] = useState('');
     const [timeLimit, setTimeLimit] = useState('');
+    const [targetGroupIds, setTargetGroupIds] = useState<string[]>([]);
+    const [targetStudentIds, setTargetStudentIds] = useState<string[]>([]);
+    const [groups, setGroups] = useState<{ id: string; name: string; member_count: number }[]>([]);
+    const [students, setStudents] = useState<{ id: string; name: string; email?: string }[]>([]);
     const [saving, setSaving] = useState(false);
     const [err, setErr] = useState('');
 
+    useEffect(() => {
+        if (!userId) return;
+        fetch(`${SERVER}/api/teacher/${userId}/groups`).then(r => r.ok ? r.json() : []).then(setGroups);
+        fetch(`${SERVER}/api/teacher/${userId}/students`).then(r => r.ok ? r.json() : []).then(setStudents);
+    }, [userId]);
+
+    function toggleGroup(id: string) {
+        setTargetGroupIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    }
+    function toggleStudent(id: string) {
+        setTargetStudentIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    }
+
     async function handleCreate() {
         if (!title.trim()) { setErr('Title is required'); return; }
-        if (!roomId && !courseId) { setErr('Select a room or course'); return; }
+        const hasRoom = !!roomId;
+        const hasCourse = !!courseId;
+        const hasGroups = targetGroupIds.length > 0;
+        const hasStudents = targetStudentIds.length > 0;
+        if (!hasRoom && !hasCourse && !hasGroups && !hasStudents) {
+            setErr('Select at least a room, course, group(s), or student(s)');
+            return;
+        }
         setSaving(true); setErr('');
         try {
             const r = await fetch(`${SERVER}/api/quizzes`, {
@@ -513,6 +537,8 @@ function CreateQuizForm({ userId, rooms, courses, onCreated, onCancel }: {
                     courseId: courseId || undefined,
                     createdBy: userId,
                     timeLimitMinutes: timeLimit ? Number(timeLimit) : null,
+                    targetGroupIds: hasGroups ? targetGroupIds : undefined,
+                    targetStudentIds: hasStudents ? targetStudentIds : undefined,
                 }),
             });
             const data = await r.json();
@@ -556,13 +582,47 @@ function CreateQuizForm({ userId, rooms, courses, onCreated, onCancel }: {
             )}
 
             <label className="quiz-label" style={{ marginTop: 18 }}>Assign to Room</label>
-            {rooms.length === 0 && !courseId ? (
-                <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Select a course above or create a room first.</p>
+            {rooms.length === 0 && !courseId && groups.length === 0 && students.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Select a course, create a room, or assign to groups/students below.</p>
             ) : (
                 <select className="quiz-input" value={roomId} onChange={e => setRoomId(e.target.value)}>
-                    <option value="">— Select a room (optional if course set) —</option>
+                    <option value="">— Select a room (optional) —</option>
                     {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                 </select>
+            )}
+
+            {(groups.length > 0 || students.length > 0) && (
+                <div style={{ marginTop: 18 }}>
+                    <label className="quiz-label">Assign to group(s) or student(s)</label>
+                    <p style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 8 }}>Select groups or individual students. At least one of room, course, group, or student is required.</p>
+                    {groups.length > 0 && (
+                        <div style={{ marginBottom: 10 }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Groups</div>
+                            <div style={{ maxHeight: 100, overflowY: 'auto', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 8, background: 'rgba(99,102,241,0.05)' }}>
+                                {groups.map(g => (
+                                    <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(99,102,241,0.1)' }}>
+                                        <input type="checkbox" checked={targetGroupIds.includes(g.id)} onChange={() => toggleGroup(g.id)} style={{ accentColor: '#6366f1' }} />
+                                        <span style={{ fontSize: 13, fontWeight: 500 }}>{g.name}</span>
+                                        <span style={{ fontSize: 11, color: '#64748b' }}>({g.member_count} members)</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    {students.length > 0 && (
+                        <div>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Individual students</div>
+                            <div style={{ maxHeight: 100, overflowY: 'auto', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 8, background: 'rgba(99,102,241,0.05)' }}>
+                                {students.map(s => (
+                                    <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(99,102,241,0.1)' }}>
+                                        <input type="checkbox" checked={targetStudentIds.includes(s.id)} onChange={() => toggleStudent(s.id)} style={{ accentColor: '#6366f1' }} />
+                                        <span style={{ fontSize: 13, fontWeight: 500 }}>{s.name || s.email || 'Student'}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
             )}
 
             <label className="quiz-label" style={{ marginTop: 18 }}>Time Limit (minutes) — optional</label>
