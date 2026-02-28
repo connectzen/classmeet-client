@@ -299,7 +299,9 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         setShowRescheduleModal(false);
         setHasScheduledSession(null);
         endRoom();
-        // Countdown starts, room-ended will trigger redirect
+        clearSession();
+        onLeave();
+        // Teacher leaves immediately; countdown runs for any remaining students
     };
 
     // Build participant list for sidebar
