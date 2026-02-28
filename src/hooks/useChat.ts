@@ -155,8 +155,8 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
     const fetchConversations = useCallback(async () => {
         if (!userId) return;
         try {
-            // Ensure user is in the broadcast groups for their role
-            await ensureBroadcastMembership();
+            // Fire broadcast membership in background — don't block conversation loading
+            ensureBroadcastMembership().catch(() => {});
             const res = await fetch(`${SERVER_URL}/api/chat/conversations/${userId}`);
             if (res.ok) setConversations(await res.json());
         } catch { /* ignore */ }
@@ -229,10 +229,8 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
             other_user: { user_id: otherId, user_name: otherName, user_role: otherRole, avatar_url: null },
         };
         setConversations(prev => prev.some(c => c.conversation_id === data.id) ? prev : [optimistic, ...prev]);
-        // Then fetch in the background to get server truth
-        fetchConversations();
         return data.id;
-    }, [userId, userRole, userName, fetchConversations]);
+    }, [userId, userRole, userName]);
 
     // ── Send message ──────────────────────────────────────────────────────
     const sendMessage = useCallback(async (
