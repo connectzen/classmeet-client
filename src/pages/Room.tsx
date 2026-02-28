@@ -258,10 +258,27 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         const track = localStream.getAudioTracks()[0];
         if (track) { track.enabled = !track.enabled; setMicOn(track.enabled); }
     };
-    const toggleCam = () => {
+    const toggleCam = async () => {
         if (!localStream) return;
         const track = localStream.getVideoTracks()[0];
-        if (track) { track.enabled = !track.enabled; setCamOn(track.enabled); broadcastSelfCam(track.enabled); }
+        if (track) {
+            track.enabled = !track.enabled;
+            setCamOn(track.enabled);
+            broadcastSelfCam(track.enabled);
+        } else if (!camOn) {
+            // No video track — try to acquire camera now (initial getUserMedia may have failed for video)
+            try {
+                const vs = await navigator.mediaDevices.getUserMedia({
+                    video: activeVideoDeviceId ? { deviceId: { exact: activeVideoDeviceId } } : true,
+                });
+                const vt = vs.getVideoTracks()[0];
+                // Build a new stream so the useWebRTC effect fires and adds the track to all peers
+                const newStream = new MediaStream([...localStream.getTracks(), vt]);
+                setLocalStream(newStream);
+                setCamOn(true);
+                broadcastSelfCam(true);
+            } catch { /* camera permission denied */ }
+        }
     };
 
     const handleDeviceApply = (videoId: string | null, audioId: string | null) => {

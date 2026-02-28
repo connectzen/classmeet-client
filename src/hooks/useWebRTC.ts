@@ -34,7 +34,7 @@ export function useWebRTC({ localStream, onSendSignal }: UseWebRTCOptions) {
     }, []);
 
     // Stable: reads localStreamRef/onSendSignalRef at call-time, never goes stale
-    const createPeer = useCallback((remoteSocketId: string, initiator: boolean): RTCPeerConnection => {
+    const createPeer = useCallback((remoteSocketId: string, _initiator: boolean): RTCPeerConnection => {
         const peer = new RTCPeerConnection({ iceServers: ICE_SERVERS });
 
         // Add local tracks using the latest stream available right now
@@ -50,10 +50,19 @@ export function useWebRTC({ localStream, onSendSignal }: UseWebRTCOptions) {
             }
         };
 
-        // Remote stream
+        // Remote stream — handle the case where event.streams is empty (some browsers)
         peer.ontrack = (event) => {
-            const [remoteStream] = event.streams;
-            setRemoteStreams((prev) => new Map(prev).set(remoteSocketId, remoteStream));
+            const remoteStream = event.streams[0];
+            if (remoteStream) {
+                setRemoteStreams((prev) => new Map(prev).set(remoteSocketId, remoteStream));
+            } else {
+                // Accumulate individual tracks into a single MediaStream for this peer
+                setRemoteStreams((prev) => {
+                    const existing = prev.get(remoteSocketId) || new MediaStream();
+                    existing.addTrack(event.track);
+                    return new Map(prev).set(remoteSocketId, existing);
+                });
+            }
         };
 
         peer.onconnectionstatechange = () => {
@@ -64,24 +73,21 @@ export function useWebRTC({ localStream, onSendSignal }: UseWebRTCOptions) {
 
         peersRef.current.set(remoteSocketId, peer);
 
-        // Only the initiator ever sends offers (including renegotiation offers).
-        // onnegotiationneeded fires after addTrack — now AND whenever new tracks
-        // are added later (e.g. when localStream arrives after peer creation).
-        if (initiator) {
-            peer.onnegotiationneeded = async () => {
-                try {
-                    // If already negotiating, bail — browser will fire again when stable
-                    if (peer.signalingState !== 'stable') return;
-                    const offer = await peer.createOffer();
-                    // Double-check state after the async gap
-                    if (peer.signalingState !== 'stable') return;
-                    await peer.setLocalDescription(offer);
-                    onSendSignalRef.current(remoteSocketId, { type: 'offer', sdp: offer });
-                } catch (e) {
-                    console.error('[WebRTC] negotiation error', e);
-                }
-            };
-        }
+        // ALL peers handle onnegotiationneeded — not just the initiator.
+        // This is critical: when the non-initiator's tracks are added late (via the
+        // localStream useEffect below), onnegotiationneeded must fire and send a new
+        // offer so those tracks are actually transmitted to the remote peer.
+        peer.onnegotiationneeded = async () => {
+            try {
+                if (peer.signalingState !== 'stable') return;
+                const offer = await peer.createOffer();
+                if (peer.signalingState !== 'stable') return;
+                await peer.setLocalDescription(offer);
+                onSendSignalRef.current(remoteSocketId, { type: 'offer', sdp: offer });
+            } catch (e) {
+                console.error('[WebRTC] negotiation error', e);
+            }
+        };
 
         return peer;
     }, [removePeer]); // stable — reads latest values via refs
@@ -91,6 +97,10 @@ export function useWebRTC({ localStream, onSendSignal }: UseWebRTCOptions) {
 
         if (signal.type === 'offer') {
             if (!peer) peer = createPeer(from, false);
+            // Glare: if we're mid-offer ourselves, rollback our local description first
+            if (peer.signalingState !== 'stable') {
+                await peer.setLocalDescription({ type: 'rollback' });
+            }
             await peer.setRemoteDescription(new RTCSessionDescription(signal.sdp));
             const answer = await peer.createAnswer();
             await peer.setLocalDescription(answer);
@@ -127,7 +137,7 @@ export function useWebRTC({ localStream, onSendSignal }: UseWebRTCOptions) {
             localStream.getTracks().forEach((track) => {
                 const sender = senders.find((s) => s.track?.kind === track.kind);
                 if (sender) sender.replaceTrack(track);
-                else peer.addTrack(track, localStream);
+                else peer.addTrack(track, localStream); // triggers onnegotiationneeded on all peers
             });
         });
     }, [localStream]);

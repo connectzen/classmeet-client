@@ -426,11 +426,13 @@ export function InlineResultCard({ score, comment, studentName, isClassReveal, c
                         </div>
                     )}
 
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 8 }}>
-                        Tap or press Esc to dismiss
-                    </div>
                 </div>
             </div>
+            {!isCapturing && (
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 8 }}>
+                    Tap or press Esc to dismiss
+                </div>
+            )}
             {canDownload && !isCapturing && (
                 <button
                     onClick={handleDownload}
