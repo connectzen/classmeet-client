@@ -1,0 +1,20 @@
+---
+description: Always push changes to git after making edits
+alwaysApply: true
+---
+
+# Push After Changes
+
+After completing code changes to this project, always push to the remote repository:
+
+1. **Client changes** (in `client/`): Run from `client/` directory:
+   - `git add -A`
+   - `git commit -m "<descriptive message>"`
+   - `git push`
+
+2. **Server changes** (in `server/`): Run from `server/` directory:
+   - `git add -A`
+   - `git commit -m "<descriptive message>"`
+   - `git push`
+
+3. **Both changed**: Push each repository separately (client and server are separate git repos).
