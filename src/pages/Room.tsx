@@ -415,15 +415,21 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                 />
             )}
 
-            {/* Mobile chat popup */}
-            {isChatOpen ? (
-                <div className="mobile-chat-overlay" onClick={() => setIsChatOpen(false)}>
-                    <div className="mobile-chat-sheet" onClick={(e) => e.stopPropagation()}>
-                        <button className="mobile-chat-close" onClick={() => setIsChatOpen(false)}>✕</button>
-                        <ChatPanel messages={messages} mySocketId={socketId} onSend={sendMessage} />
+            {/* Mobile chat — full-screen like WhatsApp */}
+            {isChatOpen && (
+                <div className="mobile-chat-fullscreen">
+                    <div className="mobile-chat-topbar">
+                        <button className="mobile-chat-back" onClick={() => setIsChatOpen(false)}>
+                            ← Back
+                        </button>
+                        <span className="mobile-chat-topbar-title">Chat</span>
+                        {messages.length > 0 && (
+                            <span className="mobile-chat-topbar-count">{messages.length}</span>
+                        )}
                     </div>
+                    <ChatPanel messages={messages} mySocketId={socketId} onSend={sendMessage} hideHeader />
                 </div>
-            ) : null}
+            )}
 
             {/* Leave room confirmation modal */}
             {showLeaveConfirm && (

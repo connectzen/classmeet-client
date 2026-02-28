@@ -11,9 +11,10 @@ interface Props {
     messages: ChatMsg[];
     mySocketId: string;
     onSend: (msg: string) => void;
+    hideHeader?: boolean;
 }
 
-export default function ChatPanel({ messages, mySocketId, onSend }: Props) {
+export default function ChatPanel({ messages, mySocketId, onSend, hideHeader }: Props) {
     const [text, setText] = useState('');
     const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -34,11 +35,13 @@ export default function ChatPanel({ messages, mySocketId, onSend }: Props) {
 
     return (
         <div className="chat-panel">
-            <div className="chat-header">
-                <span className="chat-icon">💬</span>
-                <span className="chat-title">Chat</span>
-                {messages.length > 0 && <span className="chat-count">{messages.length}</span>}
-            </div>
+            {!hideHeader && (
+                <div className="chat-header">
+                    <span className="chat-icon">💬</span>
+                    <span className="chat-title">Chat</span>
+                    {messages.length > 0 && <span className="chat-count">{messages.length}</span>}
+                </div>
+            )}
 
             <div className="chat-messages">
                 {messages.length === 0 && (
