@@ -104,32 +104,32 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
             background: gradientBg,
             border: `1px solid ${accentBorder}`,
             borderRadius: 14,
-            padding: '14px 18px',
+            padding: '12px 14px',
             marginBottom: 12,
             overflow: 'hidden',
             boxShadow: '0 4px 20px rgba(99,102,241,0.18), 0 2px 6px rgba(0,0,0,0.2)',
         }}>
             {/* Decorative glow blobs */}
             <div style={{
-                position: 'absolute', top: -50, right: -50, width: 180, height: 180,
+                position: 'absolute', top: -40, right: -40, width: 130, height: 130,
                 borderRadius: '50%', background: isTeacher ? 'rgba(99,102,241,0.18)' : 'rgba(139,92,246,0.2)', pointerEvents: 'none',
             }} />
             <div style={{
-                position: 'absolute', bottom: -30, left: '25%', width: 110, height: 110,
+                position: 'absolute', bottom: -20, left: '25%', width: 80, height: 80,
                 borderRadius: '50%', background: 'rgba(99,102,241,0.12)', pointerEvents: 'none',
             }} />
 
             <div style={{ position: 'relative' }}>
 
-                {/* ── Row 1: Title + Badge — same line, right-padded for Edit/Delete overlay ── */}
+                {/* ── Header: Title + Badge — right-padded for Edit/Delete overlay ── */}
                 <div style={{
-                    display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8,
-                    marginBottom: 18,
-                    paddingRight: isCreator ? 158 : 100,
+                    display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 7,
+                    marginBottom: 10,
+                    paddingRight: isCreator ? 148 : 8,
                 }}>
                     <h3 style={{
                         margin: 0,
-                        fontSize: 17,
+                        fontSize: 15,
                         fontWeight: 800,
                         color: '#f1f5f9',
                         letterSpacing: '-0.02em',
@@ -141,7 +141,7 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                     <span style={{
                         display: 'inline-flex', alignItems: 'center', gap: 4,
                         background: accentBg, border: `1px solid ${accentBorder}`,
-                        borderRadius: 100, padding: '2px 10px', fontSize: 9, fontWeight: 700,
+                        borderRadius: 100, padding: '2px 9px', fontSize: 9, fontWeight: 700,
                         color: accentColor, letterSpacing: '0.06em', textTransform: 'uppercase',
                         flexShrink: 0,
                     }}>
@@ -150,148 +150,151 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                     </span>
                 </div>
 
-                {/* ── Row 2: Square centered profile photo ──────────── */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 10 }}>
-                    {meeting.session_image_url ? (
-                        <img
-                            src={meeting.session_image_url}
-                            alt={teacherName || meeting.title}
-                            style={{
-                                width: 260,
-                                height: 260,
-                                borderRadius: 20,
-                                objectFit: 'cover',
-                                objectPosition: 'center center',
-                                border: '3px solid rgba(99,102,241,0.45)',
-                                boxShadow: '0 6px 24px rgba(0,0,0,0.45)',
-                                display: 'block',
-                            }}
-                        />
-                    ) : (
-                        <div style={{
-                            width: 260,
-                            height: 260,
-                            borderRadius: 20,
-                            background: 'linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(139,92,246,0.25) 100%)',
-                            border: '3px solid rgba(99,102,241,0.35)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            boxShadow: '0 6px 24px rgba(0,0,0,0.3)',
-                        }}>
-                            <div style={{ fontSize: 64, opacity: 0.6 }}>📚</div>
-                        </div>
-                    )}
+                {/* ── Horizontal body: Image LEFT + Content RIGHT ── */}
+                <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
 
-                    {/* ── Teacher name centered under the photo ── */}
-                    {teacherName && (
-                        <div style={{
-                            marginTop: 10,
-                            fontSize: 13,
-                            fontWeight: 700,
-                            color: '#e2e8f0',
-                            letterSpacing: '0.01em',
-                            textAlign: 'center',
-                        }}>
-                            {teacherName}
-                        </div>
-                    )}
-                </div>
-
-                {/* ── Description ──────────── */}
-                {meeting.description && (
-                    <p style={{ margin: '0 0 14px 0', fontSize: 12, color: '#94a3b8', lineHeight: 1.5, textAlign: 'center' }}>
-                        {meeting.description}
-                    </p>
-                )}
-
-                {/* ── Row 6: HERO countdown (centered) ──────────────────────── */}
-                <div style={{ textAlign: 'center', marginTop: 16, marginBottom: 13 }}>
-                    {timeLeft.isLive ? (
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-                            <span style={{
-                                display: 'inline-flex', alignItems: 'center', gap: 8,
-                                background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.45)',
-                                borderRadius: 100, padding: '8px 22px', fontSize: 15, fontWeight: 700,
-                                color: '#fca5a5', letterSpacing: '0.06em',
-                                animation: 'meeting-pulse 1.8s ease-in-out infinite',
+                    {/* ── Image column ── */}
+                    <div style={{ flexShrink: 0, textAlign: 'center' }}>
+                        {meeting.session_image_url ? (
+                            <img
+                                src={meeting.session_image_url}
+                                alt={teacherName || meeting.title}
+                                style={{
+                                    width: 110,
+                                    height: 110,
+                                    borderRadius: 14,
+                                    objectFit: 'cover',
+                                    objectPosition: 'center center',
+                                    border: '2px solid rgba(99,102,241,0.45)',
+                                    boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+                                    display: 'block',
+                                }}
+                            />
+                        ) : (
+                            <div style={{
+                                width: 110,
+                                height: 110,
+                                borderRadius: 14,
+                                background: 'linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(139,92,246,0.25) 100%)',
+                                border: '2px solid rgba(99,102,241,0.35)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
                             }}>
-                                <span style={{
-                                    width: 10, height: 10, borderRadius: '50%', background: '#ef4444',
-                                    boxShadow: '0 0 8px #ef4444',
-                                }} />
-                                LIVE NOW
-                            </span>
-                        </div>
-                    ) : (
-                        <>
-                            <div style={{ fontSize: 10, color: '#60a5fa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
-                                Starts in
+                                <div style={{ fontSize: 40, opacity: 0.6 }}>📚</div>
                             </div>
-                            <div style={{ display: 'inline-flex', gap: 7, alignItems: 'flex-end', justifyContent: 'center' }}>
-                                {timeLeft.days > 0 && <HeroUnit value={timeLeft.days} label="days" />}
-                                <HeroUnit value={timeLeft.hours} label="hours" />
-                                <HeroSep />
-                                <HeroUnit value={timeLeft.minutes} label="min" />
-                                <HeroSep />
-                                <HeroUnit value={timeLeft.seconds} label="sec" />
+                        )}
+                        {/* Teacher name below image */}
+                        {teacherName && (
+                            <div style={{
+                                marginTop: 7,
+                                fontSize: 11,
+                                fontWeight: 700,
+                                color: '#e2e8f0',
+                                letterSpacing: '0.01em',
+                                textAlign: 'center',
+                                maxWidth: 110,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                            }}>
+                                {teacherName}
                             </div>
-                        </>
-                    )}
-                </div>
+                        )}
+                    </div>
 
-                {/* ── Row 7: Join button ─────────────────────────────────────── */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                    <button
-                        onClick={handleJoinClick}
-                        title={!canJoin ? lockedLabel : undefined}
-                        style={{
-                            background: !canJoin
-                                ? 'rgba(71,85,105,0.5)'
-                                : timeLeft.isLive
-                                ? 'linear-gradient(135deg,#ef4444,#dc2626)'
-                                : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-                            color: !canJoin ? '#64748b' : '#fff',
-                            border: !canJoin ? '1px solid rgba(71,85,105,0.6)' : 'none',
-                            borderRadius: 11,
-                            padding: '9px 28px', fontSize: 13, fontWeight: 700,
-                            cursor: canJoin ? 'pointer' : 'not-allowed',
-                            letterSpacing: '0.02em', whiteSpace: 'nowrap',
-                            boxShadow: canJoin
-                                ? timeLeft.isLive
-                                    ? '0 4px 20px rgba(239,68,68,0.45)'
-                                    : '0 4px 20px rgba(99,102,241,0.45)'
-                                : 'none',
-                            transition: 'filter 0.15s, transform 0.1s, background 0.2s',
-                        }}
-                        onMouseEnter={e => {
-                            if (!canJoin) return;
-                            (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.12)';
-                            (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)';
-                        }}
-                        onMouseLeave={e => {
-                            (e.currentTarget as HTMLButtonElement).style.filter = 'none';
-                            (e.currentTarget as HTMLButtonElement).style.transform = 'none';
-                        }}
-                    >
-                        {!canJoin
-                            ? `🔒 ${lockedLabel}`
-                            : timeLeft.isLive
-                            ? '▶ Join Now'
-                            : isCreator
-                            ? '🚀 Enter Early (You\'re the host)'
-                            : '🚀 Join'}
-                    </button>
-                    {lockedWarning && (
-                        <div style={{
-                            fontSize: 12, color: '#f59e0b', fontWeight: 600,
-                            background: 'rgba(234,179,8,0.12)', border: '1px solid rgba(234,179,8,0.3)',
-                            borderRadius: 8, padding: '5px 14px',
-                            animation: 'meeting-pulse 0.3s ease-in-out',
-                        }}>
-                            ⚠️ This session hasn't started yet. {lockedLabel}.
+                    {/* ── Content column ── */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        {/* Description */}
+                        {meeting.description && (
+                            <p style={{ margin: '0 0 10px 0', fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
+                                {meeting.description}
+                            </p>
+                        )}
+
+                        {/* Countdown */}
+                        <div style={{ marginBottom: 12 }}>
+                            {timeLeft.isLive ? (
+                                <span style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 7,
+                                    background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.45)',
+                                    borderRadius: 100, padding: '6px 14px', fontSize: 13, fontWeight: 700,
+                                    color: '#fca5a5', letterSpacing: '0.06em',
+                                    animation: 'meeting-pulse 1.8s ease-in-out infinite',
+                                }}>
+                                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px #ef4444' }} />
+                                    LIVE NOW
+                                </span>
+                            ) : (
+                                <>
+                                    <div style={{ fontSize: 9, color: '#60a5fa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
+                                        Starts in
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                                        {timeLeft.days > 0 && <HeroUnit value={timeLeft.days} label="days" />}
+                                        <HeroUnit value={timeLeft.hours} label="hours" />
+                                        <HeroSep />
+                                        <HeroUnit value={timeLeft.minutes} label="min" />
+                                        <HeroSep />
+                                        <HeroUnit value={timeLeft.seconds} label="sec" />
+                                    </div>
+                                </>
+                            )}
                         </div>
-                    )}
+
+                        {/* Join button */}
+                        <button
+                            onClick={handleJoinClick}
+                            title={!canJoin ? lockedLabel : undefined}
+                            style={{
+                                background: !canJoin
+                                    ? 'rgba(71,85,105,0.5)'
+                                    : timeLeft.isLive
+                                    ? 'linear-gradient(135deg,#ef4444,#dc2626)'
+                                    : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                                color: !canJoin ? '#64748b' : '#fff',
+                                border: !canJoin ? '1px solid rgba(71,85,105,0.6)' : 'none',
+                                borderRadius: 10,
+                                padding: '8px 18px', fontSize: 12, fontWeight: 700,
+                                cursor: canJoin ? 'pointer' : 'not-allowed',
+                                letterSpacing: '0.02em', whiteSpace: 'nowrap',
+                                boxShadow: canJoin
+                                    ? timeLeft.isLive
+                                        ? '0 4px 16px rgba(239,68,68,0.4)'
+                                        : '0 4px 16px rgba(99,102,241,0.4)'
+                                    : 'none',
+                                transition: 'filter 0.15s, transform 0.1s, background 0.2s',
+                            }}
+                            onMouseEnter={e => {
+                                if (!canJoin) return;
+                                (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.12)';
+                                (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)';
+                            }}
+                            onMouseLeave={e => {
+                                (e.currentTarget as HTMLButtonElement).style.filter = 'none';
+                                (e.currentTarget as HTMLButtonElement).style.transform = 'none';
+                            }}
+                        >
+                            {!canJoin
+                                ? `🔒 ${lockedLabel}`
+                                : timeLeft.isLive
+                                ? '▶ Join Now'
+                                : isCreator
+                                ? '🚀 Enter Early (You\'re the host)'
+                                : '🚀 Join'}
+                        </button>
+                        {lockedWarning && (
+                            <div style={{
+                                marginTop: 6, fontSize: 11, color: '#f59e0b', fontWeight: 600,
+                                background: 'rgba(234,179,8,0.12)', border: '1px solid rgba(234,179,8,0.3)',
+                                borderRadius: 8, padding: '4px 12px',
+                                animation: 'meeting-pulse 0.3s ease-in-out',
+                            }}>
+                                ⚠️ This session hasn't started yet. {lockedLabel}.
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -311,20 +314,20 @@ function HeroUnit({ value, label }: { value: number; label: string }) {
         <div style={{ textAlign: 'center' }}>
             <div style={{
                 background: 'rgba(99,102,241,0.25)', border: '1px solid rgba(99,102,241,0.4)',
-                borderRadius: 11, padding: '7px 11px', minWidth: 46,
-                fontSize: 34, fontWeight: 900, color: '#e0e7ff',
+                borderRadius: 9, padding: '5px 8px', minWidth: 36,
+                fontSize: 26, fontWeight: 900, color: '#e0e7ff',
                 fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.04em', lineHeight: 1,
-                textShadow: '0 2px 12px rgba(99,102,241,0.5)',
+                textShadow: '0 2px 8px rgba(99,102,241,0.5)',
             }}>
                 {pad(value)}
             </div>
-            <div style={{ fontSize: 8, color: '#94a3b8', fontWeight: 600, marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
+            <div style={{ fontSize: 7, color: '#94a3b8', fontWeight: 600, marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
         </div>
     );
 }
 
 function HeroSep() {
     return (
-        <div style={{ fontSize: 28, fontWeight: 900, color: 'rgba(99,102,241,0.6)', lineHeight: 1, marginBottom: 14, userSelect: 'none' }}>:</div>
+        <div style={{ fontSize: 22, fontWeight: 900, color: 'rgba(99,102,241,0.6)', lineHeight: 1, marginBottom: 10, userSelect: 'none' }}>:</div>
     );
 }
