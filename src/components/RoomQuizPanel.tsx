@@ -212,9 +212,10 @@ export function InlineResultCard({ score, comment, studentName, isClassReveal, c
     const [downloading, setDownloading] = useState(false);
     const cardRef = useRef<HTMLDivElement>(null);
     const isGood = score != null && score >= 50;
-    const canDownload = !isClassReveal || (currentUserId && revealedStudentId && currentUserId === revealedStudentId);
+    const canDownload = !isClassReveal || !revealedStudentId || !currentUserId || currentUserId === revealedStudentId;
 
     useEffect(() => { injectStyles(); }, []);
+
 
     const handleDownload = useCallback(async (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -244,11 +245,12 @@ export function InlineResultCard({ score, comment, studentName, isClassReveal, c
         return () => clearTimeout(t);
     }, [phase, countdownNum]);
 
-    // Auto-dismiss after 10s in score phase
+    // Escape key to dismiss
     useEffect(() => {
         if (phase !== 'score') return;
-        const t = setTimeout(onClose, 10000);
-        return () => clearTimeout(t);
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
     }, [phase, onClose]);
 
     // Score count-up animation
@@ -399,7 +401,7 @@ export function InlineResultCard({ score, comment, studentName, isClassReveal, c
                 )}
 
                 <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 8 }}>
-                    Tap to dismiss
+                    Tap or press Esc to dismiss
                 </div>
 
                 {canDownload && (
