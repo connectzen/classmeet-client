@@ -161,7 +161,7 @@ export function useSocket(options: UseSocketOptions) {
         socketRef.current?.emit('room-quiz-submit', { roomCode, submissionId, quizId, studentId, studentName, score });
     }, [roomCode]);
 
-    const revealRoomQuiz = useCallback((type: 'individual' | 'final', submissionId?: string, data?: unknown) => {
+    const revealRoomQuiz = useCallback((type: 'individual' | 'class-reveal' | 'final', submissionId?: string, data?: unknown) => {
         socketRef.current?.emit('room-quiz-reveal', { roomCode, type, submissionId, data });
     }, [roomCode]);
 
