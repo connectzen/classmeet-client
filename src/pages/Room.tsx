@@ -751,9 +751,8 @@ function SpotlightVideo({ stream, name, isLocal, isCamOff }: { stream: MediaStre
     const showAvatar = !stream || isCamOff;
     return (
         <div className="spotlight-video-wrap">
-            {!showAvatar && (
-                <video ref={ref} autoPlay playsInline muted={isLocal} className="spotlight-video" />
-            )}
+            <video ref={ref} autoPlay playsInline muted={isLocal} className="spotlight-video"
+                style={showAvatar ? { display: 'none' } : undefined} />
             {showAvatar && (
                 <div className="spotlight-placeholder">
                     <div className="spotlight-avatar">{name.charAt(0).toUpperCase()}</div>
@@ -770,9 +769,8 @@ function VideoTileInline({ stream, name, muted, isCamOff }: { stream: MediaStrea
     const showAvatar = !stream || isCamOff;
     return (
         <div className="thumb-video-wrap">
-            {!showAvatar && (
-                <video ref={ref} autoPlay playsInline muted={muted} className="thumb-video" />
-            )}
+            <video ref={ref} autoPlay playsInline muted={muted} className="thumb-video"
+                style={showAvatar ? { display: 'none' } : undefined} />
             {showAvatar && <div className="thumb-avatar">{name.charAt(0).toUpperCase()}</div>}
         </div>
     );
