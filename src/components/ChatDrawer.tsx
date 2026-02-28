@@ -53,6 +53,13 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
     // Auto-advance to thread pane when a conversation is opened on mobile
     useEffect(() => { if (activeConvId && isMobile) setMobileShowThread(true); }, [activeConvId, isMobile]);
 
+    // Auto-show people picker when there are no conversations
+    useEffect(() => {
+        if (conversations.length === 0 && !activeConvId) {
+            openNewDM();
+        }
+    }, [conversations.length, activeConvId]);
+
     // New DM people picker
     const [showNewDM, setShowNewDM]       = useState(false);
     const [dmUsers, setDmUsers]           = useState<{ id: string; name: string; email: string; role: string; avatar_url?: string | null }[]>([]);
@@ -289,7 +296,7 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
 
                 {/* New DM people picker overlay */}
                 {showNewDM && (
-                    <div style={{ position: 'absolute', top: 0, left: 0, width: 300, height: '100%', background: 'var(--surface)', zIndex: 10, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)' }}>
+                    <div style={{ position: 'absolute', top: 0, left: 0, width: isMobile ? '100%' : 300, height: '100%', background: 'var(--surface)', zIndex: 10, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)' }}>
                         <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
                             <button onClick={() => setShowNewDM(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 18, lineHeight: 1 }}>←</button>
                             <span style={{ fontWeight: 700, fontSize: 15 }}>New Message</span>
