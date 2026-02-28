@@ -201,55 +201,48 @@ export default function AuthModal({ defaultTab, onClose }: Props) {
                 </button>
 
                 {/* Divider */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-                    <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
-                    <span style={{ fontSize: 12, color: 'var(--text-muted, #7b7b99)', whiteSpace: 'nowrap' }}>or continue with email</span>
-                    <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
+                <div className="divider-label" style={{ marginBottom: 20 }}>
+                    or continue with email
                 </div>
 
                 {/* Form */}
                 <form onSubmit={tab === 'signin' ? handleSignIn : handleSignUp} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     {tab === 'signup' && (
                         <div>
-                            <label style={labelStyle}>Full Name</label>
+                            <label className="form-label">Full Name</label>
                             <input
                                 type="text" value={name} onChange={e => setName(e.target.value)}
-                                placeholder="Your name" autoFocus style={inputStyle}
-                                onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
-                                onBlur={e => Object.assign(e.target.style, inputBlurStyle)}
+                                placeholder="Your name" autoFocus
+                                className="form-input"
                             />
                         </div>
                     )}
                     <div>
-                        <label style={labelStyle}>Email</label>
+                        <label className="form-label">Email</label>
                         <input
                             type="email" value={email} onChange={e => setEmail(e.target.value)}
-                            placeholder="you@example.com" autoFocus={tab === 'signin'} style={inputStyle}
-                            onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
-                            onBlur={e => Object.assign(e.target.style, inputBlurStyle)}
+                            placeholder="you@example.com" autoFocus={tab === 'signin'}
+                            className="form-input"
                         />
                     </div>
                     <div>
-                        <label style={labelStyle}>Password</label>
+                        <label className="form-label">Password</label>
                         <div style={{ position: 'relative' }}>
                             <input
                                 type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
                                 placeholder={tab === 'signup' ? 'Min. 8 characters' : '••••••••'}
-                                style={{ ...inputStyle, paddingRight: 44 }}
-                                onFocus={e => Object.assign(e.target.style, { ...inputFocusStyle, paddingRight: '44px' })}
-                                onBlur={e => Object.assign(e.target.style, { ...inputBlurStyle, paddingRight: '44px' })}
+                                className="form-input"
+                                style={{ paddingRight: 44 }}
                             />
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(v => !v)}
+                                className="btn-ghost"
                                 style={{
                                     position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-                                    background: 'none', border: 'none', cursor: 'pointer', padding: 2,
-                                    color: 'var(--text-muted, #7b7b99)', display: 'flex', alignItems: 'center',
-                                    transition: 'color 0.2s',
+                                    padding: 2, display: 'flex', alignItems: 'center', fontSize: 'inherit',
+                                    color: 'var(--text-muted)',
                                 }}
-                                onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent, #a78bfa)')}
-                                onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted, #7b7b99)')}
                                 tabIndex={-1}
                                 aria-label={showPassword ? 'Hide password' : 'Show password'}
                             >
@@ -270,37 +263,23 @@ export default function AuthModal({ defaultTab, onClose }: Props) {
                     </div>
 
                     {error && (
-                        <div style={{
-                            background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-                            borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#f87171',
-                        }}>{error}</div>
+                        <div className="error-banner">{error}</div>
                     )}
 
                     <button
                         type="submit" disabled={loading}
-                        style={{
-                            marginTop: 4, padding: '13px 0', border: 'none', borderRadius: 12,
-                            background: loading ? 'rgba(99,102,241,0.5)' : 'var(--primary, #6366f1)',
-                            color: '#fff', fontWeight: 700, fontSize: 15, cursor: loading ? 'not-allowed' : 'pointer',
-                            boxShadow: loading ? 'none' : '0 4px 20px rgba(99,102,241,0.4)',
-                            transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                        }}
-                        onMouseEnter={e => { if (!loading) e.currentTarget.style.background = 'var(--primary-hover, #4f52d9)'; }}
-                        onMouseLeave={e => { if (!loading) e.currentTarget.style.background = 'var(--primary, #6366f1)'; }}
+                        className={`btn btn-primary btn-full${loading ? ' btn-loading' : ''}`}
+                        style={{ marginTop: 4, padding: '13px 0', borderRadius: 12, fontSize: 15 }}
                     >
-                        {loading
-                            ? <><Spinner />{tab === 'signin' ? 'Signing in…' : 'Creating account…'}</>
-                            : tab === 'signin' ? 'Sign In →' : 'Create Account →'
-                        }
+                        {!loading && (tab === 'signin' ? 'Sign In →' : 'Create Account →')}
                     </button>
                 </form>
 
                 {/* Switch link */}
-                <p style={{ textAlign: 'center', marginTop: 20, marginBottom: 0, fontSize: 13, color: 'var(--text-muted, #7b7b99)' }}>
+                <p style={{ textAlign: 'center', marginTop: 20, marginBottom: 0, fontSize: 13, color: 'var(--text-muted)' }}>
                     {tab === 'signin' ? "Don't have an account? " : 'Already have an account? '}
-                    <button onClick={() => switchTab(tab === 'signin' ? 'signup' : 'signin')} style={{
-                        background: 'none', border: 'none', color: 'var(--accent, #a78bfa)',
-                        cursor: 'pointer', fontWeight: 600, fontSize: 13, padding: 0,
+                    <button onClick={() => switchTab(tab === 'signin' ? 'signup' : 'signin')} className="btn-ghost" style={{
+                        color: 'var(--accent)', fontWeight: 600, fontSize: 13, padding: 0,
                     }}>
                         {tab === 'signin' ? 'Sign up' : 'Sign in'}
                     </button>
@@ -309,35 +288,3 @@ export default function AuthModal({ defaultTab, onClose }: Props) {
         </div>
     );
 }
-
-function Spinner() {
-    return (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-            strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite' }}>
-            <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-        </svg>
-    );
-}
-
-const labelStyle: React.CSSProperties = {
-    display: 'block', marginBottom: 6, fontSize: 12, fontWeight: 600,
-    color: 'var(--text-muted, #7b7b99)', textTransform: 'uppercase', letterSpacing: '0.06em',
-};
-
-const inputStyle: React.CSSProperties = {
-    width: '100%', padding: '11px 14px', borderRadius: 10,
-    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-    color: 'var(--text, #e8e8f0)', fontSize: 14, outline: 'none', boxSizing: 'border-box',
-    transition: 'border-color 0.2s, box-shadow 0.2s',
-};
-
-const inputFocusStyle: React.CSSProperties = {
-    borderColor: 'rgba(99,102,241,0.6)',
-    boxShadow: '0 0 0 3px rgba(99,102,241,0.15)',
-};
-
-const inputBlurStyle: React.CSSProperties = {
-    borderColor: 'rgba(255,255,255,0.1)',
-    boxShadow: 'none',
-};

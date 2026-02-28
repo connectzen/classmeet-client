@@ -466,26 +466,28 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'inherit', overflow: 'hidden' }}>
+        <div className="admin-layout">
 
             {/* ── TOP HEADER ── */}
-            <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px', height: 64, background: 'var(--surface)', borderBottom: '1px solid var(--border)', flexShrink: 0, zIndex: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <header className="admin-topbar">
+                <div className="admin-topbar-left">
                     {isMobile && (
                         <button onClick={() => setMobileSidebarOpen(v => !v)}
                             style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: 'var(--text)', padding: '4px 6px', lineHeight: 1, marginRight: 4 }}>☰</button>
                     )}
-                    <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>🏫</div>
+                    <div className="admin-logo-mark">🏫</div>
                     <div>
-                        <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.01em' }}>ClassMeet Admin</div>
+                        <div className="admin-app-name">ClassMeet Admin</div>
                         <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Welcome, {displayName}</div>
                     </div>
                 </div>
-                <UserMenu />
+                <div className="admin-topbar-right">
+                    <UserMenu />
+                </div>
             </header>
 
             {/* ── BODY: sidebar + content ── */}
-            <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+            <div className="admin-body" style={{ position: 'relative' }}>
 
                 {/* Mobile sidebar backdrop */}
                 {isMobile && mobileSidebarOpen && (
@@ -494,28 +496,23 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                 )}
 
                 {/* ── SIDEBAR ── */}
-                <aside style={{
-                    width: 220, background: 'var(--surface)', borderRight: '1px solid var(--border)',
-                    display: 'flex', flexDirection: 'column', padding: '20px 12px', gap: 4, flexShrink: 0,
-                    ...(isMobile ? {
-                        position: 'fixed', top: 64, bottom: 0, left: 0, zIndex: 50,
-                        transform: mobileSidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
-                        transition: 'transform 0.25s ease',
-                        boxShadow: mobileSidebarOpen ? '4px 0 20px rgba(0,0,0,0.3)' : 'none',
-                    } : {}),
-                }}>
+                <aside className="admin-sidebar" style={isMobile ? {
+                    position: 'fixed', top: 64, bottom: 0, left: 0, zIndex: 50,
+                    transform: mobileSidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
+                    transition: 'transform 0.25s ease',
+                    boxShadow: mobileSidebarOpen ? '4px 0 20px rgba(0,0,0,0.3)' : 'none',
+                } : {}}>
                     {isMobile && (
                         <button onClick={() => setMobileSidebarOpen(false)}
                             style={{ alignSelf: 'flex-end', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 20, marginBottom: 8, padding: '2px 4px' }}>✕</button>
                     )}
                     {NAV_ITEMS.map(n => (
-                        <button key={n.key} onClick={() => setTab(n.key)} style={{
-                            display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none', fontSize: 14, fontWeight: tab === n.key ? 600 : 500, transition: 'all 0.15s',
-                            background: tab === n.key ? 'linear-gradient(135deg,rgba(99,102,241,0.25),rgba(139,92,246,0.15))' : 'transparent',
-                            color: tab === n.key ? '#a5b4fc' : 'var(--text-muted)',
-                            boxShadow: tab === n.key ? 'inset 0 0 0 1px rgba(99,102,241,0.3)' : 'none',
-                        }}>
-                            <span style={{ fontSize: 16, opacity: tab === n.key ? 1 : 0.6 }}>{n.icon}</span>
+                        <button
+                            key={n.key}
+                            onClick={() => setTab(n.key)}
+                            className={`admin-nav-btn${tab === n.key ? ' admin-nav-btn-active' : ''}`}
+                        >
+                            <span className="admin-nav-icon">{n.icon}</span>
                             {n.label}
                         </button>
                     ))}
@@ -532,7 +529,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                 </aside>
 
                 {/* ── MAIN CONTENT ── */}
-                <main style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '20px 16px' : '32px 36px', paddingBottom: isMobile ? 68 : undefined }}>
+                <main className="admin-content" style={{ paddingBottom: isMobile ? 68 : undefined }}>
 
                     {/* OVERVIEW */}
                     {tab === 'overview' && (
@@ -1115,16 +1112,16 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
 function PageHeader({ title, subtitle }: { title: string; subtitle?: string }) {
     return (
         <div style={{ marginBottom: 28 }}>
-            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>{title}</h2>
-            {subtitle && <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>{subtitle}</p>}
+            <h2 className="h2" style={{ margin: 0 }}>{title}</h2>
+            {subtitle && <p className="admin-section-subtitle" style={{ marginBottom: 0 }}>{subtitle}</p>}
         </div>
     );
 }
 
 function Card({ title, children, style }: { title: string; children: React.ReactNode; style?: React.CSSProperties }) {
     return (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 22, ...style }}>
-            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 16, color: 'var(--text)' }}>{title}</div>
+        <div className="stat-card" style={{ padding: 22, ...style }}>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 16, color: 'var(--text)', letterSpacing: '-0.01em' }}>{title}</div>
             {children}
         </div>
     );
@@ -1132,10 +1129,10 @@ function Card({ title, children, style }: { title: string; children: React.React
 
 function StatCard({ icon, label, value, accent }: { icon: string; label: string; value: number; accent: string }) {
     return (
-        <div style={{ background: 'var(--surface)', border: `1px solid ${accent}30`, borderRadius: 18, padding: '22px 24px', position: 'relative', overflow: 'hidden' }}>
+        <div className="stat-card">
             <div style={{ position: 'absolute', top: -10, right: -10, fontSize: 80, opacity: 0.04, pointerEvents: 'none', userSelect: 'none' }}>{icon}</div>
-            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 10 }}>{label}</div>
-            <div style={{ fontSize: 38, fontWeight: 800, letterSpacing: '-0.03em', color: accent, lineHeight: 1 }}>{value}</div>
+            <div className="stat-label" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>{label}</div>
+            <div className="stat-value" style={{ color: accent }}>{value}</div>
         </div>
     );
 }
@@ -1180,22 +1177,29 @@ function BtnFull({ onClick, children, color }: { onClick?: () => void; children:
 function Input({ placeholder, value, onChange, style, type = 'text' }: { placeholder?: string; value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; style?: React.CSSProperties; type?: string }) {
     return (
         <input type={type} placeholder={placeholder} value={value} onChange={onChange}
-            style={{ background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: 10, padding: '9px 14px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box', ...style }} />
+            className="form-input"
+            style={{ fontSize: 13, ...style }} />
     );
 }
 
 function ErrorMsg({ children }: { children: React.ReactNode }) {
-    return <p style={{ fontSize: 13, color: '#ef4444', margin: 0, background: 'rgba(239,68,68,0.08)', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.2)' }}>{children}</p>;
+    return <p className="error-banner" style={{ fontSize: 13, margin: 0 }}>{children}</p>;
 }
 
 function Loading({ small }: { small?: boolean }) {
-    return <p style={{ color: 'var(--text-muted)', fontSize: small ? 12 : 14, margin: 0 }}>Loading...</p>;
+    return (
+        <div style={{ padding: '20px 0', display: 'flex', gap: 10, flexDirection: 'column' }}>
+            <div className="skeleton skeleton-title" />
+            <div className="skeleton skeleton-text" />
+            <div className="skeleton skeleton-text" style={{ width: '80%', opacity: small ? 0.6 : 1 }} />
+        </div>
+    );
 }
 
 function Empty({ icon, message }: { icon: string; message: string }) {
     return (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '48px 32px', textAlign: 'center' }}>
-            <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.2 }}>{icon}</div>
+        <div className="classes-empty" style={{ borderRadius: 16, textAlign: 'center' }}>
+            <div className="classes-empty-icon" style={{ opacity: 0.25 }}>{icon}</div>
             <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)' }}>{message}</p>
         </div>
     );

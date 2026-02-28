@@ -456,7 +456,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
 
     if (roomEnded) return (
         <div className="room-ended">
-            <div className="room-ended-card">
+            <div className="room-ended-card pop">
                 <div className="ended-icon">🎓</div>
                 <h2>Class Ended</h2>
                 <p>The session has ended. Redirecting…</p>
@@ -466,7 +466,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
 
     if (socketJoinError) return (
         <div className="room-ended">
-            <div className="room-ended-card">
+            <div className="room-ended-card enter-up">
                 <div className="ended-icon">⚠️</div>
                 <h2>Cannot Join Room</h2>
                 <p>{socketJoinError}</p>

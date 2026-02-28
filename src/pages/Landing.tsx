@@ -889,7 +889,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     )}
 
                     {userRole === 'member' && (
-                        <div className="dashboard-panel">
+                        <div className="dashboard-panel enter-up">
                             <div className="dashboard-panel-header">
                                 <div className="dashboard-panel-title-group">
                                     <span className="role-badge badge-teacher">👤 Member Dashboard</span>
@@ -991,7 +991,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             {memberSessions.length > 0 && (
                                 <div style={{ marginBottom: 20 }}>
                                     <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Your sessions</div>
-                                    <div className={`session-grid ${memberSessions.length > 1 ? 'session-grid-multi' : ''}`}>
+                                    <div className={`session-grid stagger ${memberSessions.length > 1 ? 'session-grid-multi' : ''}`}>
                                         {memberSessions.map(s => (
                                             <div key={s.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%' }}>
                                                 <MeetingBanner
@@ -1051,7 +1051,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     )}
 
                     {userRole === 'teacher' && (
-                        <div className="dashboard-panel">
+                        <div className="dashboard-panel enter-up">
                             <div className="dashboard-panel-header">
                                 <div className="dashboard-panel-title-group">
                                     <span className="role-badge badge-teacher">🎓 Teacher Dashboard</span>
@@ -1186,7 +1186,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             {teacherSessions.length > 0 && (
                                 <div style={{ marginBottom: 8 }}>
                                     <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Scheduled Sessions</div>
-                                    <div className={`session-grid ${teacherSessions.length > 1 ? 'session-grid-multi' : ''}`}>
+                                    <div className={`session-grid stagger ${teacherSessions.length > 1 ? 'session-grid-multi' : ''}`}>
                                     {teacherSessions.map(s => (
                                         <div key={s.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%' }}>
                                             <MeetingBanner
@@ -1230,7 +1230,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
 
                     {/* STUDENT DASHBOARD */}
                     {userRole === 'student' && (
-                        <div className="dashboard-panel">
+                        <div className="dashboard-panel enter-up">
                             <div className="dashboard-panel-header">
                                 <div className="dashboard-panel-title-group">
                                     <span className="role-badge badge-student">📚 Student Dashboard</span>
@@ -1282,7 +1282,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             {studentTeacherSessions.length > 0 && (
                                 <div style={{ marginBottom: 8 }}>
                                     <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Scheduled Sessions</div>
-                                    <div className={`session-grid ${studentTeacherSessions.length > 1 ? 'session-grid-multi' : ''}`}>
+                                    <div className={`session-grid stagger ${studentTeacherSessions.length > 1 ? 'session-grid-multi' : ''}`}>
                                     {studentTeacherSessions.map(s => (
                                         <MeetingBanner
                                             key={s.id}
