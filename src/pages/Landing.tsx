@@ -706,6 +706,10 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     </svg>
                     <span className="landing-nav-brand">ClassMeet</span>
                 </div>
+                <div className="hero-pill nav-pill">
+                    <span className="hero-pill-dot" />
+                    Live · Real-time · Secure
+                </div>
                 {user && (
                     <div className="landing-nav-center">
                         <span className="nav-greeting">
@@ -729,10 +733,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
 
                 {/* â”€â”€ Hero â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="landing-hero">
-                    <div className="hero-pill">
-                        <span className="hero-pill-dot" />
-                        Live · Real-time · Secure
-                    </div>
 
                     {!user && (
                         <>
