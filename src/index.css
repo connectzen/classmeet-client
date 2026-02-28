@@ -3680,6 +3680,13 @@ input[type="radio"] {
   grid-template-columns: 230px 1fr;
   gap: 20px;
   align-items: flex-start;
+  width: 100%;
+  max-width: 1180px;
+}
+
+/* Inside the sidebar layout the panel fills its grid column — no own max-width */
+.teacher-dashboard-layout .dashboard-panel {
+  max-width: none;
 }
 
 .teacher-sidebar {
