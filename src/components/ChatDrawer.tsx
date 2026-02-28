@@ -701,7 +701,10 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                 <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 999, backdropFilter: 'blur(2px)' }} />
             )}
             <div style={{
-                position: 'fixed', top: 0, right: 0, height: '100vh',
+                position: 'fixed',
+                top: 'env(safe-area-inset-top, 0)',
+                right: 0,
+                height: 'calc(100vh - env(safe-area-inset-top, 0))',
                 width: 'min(740px,96vw)',
                 background: 'var(--bg)',
                 borderLeft: '1px solid var(--border)',
@@ -712,7 +715,11 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                 boxShadow: '-8px 0 40px rgba(0,0,0,0.3)',
             }}>
                 {/* Drawer header */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: 'max(14px, env(safe-area-inset-top, 0px)) 20px 18px 20px',
+                    borderBottom: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0,
+                }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <span style={{ fontSize: 20 }}>💬</span>
                         <span style={{ fontWeight: 700, fontSize: 16 }}>Chat</span>
@@ -720,7 +727,17 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                             <span style={{ background: '#6366f1', color: '#fff', borderRadius: 100, padding: '2px 8px', fontSize: 12, fontWeight: 700 }}>{unreadTotal}</span>
                         )}
                     </div>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 22, lineHeight: 1 }}>✕</button>
+                    <button
+                        onClick={onClose}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            background: 'rgba(255,255,255,0.08)', border: '1px solid var(--border)',
+                            borderRadius: 8, padding: '8px 14px', cursor: 'pointer',
+                            color: 'var(--text)', fontSize: 14, fontWeight: 600,
+                        }}
+                    >
+                        <span>←</span> Back
+                    </button>
                 </div>
                 <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
                     {panel}

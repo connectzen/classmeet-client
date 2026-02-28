@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { toPng } from 'html-to-image';
 import ConfirmModal from './ConfirmModal';
 import AlertModal from './AlertModal';
 
@@ -1720,37 +1721,72 @@ export function TakeQuiz({ quiz, submissionId, userId, showConfirm, showAlert, o
 
 // ─── Quiz Done (Student) ──────────────────────────────────────────────────
 function QuizDone({ quiz, score, onBack }: { quiz: Quiz; score: number | null; onBack: () => void; }) {
+    const cardRef = useRef<HTMLDivElement>(null);
+    const [downloading, setDownloading] = useState(false);
     const isPureZero = score === 0;
     const color = score === null || isPureZero ? '#7b7b99' : score >= 70 ? '#22c55e' : score >= 40 ? '#f59e0b' : '#ef4444';
     const emoji = score === null || isPureZero ? '📝' : score >= 70 ? '🎉' : score >= 40 ? '👍' : '💪';
 
+    const handleDownload = useCallback(async () => {
+        if (!cardRef.current || downloading) return;
+        setDownloading(true);
+        try {
+            const dataUrl = await toPng(cardRef.current, { backgroundColor: '#1e1b4b', pixelRatio: 2 });
+            const a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = `quiz-result-${quiz.title.replace(/[^a-z0-9]/gi, '-')}-${Date.now()}.png`;
+            a.click();
+        } catch { /* ignore */ }
+        setDownloading(false);
+    }, [downloading, quiz.title]);
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, height: '100%', textAlign: 'center' }}>
-            <div className="quiz-done-bounce" style={{ fontSize: 60, marginBottom: 16 }}>{emoji}</div>
-            <h2 style={{ fontWeight: 700, fontSize: 22, marginBottom: 8 }}>Quiz Submitted!</h2>
-            <p style={{ color: 'var(--text-muted)', marginBottom: 24, lineHeight: 1.5 }}>
-                You've completed <strong>{quiz.title}</strong>.
-            </p>
-            {score !== null ? (
-                <>
-                    <div className="quiz-done-bounce" style={{
-                        width: 100, height: 100, borderRadius: '50%',
-                        border: `4px solid ${color}`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 28, fontWeight: 700, color, marginBottom: 12,
-                    }}>
-                        {score}%
-                    </div>
-                    <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 24 }}>
-                        {score >= 70 ? 'Great work!' : score >= 40 ? 'Good effort — keep practising!' : score === 0 ? 'Your teacher will mark the rest of your answers.' : 'Keep studying, you can do it!'}
-                    </p>
-                </>
-            ) : (
-                <p style={{ color: 'var(--text-muted)', marginBottom: 24, fontSize: 14 }}>
-                    Your teacher will review and grade your answers shortly.
+            <div
+                ref={cardRef}
+                style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 32,
+                    background: '#1e1b4b', borderRadius: 16, border: '1px solid rgba(99,102,241,0.3)',
+                }}
+            >
+                <div className="quiz-done-bounce" style={{ fontSize: 60, marginBottom: 16 }}>{emoji}</div>
+                <h2 style={{ fontWeight: 700, fontSize: 22, marginBottom: 8, color: '#f1f5f9' }}>Quiz Submitted!</h2>
+                <p style={{ color: '#94a3b8', marginBottom: 24, lineHeight: 1.5 }}>
+                    You've completed <strong style={{ color: '#e2e8f0' }}>{quiz.title}</strong>.
                 </p>
-            )}
-            <button onClick={onBack} className="quiz-btn quiz-btn-primary" style={{ width: '100%', maxWidth: 280 }}>
+                {score !== null ? (
+                    <>
+                        <div className="quiz-done-bounce" style={{
+                            width: 100, height: 100, borderRadius: '50%',
+                            border: `4px solid ${color}`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 28, fontWeight: 700, color, marginBottom: 12,
+                        }}>
+                            {score}%
+                        </div>
+                        <p style={{ fontSize: 14, color: '#94a3b8', marginBottom: 24 }}>
+                            {score >= 70 ? 'Great work!' : score >= 40 ? 'Good effort — keep practising!' : score === 0 ? 'Your teacher will mark the rest of your answers.' : 'Keep studying, you can do it!'}
+                        </p>
+                    </>
+                ) : (
+                    <p style={{ color: '#94a3b8', marginBottom: 24, fontSize: 14 }}>
+                        Your teacher will review and grade your answers shortly.
+                    </p>
+                )}
+            </div>
+            <button
+                onClick={handleDownload}
+                disabled={downloading}
+                style={{
+                    marginTop: 16, padding: '10px 20px', fontSize: 14, fontWeight: 600,
+                    background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.5)',
+                    borderRadius: 10, color: '#a5b4fc', cursor: downloading ? 'wait' : 'pointer',
+                    width: '100%', maxWidth: 280,
+                }}
+            >
+                {downloading ? 'Downloading…' : '📥 Download Result'}
+            </button>
+            <button onClick={onBack} className="quiz-btn quiz-btn-primary" style={{ width: '100%', maxWidth: 280, marginTop: 12 }}>
                 Back to Quizzes
             </button>
         </div>

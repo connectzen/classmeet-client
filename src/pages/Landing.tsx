@@ -182,6 +182,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [newGroupName, setNewGroupName] = useState('');
     const [groupMembers, setGroupMembers] = useState<{ id: string; name: string; email?: string }[]>([]);
     const [groupMemberIds, setGroupMemberIds] = useState<string[]>([]);
+    const [addingMemberId, setAddingMemberId] = useState<string | null>(null);
     const [savingGroup, setSavingGroup] = useState(false);
     const [groupError, setGroupError] = useState('');
 
@@ -1674,9 +1675,20 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                 <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderBottom: '1px solid rgba(99,102,241,0.1)' }}>
                                                     <span style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{s.name || s.email || 'Student'}</span>
                                                     <button
-                                                        onClick={async () => { await fetch(`${SERVER_URL}/api/groups/${editingGroup.id}/members`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ studentIds: [s.id] }) }); const r = await fetch(`${SERVER_URL}/api/groups/${editingGroup.id}/members`); const members = r.ok ? await r.json() : []; setGroupMembers(members); setGroupMemberIds(members.map((x: { id: string }) => x.id)); fetchTeacherGroups(); }}
-                                                        style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 6, padding: '4px 8px', fontSize: 11, color: '#a5b4fc', cursor: 'pointer' }}
-                                                    >Add</button>
+                                                        onClick={async () => {
+                                                            setAddingMemberId(s.id); setGroupError('');
+                                                            const r = await fetch(`${SERVER_URL}/api/groups/${editingGroup.id}/members`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ studentIds: [s.id] }) });
+                                                            const data = await r.json();
+                                                            if (!r.ok) { setGroupError(data.error || 'Failed to add member'); setAddingMemberId(null); return; }
+                                                            const members = Array.isArray(data) ? data : [];
+                                                            setGroupMembers(members);
+                                                            setGroupMemberIds(members.map((x: { id: string }) => x.id));
+                                                            fetchTeacherGroups();
+                                                            setAddingMemberId(null);
+                                                        }}
+                                                        disabled={addingMemberId === s.id}
+                                                        style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 6, padding: '4px 8px', fontSize: 11, color: '#a5b4fc', cursor: addingMemberId === s.id ? 'wait' : 'pointer' }}
+                                                    >{addingMemberId === s.id ? 'Adding…' : 'Add'}</button>
                                                 </div>
                                             ))}
                                             {teacherStudents.filter(s => !groupMemberIds.includes(s.id)).length === 0 && (

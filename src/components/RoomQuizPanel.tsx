@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { toPng } from 'html-to-image';
 import { TakeQuiz } from './QuizDrawer';
 import ConfirmModal from './ConfirmModal';
 
@@ -199,16 +200,35 @@ interface InlineResultCardProps {
     comment?: string;
     studentName?: string;
     isClassReveal?: boolean;
+    currentUserId?: string;
+    revealedStudentId?: string;
     onClose: () => void;
 }
 
-export function InlineResultCard({ score, comment, studentName, isClassReveal, onClose }: InlineResultCardProps) {
+export function InlineResultCard({ score, comment, studentName, isClassReveal, currentUserId, revealedStudentId, onClose }: InlineResultCardProps) {
     const [phase, setPhase] = useState<'name' | 'countdown' | 'score'>(isClassReveal ? 'name' : 'score');
     const [countdownNum, setCountdownNum] = useState(3);
     const [displayScore, setDisplayScore] = useState(0);
+    const [downloading, setDownloading] = useState(false);
+    const cardRef = useRef<HTMLDivElement>(null);
     const isGood = score != null && score >= 50;
+    const canDownload = !isClassReveal || (currentUserId && revealedStudentId && currentUserId === revealedStudentId);
 
     useEffect(() => { injectStyles(); }, []);
+
+    const handleDownload = useCallback(async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!cardRef.current || downloading) return;
+        setDownloading(true);
+        try {
+            const dataUrl = await toPng(cardRef.current, { backgroundColor: isGood ? '#10b981' : '#f59e0b', pixelRatio: 2 });
+            const a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = `quiz-result-${studentName || 'student'}-${Date.now()}.png`;
+            a.click();
+        } catch { /* ignore */ }
+        setDownloading(false);
+    }, [downloading, isGood, studentName]);
 
     // Class reveal: name phase (2s) -> countdown phase (3s) -> score phase
     useEffect(() => {
@@ -302,6 +322,7 @@ export function InlineResultCard({ score, comment, studentName, isClassReveal, o
     // Score phase
     return (
         <div
+            ref={cardRef}
             onClick={onClose}
             style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%',
@@ -380,6 +401,20 @@ export function InlineResultCard({ score, comment, studentName, isClassReveal, o
                 <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 8 }}>
                     Tap to dismiss
                 </div>
+
+                {canDownload && (
+                    <button
+                        onClick={handleDownload}
+                        disabled={downloading}
+                        style={{
+                            marginTop: 16, padding: '10px 20px', fontSize: 14, fontWeight: 600,
+                            background: 'rgba(255,255,255,0.25)', border: '2px solid rgba(255,255,255,0.5)',
+                            borderRadius: 10, color: '#fff', cursor: downloading ? 'wait' : 'pointer',
+                        }}
+                    >
+                        {downloading ? 'Downloading…' : '📥 Download Result'}
+                    </button>
+                )}
             </div>
         </div>
     );

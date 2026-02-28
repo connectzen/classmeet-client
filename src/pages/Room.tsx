@@ -540,6 +540,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 comment={(roomQuizRevealed.data as { comment?: string })?.comment}
                                 studentName={(roomQuizRevealed.data as { studentName?: string })?.studentName}
                                 isClassReveal={roomQuizRevealed.type === 'class-reveal'}
+                                currentUserId={user?.id}
+                                revealedStudentId={(roomQuizRevealed.data as { studentId?: string })?.studentId}
                                 onClose={() => setDismissedRevealed(true)}
                             />
                         ) : role !== 'teacher' && roomQuiz ? (
