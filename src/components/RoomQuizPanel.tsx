@@ -210,6 +210,7 @@ export function InlineResultCard({ score, comment, studentName, isClassReveal, c
     const [countdownNum, setCountdownNum] = useState(3);
     const [displayScore, setDisplayScore] = useState(0);
     const [downloadState, setDownloadState] = useState<'idle' | 'downloading' | 'downloaded'>('idle');
+    const [isCapturing, setIsCapturing] = useState(false);
     const cardRef = useRef<HTMLDivElement>(null);
     const isGood = score != null && score >= 50;
     const canDownload = !isClassReveal || !revealedStudentId || !currentUserId || currentUserId === revealedStudentId;
@@ -225,7 +226,10 @@ export function InlineResultCard({ score, comment, studentName, isClassReveal, c
     const handleDownload = useCallback(async (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!cardRef.current || downloadState !== 'idle') return;
+        setIsCapturing(true);
         setDownloadState('downloading');
+        // Wait two animation frames so React re-renders and hides the button before capture
+        await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())));
         try {
             const dataUrl = await toPng(cardRef.current, { backgroundColor: isGood ? '#10b981' : '#f59e0b', pixelRatio: 2 });
             const a = document.createElement('a');
@@ -236,6 +240,7 @@ export function InlineResultCard({ score, comment, studentName, isClassReveal, c
         } catch {
             setDownloadState('idle');
         }
+        setIsCapturing(false);
     }, [downloadState, isGood, studentName]);
 
     // Class reveal: name phase (2s) -> countdown phase (3s) -> score phase
@@ -330,17 +335,33 @@ export function InlineResultCard({ score, comment, studentName, isClassReveal, c
 
     // Score phase — cardRef wraps only content to capture (button is outside so it's excluded from screenshot)
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%' }}>
+        <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 9999,
+            background: isGood
+                ? 'linear-gradient(135deg, rgba(16,185,129,1) 0%, rgba(34,197,94,1) 100%)'
+                : 'linear-gradient(135deg, rgba(245,158,11,1) 0%, rgba(249,115,22,1) 100%)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '100vh',
+            minWidth: '100vw',
+            padding: 0,
+        }}>
             <div
                 ref={cardRef}
                 onClick={onClose}
                 style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1,
-                    minHeight: 200, borderRadius: 12, overflow: 'hidden', cursor: 'pointer',
-                    background: isGood
-                        ? 'linear-gradient(135deg, rgba(16,185,129,0.95) 0%, rgba(34,197,94,0.95) 100%)'
-                        : 'linear-gradient(135deg, rgba(245,158,11,0.95) 0%, rgba(249,115,22,0.95) 100%)',
-                    padding: 24, position: 'relative',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: '100vw', height: '100vh',
+                    borderRadius: 0, overflow: 'hidden', cursor: 'pointer',
+                    background: 'transparent',
+                    position: 'relative',
                     animation: 'rqp-fade-in-up 0.4s ease-out',
                 }}
             >
@@ -413,7 +434,7 @@ export function InlineResultCard({ score, comment, studentName, isClassReveal, c
                     </div>
                 </div>
             </div>
-            {canDownload && (
+            {canDownload && !isCapturing && (
                 <button
                     onClick={handleDownload}
                     disabled={downloadState === 'downloading'}
@@ -436,6 +457,7 @@ interface InlineGradingProps {
     submissionId: string;
     studentId: string;
     onScoreUpdate?: (newScore: number | null) => void;
+    onSaved?: () => void;
 }
 
 interface GradingAnswer {
@@ -456,14 +478,12 @@ interface GradingAnswer {
     };
 }
 
-function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate }: InlineGradingProps) {
+function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate, onSaved }: InlineGradingProps) {
     const [loading, setLoading] = useState(true);
     const [answers, setAnswers] = useState<GradingAnswer[]>([]);
     const [overallFeedback, setOverallFeedback] = useState('');
-    const [savingId, setSavingId] = useState<string | null>(null);
-    const [savingOverall, setSavingOverall] = useState(false);
-    const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
-    const [savedOverall, setSavedOverall] = useState(false);
+    const [savingAll, setSavingAll] = useState(false);
+    const [savedAll, setSavedAll] = useState(false);
     const [grades, setGrades] = useState<Record<string, { grade: string; feedback: string }>>({});
 
     useEffect(() => {
@@ -493,38 +513,39 @@ function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate }: Inlin
         return () => { cancelled = true; };
     }, [quizId, studentId]);
 
-    const saveGrade = async (answerId: string) => {
-        const g = grades[answerId];
-        if (!g) return;
-        setSavingId(answerId);
+    const saveAll = async () => {
+        setSavingAll(true);
         try {
-            const res = await fetch(`${SERVER}/api/quiz-answers/${answerId}/grade`, {
+            // Save all manually-graded answers in parallel
+            const manualAnswers = answers.filter(a => {
+                const t = a.question?.type;
+                return t === 'text' || t === 'recording' || t === 'video' || t === 'upload';
+            });
+            let latestScore: number | null = null;
+            await Promise.all(manualAnswers.map(async (a) => {
+                const g = grades[a.id];
+                if (!g) return;
+                const res = await fetch(`${SERVER}/api/quiz-answers/${a.id}/grade`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ grade: g.grade === '' ? null : Number(g.grade), feedback: g.feedback }),
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.newScore != null) latestScore = data.newScore;
+                }
+            }));
+            // Save overall feedback
+            await fetch(`${SERVER}/api/submissions/${submissionId}/feedback`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ grade: g.grade === '' ? null : Number(g.grade), feedback: g.feedback }),
+                body: JSON.stringify({ teacherOverallFeedback: overallFeedback }),
             });
-            if (res.ok) {
-                const data = await res.json();
-                if (data.newScore != null && onScoreUpdate) onScoreUpdate(data.newScore);
-                setSavedIds(prev => new Set(prev).add(answerId));
-            }
+            if (latestScore != null && onScoreUpdate) onScoreUpdate(latestScore);
         } catch { /* ignore */ }
-        setSavingId(null);
-    };
-
-    const saveOverall = async () => {
-        setSavingOverall(true);
-        try {
-            const res = await fetch(`${SERVER}/api/submissions/${submissionId}/feedback`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    teacherOverallFeedback: overallFeedback,
-                }),
-            });
-            if (res.ok) setSavedOverall(true);
-        } catch { /* ignore */ }
-        setSavingOverall(false);
+        setSavingAll(false);
+        setSavedAll(true);
+        setTimeout(() => onSaved?.(), 800);
     };
 
     if (loading) {
@@ -545,7 +566,6 @@ function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate }: Inlin
                         const q = a.question;
                         const isAutoGraded = q.type === 'select' || q.type === 'multi-select';
                         const g = grades[a.id] || { grade: '', feedback: '' };
-                        const isSaved = savedIds.has(a.id);
 
                         return (
                             <div key={a.id} style={{
@@ -602,10 +622,7 @@ function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate }: Inlin
                                                 min={0}
                                                 max={q.points}
                                                 value={g.grade}
-                                                onChange={e => {
-                                                    setGrades(prev => ({ ...prev, [a.id]: { ...prev[a.id], grade: e.target.value } }));
-                                                    setSavedIds(prev => { const n = new Set(prev); n.delete(a.id); return n; });
-                                                }}
+                                                onChange={e => setGrades(prev => ({ ...prev, [a.id]: { ...prev[a.id], grade: e.target.value } }))}
                                                 placeholder="0"
                                                 style={{
                                                     width: 60, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)',
@@ -613,26 +630,10 @@ function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate }: Inlin
                                                 }}
                                             />
                                             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>/ {q.points} pts</span>
-                                            <button
-                                                onClick={() => saveGrade(a.id)}
-                                                disabled={savingId === a.id}
-                                                style={{
-                                                    padding: '4px 10px', borderRadius: 6, border: 'none',
-                                                    background: savingId === a.id ? '#94a3b8' : isSaved ? '#22c55e' : '#6366f1',
-                                                    color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                                                    marginLeft: 'auto',
-                                                    transition: 'background 0.2s',
-                                                }}
-                                            >
-                                                {savingId === a.id ? 'Saving...' : isSaved ? 'Saved' : 'Save'}
-                                            </button>
                                         </div>
                                         <textarea
                                             value={g.feedback}
-                                            onChange={e => {
-                                                setGrades(prev => ({ ...prev, [a.id]: { ...prev[a.id], feedback: e.target.value } }));
-                                                setSavedIds(prev => { const n = new Set(prev); n.delete(a.id); return n; });
-                                            }}
+                                            onChange={e => setGrades(prev => ({ ...prev, [a.id]: { ...prev[a.id], feedback: e.target.value } }))}
                                             placeholder="Feedback for this answer..."
                                             rows={2}
                                             style={{
@@ -649,7 +650,7 @@ function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate }: Inlin
                 </div>
             )}
 
-            {/* Overall feedback section — no more % override */}
+            {/* Overall feedback + single save button */}
             <div style={{
                 marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)',
                 display: 'flex', flexDirection: 'column', gap: 8,
@@ -659,7 +660,7 @@ function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate }: Inlin
                 </label>
                 <textarea
                     value={overallFeedback}
-                    onChange={e => { setOverallFeedback(e.target.value); setSavedOverall(false); }}
+                    onChange={e => setOverallFeedback(e.target.value)}
                     placeholder="Write an overall comment for this student..."
                     rows={2}
                     style={{
@@ -668,20 +669,18 @@ function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate }: Inlin
                         color: 'var(--text)', fontSize: 13, resize: 'vertical',
                     }}
                 />
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <button
-                        onClick={saveOverall}
-                        disabled={savingOverall}
-                        style={{
-                            padding: '6px 14px', borderRadius: 6, border: 'none',
-                            background: savingOverall ? '#94a3b8' : savedOverall ? '#22c55e' : '#6366f1',
-                            color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                            transition: 'background 0.2s',
-                        }}
-                    >
-                        {savingOverall ? 'Saving...' : savedOverall ? 'Saved' : 'Save Feedback'}
-                    </button>
-                </div>
+                <button
+                    onClick={saveAll}
+                    disabled={savingAll}
+                    style={{
+                        width: '100%', padding: '8px 0', borderRadius: 8, border: 'none',
+                        background: savingAll ? '#94a3b8' : savedAll ? '#22c55e' : '#6366f1',
+                        color: '#fff', fontSize: 13, fontWeight: 600, cursor: savingAll ? 'wait' : 'pointer',
+                        transition: 'background 0.2s',
+                    }}
+                >
+                    {savingAll ? 'Saving…' : savedAll ? '✅ Saved — collapsing…' : '💾 Save All Grades'}
+                </button>
             </div>
         </div>
     );
@@ -916,6 +915,7 @@ export function RoomQuizHost({
                                                 onScoreUpdate={(newScore) => {
                                                     setLocalScores(prev => ({ ...prev, [s.submissionId]: newScore }));
                                                 }}
+                                                onSaved={() => setExpandedId(null)}
                                             />
                                         )}
                                     </div>

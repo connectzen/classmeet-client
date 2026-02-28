@@ -342,6 +342,7 @@ export default function QuizDrawer({ userId, userName, userRole, open, onClose, 
                             quiz={view.quiz}
                             submission={view.submission}
                             onGraded={(updated) => setView({ name: 'submission-detail', quiz: view.quiz, submission: updated })}
+                            onDone={() => setView({ name: 'results', quiz: view.quiz })}
                         />
                     )}
                     {view.name === 'take-quiz' && (
@@ -1255,16 +1256,15 @@ function QuizResults({ quiz, onViewSubmission }: { quiz: Quiz; onViewSubmission:
 }
 
 // ─── Submission Detail (Teacher Grading) ──────────────────────────────────
-function SubmissionDetail({ quiz, submission, onGraded }: {
-    quiz: Quiz; submission: Submission; onGraded: (s: Submission) => void;
+function SubmissionDetail({ quiz, submission, onGraded, onDone }: {
+    quiz: Quiz; submission: Submission; onGraded: (s: Submission) => void; onDone?: () => void;
 }) {
     const [questions, setQuestions] = useState<Question[]>([]);
     const [grades, setGrades] = useState<Record<string, { grade: string; feedback: string }>>({});
-    const [savingId, setSavingId] = useState<string | null>(null);
-    const [savedSet, setSavedSet] = useState<Set<string>>(new Set());
     const [overallFeedback, setOverallFeedback] = useState(submission.teacher_overall_feedback || '');
     const [finalScoreOverride, setFinalScoreOverride] = useState(submission.teacher_final_score_override != null ? String(submission.teacher_final_score_override) : '');
-    const [savingFeedback, setSavingFeedback] = useState(false);
+    const [savingAll, setSavingAll] = useState(false);
+    const [savedAll, setSavedAll] = useState(false);
 
     useEffect(() => {
         fetch(`${SERVER}/api/quizzes/${quiz.id}?role=teacher`)
@@ -1283,20 +1283,16 @@ function SubmissionDetail({ quiz, submission, onGraded }: {
     }, [submission.teacher_overall_feedback, submission.teacher_final_score_override]);
 
     async function saveGrade(answerId: string) {
-        setSavingId(answerId);
         const r = await fetch(`${SERVER}/api/quiz-answers/${answerId}/grade`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ grade: grades[answerId]?.grade !== '' ? Number(grades[answerId]?.grade) : null, feedback: grades[answerId]?.feedback || null }),
         });
         const result = await r.json();
-        setSavingId(null);
-        setSavedSet(prev => new Set([...prev, answerId]));
         if (result.newScore !== undefined) onGraded({ ...submission, score: result.newScore });
     }
 
     async function saveFeedback() {
-        setSavingFeedback(true);
         const r = await fetch(`${SERVER}/api/submissions/${submission.id}/feedback`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -1306,12 +1302,25 @@ function SubmissionDetail({ quiz, submission, onGraded }: {
             }),
         });
         const data = await r.json();
-        setSavingFeedback(false);
         if (r.ok) onGraded({
             ...submission,
             teacher_overall_feedback: data.teacherOverallFeedback ?? overallFeedback,
             teacher_final_score_override: data.teacherFinalScoreOverride ?? (finalScoreOverride !== '' ? Number(finalScoreOverride) : null),
         });
+    }
+
+    async function saveAll() {
+        setSavingAll(true);
+        const flatQs = questions.flatMap(q => q.children?.length ? [q, ...q.children] : [q]);
+        const manualAnswerIds = flatQs
+            .filter(q => ['text', 'recording', 'video', 'upload'].includes(q.type))
+            .map(q => submission.answers?.find(a => a.question_id === q.id)?.id)
+            .filter((id): id is string => Boolean(id));
+        await Promise.all(manualAnswerIds.map(id => saveGrade(id)));
+        await saveFeedback();
+        setSavingAll(false);
+        setSavedAll(true);
+        setTimeout(() => onDone?.(), 800);
     }
 
     const getAnswerForQuestion = (qId: string) => submission.answers?.find(a => a.question_id === qId);
@@ -1350,14 +1359,6 @@ function SubmissionDetail({ quiz, submission, onGraded }: {
                         value={finalScoreOverride}
                         onChange={e => setFinalScoreOverride(e.target.value)}
                     />
-                    <button
-                        onClick={saveFeedback}
-                        disabled={savingFeedback}
-                        className="quiz-btn quiz-btn-primary"
-                        style={{ padding: '6px 14px' }}
-                    >
-                        {savingFeedback ? '…' : '💾 Save Feedback'}
-                    </button>
                 </div>
             </div>
 
@@ -1424,7 +1425,7 @@ function SubmissionDetail({ quiz, submission, onGraded }: {
                                     style={{ width: 65, marginBottom: 0 }}
                                     placeholder="0"
                                     value={grades[ans.id]?.grade ?? ''}
-                                    onChange={e => { setGrades(prev => ({ ...prev, [ans.id]: { ...prev[ans.id], grade: e.target.value } })); setSavedSet(prev => { const n = new Set(prev); n.delete(ans.id); return n; }); }}
+                                    onChange={e => setGrades(prev => ({ ...prev, [ans.id]: { ...prev[ans.id], grade: e.target.value } }))}
                                 />
                                 <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>/ {q.points}</span>
                                 <input
@@ -1434,19 +1435,20 @@ function SubmissionDetail({ quiz, submission, onGraded }: {
                                     value={grades[ans.id]?.feedback ?? ''}
                                     onChange={e => setGrades(prev => ({ ...prev, [ans.id]: { ...prev[ans.id], feedback: e.target.value } }))}
                                 />
-                                <button
-                                    onClick={() => saveGrade(ans.id)}
-                                    disabled={savingId === ans.id}
-                                    className="quiz-btn quiz-btn-primary"
-                                    style={{ padding: '6px 12px', whiteSpace: 'nowrap' }}
-                                >
-                                    {savingId === ans.id ? '…' : savedSet.has(ans.id) ? '✅ Saved' : '💾 Save'}
-                                </button>
                             </div>
                         )}
                     </div>
                 );
             })}
+
+            <button
+                onClick={saveAll}
+                disabled={savingAll}
+                className="quiz-btn quiz-btn-primary"
+                style={{ width: '100%', marginTop: 16, padding: '10px 0' }}
+            >
+                {savingAll ? 'Saving…' : savedAll ? '✅ Saved — going back…' : '💾 Save All & Next Student'}
+            </button>
         </div>
     );
 }
@@ -1894,6 +1896,7 @@ export function TakeQuiz({ quiz, submissionId, userId, showConfirm, showAlert, o
 function QuizDone({ quiz, score, onBack }: { quiz: Quiz; score: number | null; onBack: () => void; }) {
     const cardRef = useRef<HTMLDivElement>(null);
     const [downloadState, setDownloadState] = useState<'idle' | 'downloading' | 'downloaded'>('idle');
+    const [isCapturing, setIsCapturing] = useState(false);
     const isPureZero = score === 0;
     const color = score === null || isPureZero ? '#7b7b99' : score >= 70 ? '#22c55e' : score >= 40 ? '#f59e0b' : '#ef4444';
     const emoji = score === null || isPureZero ? '📝' : score >= 70 ? '🎉' : score >= 40 ? '👍' : '💪';
@@ -1906,7 +1909,10 @@ function QuizDone({ quiz, score, onBack }: { quiz: Quiz; score: number | null; o
 
     const handleDownload = useCallback(async () => {
         if (!cardRef.current || downloadState !== 'idle') return;
+        setIsCapturing(true);
         setDownloadState('downloading');
+        // Wait two animation frames so React re-renders and hides the button before capture
+        await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())));
         try {
             const dataUrl = await toPng(cardRef.current, { backgroundColor: '#1e1b4b', pixelRatio: 2 });
             const a = document.createElement('a');
@@ -1917,33 +1923,40 @@ function QuizDone({ quiz, score, onBack }: { quiz: Quiz; score: number | null; o
         } catch {
             setDownloadState('idle');
         }
+        setIsCapturing(false);
     }, [downloadState, quiz.title]);
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, height: '100%', textAlign: 'center' }}>
+        <div style={{
+            position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 9999,
+            background: '#0f172a', display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 32,
+            boxSizing: 'border-box',
+        }}>
             <div
                 ref={cardRef}
                 style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 32,
-                    background: '#1e1b4b', borderRadius: 16, border: '1px solid rgba(99,102,241,0.3)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 40,
+                    background: '#1e1b4b', borderRadius: 20, border: '1px solid rgba(99,102,241,0.3)',
+                    maxWidth: 480, width: '100%',
                 }}
             >
-                <div className="quiz-done-bounce" style={{ fontSize: 60, marginBottom: 16 }}>{emoji}</div>
-                <h2 style={{ fontWeight: 700, fontSize: 22, marginBottom: 8, color: '#f1f5f9' }}>Quiz Submitted!</h2>
-                <p style={{ color: '#94a3b8', marginBottom: 24, lineHeight: 1.5 }}>
+                <div className="quiz-done-bounce" style={{ fontSize: 72, marginBottom: 16 }}>{emoji}</div>
+                <h2 style={{ fontWeight: 700, fontSize: 26, marginBottom: 8, color: '#f1f5f9' }}>Quiz Submitted!</h2>
+                <p style={{ color: '#94a3b8', marginBottom: 24, lineHeight: 1.5, fontSize: 15 }}>
                     You've completed <strong style={{ color: '#e2e8f0' }}>{quiz.title}</strong>.
                 </p>
                 {score !== null ? (
                     <>
                         <div className="quiz-done-bounce" style={{
-                            width: 100, height: 100, borderRadius: '50%',
-                            border: `4px solid ${color}`,
+                            width: 120, height: 120, borderRadius: '50%',
+                            border: `5px solid ${color}`,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 28, fontWeight: 700, color, marginBottom: 12,
+                            fontSize: 32, fontWeight: 700, color, marginBottom: 16,
                         }}>
                             {score}%
                         </div>
-                        <p style={{ fontSize: 14, color: '#94a3b8', marginBottom: 24 }}>
+                        <p style={{ fontSize: 16, color: '#94a3b8', marginBottom: 8 }}>
                             {score >= 70 ? 'Great work!' : score >= 40 ? 'Good effort — keep practising!' : score === 0 ? 'Your teacher will mark the rest of your answers.' : 'Keep studying, you can do it!'}
                         </p>
                     </>
@@ -1953,19 +1966,21 @@ function QuizDone({ quiz, score, onBack }: { quiz: Quiz; score: number | null; o
                     </p>
                 )}
             </div>
-            <button
-                onClick={handleDownload}
-                disabled={downloadState === 'downloading'}
-                style={{
-                    marginTop: 16, padding: '10px 20px', fontSize: 14, fontWeight: 600,
-                    background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.5)',
-                    borderRadius: 10, color: '#a5b4fc', cursor: downloadState === 'downloading' ? 'wait' : 'pointer',
-                    width: '100%', maxWidth: 280,
-                }}
-            >
-                {downloadState === 'downloading' ? 'Downloading…' : downloadState === 'downloaded' ? '✓ Downloaded' : '📥 Download Result'}
-            </button>
-            <button onClick={onBack} className="quiz-btn quiz-btn-primary" style={{ width: '100%', maxWidth: 280, marginTop: 12 }}>
+            {!isCapturing && (
+                <button
+                    onClick={handleDownload}
+                    disabled={downloadState === 'downloading'}
+                    style={{
+                        marginTop: 20, padding: '12px 28px', fontSize: 14, fontWeight: 600,
+                        background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.5)',
+                        borderRadius: 10, color: '#a5b4fc', cursor: downloadState === 'downloading' ? 'wait' : 'pointer',
+                        width: '100%', maxWidth: 300,
+                    }}
+                >
+                    {downloadState === 'downloading' ? 'Downloading…' : downloadState === 'downloaded' ? '✓ Downloaded' : '📥 Download Result'}
+                </button>
+            )}
+            <button onClick={onBack} className="quiz-btn quiz-btn-primary" style={{ width: '100%', maxWidth: 300, marginTop: 12 }}>
                 Back to Quizzes
             </button>
         </div>

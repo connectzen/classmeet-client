@@ -113,8 +113,10 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
     const handleStartDM = useCallback(async (u: { id: string; name: string; role: string }) => {
         setShowNewDM(false);
         const convId = await startDM(u.id, u.name, u.role);
+        // Refetch conversations to ensure the new DM appears instantly
+        await fetchConversations();
         openConversation(convId);
-    }, [startDM, openConversation]);
+    }, [startDM, openConversation, fetchConversations]);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef   = useRef<HTMLInputElement>(null);
     const typingTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -248,6 +250,11 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
         if (userRole === 'student' && c.type !== 'dm') return false;
         const name = getConvDisplayName(c).toLowerCase();
         return name.includes(searchQ.toLowerCase());
+    }).sort((a, b) => {
+        // Active conversation always floats to the top so new DMs are immediately visible
+        if (a.conversation_id === activeConvId) return -1;
+        if (b.conversation_id === activeConvId) return 1;
+        return 0;
     });
 
     const panel = (
@@ -305,20 +312,38 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                                     .map(u => {
                                         const avatarUrl = partnerProfiles[u.id]?.avatar_url || u.avatar_url;
                                         const showPartnerAvatar = avatarUrl && !failedAvatarUrls.has(avatarUrl);
+                                        const isOnline = onlineIds.has(u.id);
+                                        const lastSeenTime = lastSeen[u.id];
                                         return (
                                         <div key={u.id} onClick={() => handleStartDM(u)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', cursor: 'pointer', transition: 'background 0.15s' }}
                                             onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
                                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                                            <div style={{ width: 38, height: 38, borderRadius: '50%', background: u.role === 'teacher' ? 'rgba(99,102,241,0.15)' : 'rgba(34,197,94,0.15)', border: `2px solid ${u.role === 'teacher' ? '#6366f1' : '#22c55e'}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, color: u.role === 'teacher' ? '#6366f1' : '#22c55e', flexShrink: 0, overflow: 'hidden' }}>
+                                            <div style={{ width: 38, height: 38, borderRadius: '50%', background: u.role === 'teacher' ? 'rgba(99,102,241,0.15)' : 'rgba(34,197,94,0.15)', border: `2px solid ${u.role === 'teacher' ? '#6366f1' : '#22c55e'}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, color: u.role === 'teacher' ? '#6366f1' : '#22c55e', flexShrink: 0, overflow: 'hidden', position: 'relative' }}>
                                                 {showPartnerAvatar ? (
                                                     <img src={avatarUrl} alt="" onError={() => markAvatarFailed(avatarUrl)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                 ) : (
                                                     (u.name || u.email)[0].toUpperCase()
                                                 )}
+                                                {/* Online dot */}
+                                                <span style={{
+                                                    position: 'absolute',
+                                                    bottom: 2,
+                                                    right: 2,
+                                                    width: 10,
+                                                    height: 10,
+                                                    borderRadius: '50%',
+                                                    background: isOnline ? '#22c55e' : '#d1d5db',
+                                                    border: '2px solid #fff',
+                                                    boxSizing: 'border-box',
+                                                    display: 'block',
+                                                }} title={isOnline ? 'Online' : lastSeenTime ? `Last seen ${formatLastSeen(lastSeenTime)}` : 'Offline'} />
                                             </div>
                                             <div>
                                                 <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>{u.name || u.email}</div>
                                                 <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1, textTransform: 'capitalize' }}>{u.role}</div>
+                                                <div style={{ fontSize: 10, color: isOnline ? '#22c55e' : '#9ca3af', marginTop: 2 }}>
+                                                    {isOnline ? 'online' : lastSeenTime ? formatLastSeen(lastSeenTime) : 'offline'}
+                                                </div>
                                             </div>
                                         </div>
                                         );
@@ -338,7 +363,9 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                     )}
                     {filteredConvs.map(conv => {
                         const isActive = conv.conversation_id === activeConvId;
-                        const canDelete = conv.type === 'dm'; // only allow deleting DM conversations
+                        const canDelete = conv.type === 'dm';
+                        const isOnline = conv.type === 'dm' && conv.other_user?.user_id && onlineIds.has(conv.other_user.user_id);
+                        const lastSeenTime = conv.type === 'dm' && conv.other_user?.user_id ? lastSeen[conv.other_user.user_id] : undefined;
                         return (
                             <div
                                 key={conv.conversation_id}
@@ -359,6 +386,21 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                                     {conv.type === 'dm' && conv.other_user?.avatar_url && !failedAvatarUrls.has(conv.other_user.avatar_url) ? (
                                         <img src={conv.other_user.avatar_url} alt="" onError={() => markAvatarFailed(conv.other_user!.avatar_url!)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : conv.type === 'broadcast' || conv.type === 'group' ? (conv.type === 'broadcast' ? '📢' : '#') : getConvAvatar(conv)}
+                                    {/* Online dot */}
+                                    {conv.type === 'dm' && conv.other_user?.user_id && (
+                                        <span style={{
+                                            position: 'absolute',
+                                            bottom: 4,
+                                            right: 4,
+                                            width: 12,
+                                            height: 12,
+                                            borderRadius: '50%',
+                                            background: isOnline ? '#22c55e' : '#d1d5db',
+                                            border: '2px solid #fff',
+                                            boxSizing: 'border-box',
+                                            display: 'block',
+                                        }} title={isOnline ? 'Online' : lastSeenTime ? `Last seen ${formatLastSeen(lastSeenTime)}` : 'Offline'} />
+                                    )}
                                     {conv.unread_count > 0 && (
                                         <div style={{ position: 'absolute', top: -4, right: -4, background: '#6366f1', color: '#fff', borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>
                                             {conv.unread_count > 9 ? '9+' : conv.unread_count}
@@ -392,6 +434,12 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                                             : 'No messages yet'
                                         }
                                     </div>
+                                    {/* Online/offline/last seen */}
+                                    {conv.type === 'dm' && conv.other_user?.user_id && (
+                                        <div style={{ fontSize: 10, color: isOnline ? '#22c55e' : '#9ca3af', marginTop: 2 }}>
+                                            {isOnline ? 'online' : lastSeenTime ? formatLastSeen(lastSeenTime) : 'offline'}
+                                        </div>
+                                    )}
                                 </div>
                                 {/* Delete conversation button — visible on hover */}
                                 {canDelete && hoveredConvId === conv.conversation_id && (
