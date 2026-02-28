@@ -40,17 +40,32 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
     const [activeConvId, setActiveConvId]   = useState<string | null>(null);
     const [unreadTotal, setUnreadTotal]     = useState(0);
     const [typing, setTyping]               = useState<Record<string, string>>({});
-    const socketRef  = useRef<Socket | null>(null);
-    const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-
-    // ── Connect socket ────────────────────────────────────────────────────
-    useEffect(() => {
-        if (!userId) return;
+    const [onlineIds, setOnlineIds]         = useState<Set<string>>(new Set());
+    const [lastSeen, setLastSeen]           = useState<Record<string, number>>({});
         const sock = io(SERVER_URL, { transports: ['websocket'], autoConnect: true });
         socketRef.current = sock;
 
         sock.on('connect', () => {
             sock.emit('register-user', userId);
+            sock.emit('presence:subscribe');
+        });
+
+        // Presence events
+        sock.on('presence:state', ({ onlineIds: ids, lastSeen: seen }: { onlineIds: string[]; lastSeen: Record<string, number> }) => {
+            setOnlineIds(new Set(ids));
+            setLastSeen(seen);
+        });
+
+        sock.on('presence:status', ({ userId: uid, online, lastSeen: ts }: { userId: string; online: boolean; lastSeen?: number }) => {
+            setOnlineIds(prev => {
+                const next = new Set(prev);
+                if (online) next.add(uid);
+                else next.delete(uid);
+                return next;
+            });
+            if (!online && ts) {
+                setLastSeen(prev => ({ ...prev, [uid]: ts }));
+            }
         });
 
         sock.on('chat:message', (msg: ChatMessage) => {
@@ -264,6 +279,8 @@ export function useChat({ userId, userName, userRole }: UseChatOptions) {
         setActiveConvId,
         unreadTotal,
         typing,
+        onlineIds,
+        lastSeen,
         fetchConversations,
         openConversation,
         startDM,

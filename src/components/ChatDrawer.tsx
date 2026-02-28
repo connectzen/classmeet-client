@@ -22,7 +22,7 @@ const EMOJI_LIST = ['👍','❤️','😂','😮','😢','🙏'];
 export default function ChatDrawer({ userId, userName, userRole, inline, open, onClose, onUnreadChange }: Props) {
     const {
         conversations, messages, activeConvId, unreadTotal,
-        typing, openConversation, sendMessage, uploadFile, emitTyping, reactToMessage, fetchConversations, startDM, deleteMessage, deleteConversation,
+        typing, onlineIds, lastSeen, openConversation, sendMessage, uploadFile, emitTyping, reactToMessage, fetchConversations, startDM, deleteMessage, deleteConversation,
     } = useChat({ userId, userName, userRole });
 
     // Notify parent of unread count changes
@@ -211,6 +211,27 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
         if (d.toDateString() === today.toDateString()) return 'Today';
         if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
         return d.toLocaleDateString([], { month: 'long', day: 'numeric' });
+    };
+
+    const formatLastSeen = (timestamp: number) => {
+        const d = new Date(timestamp);
+        const now = new Date();
+        const diff = now.getTime() - d.getTime();
+        const mins = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days = Math.floor(diff / 86400000);
+        
+        if (mins < 1) return 'last seen just now';
+        if (mins < 60) return `last seen ${mins}m ago`;
+        if (hours < 24 && d.toDateString() === now.toDateString()) {
+            return `last seen today at ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        }
+        const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+        if (d.toDateString() === yesterday.toDateString()) {
+            return `last seen yesterday at ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        }
+        if (days < 7) return `last seen ${days} days ago`;
+        return `last seen ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
     };
 
     // Group messages by date
@@ -413,10 +434,23 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                                             <img src={activeConv.other_user.avatar_url} alt="" onError={() => markAvatarFailed(activeConv.other_user!.avatar_url!)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                         ) : activeConv.type === 'broadcast' ? '📢' : activeConv.type === 'group' ? '#' : getConvAvatar(activeConv)}
                                     </div>
-                                    <div>
-                                        <div style={{ fontWeight: 600, fontSize: 15 }}>{getConvDisplayName(activeConv)}</div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontWeight: 600, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            {getConvDisplayName(activeConv)}
+                                            {activeConv.type === 'dm' && activeConv.other_user?.id && onlineIds.has(activeConv.other_user.id) && (
+                                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', flexShrink: 0 }} title="Online" />
+                                            )}
+                                        </div>
                                         <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                                            {activeConv.type === 'broadcast' ? 'Broadcast channel' : activeConv.type === 'group' ? 'Group' : `${activeConv.other_user?.user_role || 'user'}`}
+                                            {activeConv.type === 'broadcast' ? 'Broadcast channel' 
+                                             : activeConv.type === 'group' ? 'Group' 
+                                             : activeConv.type === 'dm' && activeConv.other_user?.id ? (
+                                                 onlineIds.has(activeConv.other_user.id) 
+                                                     ? <span style={{ color: '#22c55e' }}>online</span>
+                                                     : lastSeen[activeConv.other_user.id] 
+                                                         ? formatLastSeen(lastSeen[activeConv.other_user.id])
+                                                         : activeConv.other_user?.user_role || 'user'
+                                             ) : activeConv.other_user?.user_role || 'user'}
                                         </div>
                                     </div>
                                 </>
