@@ -183,35 +183,43 @@ export default function QuizDrawer({ userId, userName, userRole, open, onClose, 
             {open && (
                 <div
                     onClick={onClose}
-                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 999, backdropFilter: 'blur(2px)' }}
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 999, backdropFilter: 'blur(4px)' }}
                 />
             )}
 
-            {/* Drawer */}
+            {/* Modal (centered) */}
             <div style={{
-                position: 'fixed', top: 0, right: 0, height: '100vh',
-                width: 'min(520px, 96vw)',
+                position: 'fixed',
+                top: '50%',
+                left: '50%',
+                transform: open ? 'translate(-50%, -50%) scale(1)' : 'translate(-50%, -50%) scale(0.95)',
+                width: 'min(720px, 94vw)',
+                maxHeight: '90vh',
                 background: 'var(--bg)',
-                borderLeft: '1px solid var(--border)',
+                border: '1px solid var(--border)',
+                borderRadius: 16,
                 zIndex: 1000,
-                transform: open ? 'translateX(0)' : 'translateX(100%)',
-                transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1)',
+                opacity: open ? 1 : 0,
+                pointerEvents: open ? 'auto' : 'none',
+                transition: 'transform 0.25s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease',
                 display: 'flex', flexDirection: 'column',
-                boxShadow: '-8px 0 40px rgba(0,0,0,0.3)',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+                overflow: 'hidden',
             }}>
                 {/* Header */}
                 <div style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '14px 20px', borderBottom: '1px solid var(--border)',
+                    padding: '16px 24px', borderBottom: '1px solid var(--border)',
                     background: 'var(--surface)', flexShrink: 0,
+                    borderRadius: '16px 16px 0 0',
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         {view.name !== 'list' && (
                             <button onClick={goBack} className="cd-icon-btn" title="Back">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
                             </button>
                         )}
-                        <span style={{ fontWeight: 700, fontSize: 16 }}>
+                        <span style={{ fontWeight: 700, fontSize: 18 }}>
                             {view.name === 'list' && '📝 Quizzes'}
                             {view.name === 'create' && '📝 New Quiz'}
                             {view.name === 'builder' && '🔧 Quiz Builder'}
@@ -222,7 +230,7 @@ export default function QuizDrawer({ userId, userName, userRole, open, onClose, 
                             {view.name === 'quiz-done' && '✅ Quiz Complete!'}
                         </span>
                     </div>
-                    <button onClick={onClose} className="cd-icon-btn" title="Close" style={{ fontSize: 20 }}>✕</button>
+                    <button onClick={onClose} className="cd-icon-btn" title="Close" style={{ fontSize: 22 }}>✕</button>
                 </div>
 
                 {/* Body */}
@@ -501,7 +509,7 @@ function CreateQuizForm({ userId, rooms, courses, onCreated, onCancel }: {
     }
 
     return (
-        <div style={{ padding: 20 }} className="quiz-form-fade-in">
+        <div style={{ padding: 28 }} className="quiz-form-fade-in">
             <div className="quiz-step-indicator">
                 <span className="quiz-step-dot active">1</span>
                 <span style={{ color: 'var(--text-muted)' }}>Basics</span>
@@ -512,7 +520,7 @@ function CreateQuizForm({ userId, rooms, courses, onCreated, onCancel }: {
                 <span className="quiz-step-dot">3</span>
                 <span style={{ color: 'var(--text-muted)' }}>Publish</span>
             </div>
-            <h3 style={{ fontWeight: 700, marginBottom: 20, fontSize: 17 }}>Create New Quiz</h3>
+            <h3 style={{ fontWeight: 700, marginBottom: 24, fontSize: 19 }}>Create New Quiz</h3>
 
             <label className="quiz-label">Quiz Title</label>
             <input
@@ -525,7 +533,7 @@ function CreateQuizForm({ userId, rooms, courses, onCreated, onCancel }: {
 
             {courses.length > 0 && (
                 <>
-                    <label className="quiz-label" style={{ marginTop: 14 }}>Course (optional)</label>
+                    <label className="quiz-label" style={{ marginTop: 18 }}>Course (optional)</label>
                     <select className="quiz-input" value={courseId} onChange={e => setCourseId(e.target.value)}>
                         <option value="">— No course —</option>
                         {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
@@ -533,7 +541,7 @@ function CreateQuizForm({ userId, rooms, courses, onCreated, onCancel }: {
                 </>
             )}
 
-            <label className="quiz-label" style={{ marginTop: 14 }}>Assign to Room</label>
+            <label className="quiz-label" style={{ marginTop: 18 }}>Assign to Room</label>
             {rooms.length === 0 && !courseId ? (
                 <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Select a course above or create a room first.</p>
             ) : (
@@ -543,16 +551,16 @@ function CreateQuizForm({ userId, rooms, courses, onCreated, onCancel }: {
                 </select>
             )}
 
-            <label className="quiz-label" style={{ marginTop: 14 }}>Time Limit (minutes) — optional</label>
+            <label className="quiz-label" style={{ marginTop: 18 }}>Time Limit (minutes) — optional</label>
             <input
                 className="quiz-input"
                 type="number" min="1" placeholder="e.g. 30"
                 value={timeLimit} onChange={e => setTimeLimit(e.target.value)}
             />
 
-            {err && <p style={{ color: '#ef4444', fontSize: 13, marginTop: 8 }}>{err}</p>}
+            {err && <p style={{ color: '#ef4444', fontSize: 13, marginTop: 10 }}>{err}</p>}
 
-            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+            <div style={{ display: 'flex', gap: 12, marginTop: 28 }}>
                 <button onClick={onCancel} className="quiz-btn quiz-btn-ghost" style={{ flex: 1 }}>Cancel</button>
                 <button onClick={handleCreate} disabled={saving} className="quiz-btn quiz-btn-primary" style={{ flex: 2 }}>
                     {saving ? 'Creating…' : 'Create & Add Questions →'}
