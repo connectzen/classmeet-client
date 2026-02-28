@@ -53,13 +53,6 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
     // Auto-advance to thread pane when a conversation is opened on mobile
     useEffect(() => { if (activeConvId && isMobile) setMobileShowThread(true); }, [activeConvId, isMobile]);
 
-    // Auto-show people picker when there are no conversations
-    useEffect(() => {
-        if (conversations.length === 0 && !activeConvId) {
-            openNewDM();
-        }
-    }, [conversations.length, activeConvId]);
-
     // New DM people picker
     const [showNewDM, setShowNewDM]       = useState(false);
     const [dmUsers, setDmUsers]           = useState<{ id: string; name: string; email: string; role: string; avatar_url?: string | null }[]>([]);
@@ -283,9 +276,11 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
         const name = getConvDisplayName(c).toLowerCase();
         return name.includes(searchQ.toLowerCase());
     }).sort((a, b) => {
-        // Active conversation always floats to the top so new DMs are immediately visible
-        if (a.conversation_id === activeConvId) return -1;
-        if (b.conversation_id === activeConvId) return 1;
+        // Sort by most recent message first (WhatsApp-style)
+        const aTime = a.last_message?.created_at || '';
+        const bTime = b.last_message?.created_at || '';
+        if (bTime > aTime) return 1;
+        if (bTime < aTime) return -1;
         return 0;
     });
 
