@@ -2317,6 +2317,7 @@ button:active:not(:disabled),
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0;
 }
 
 .chat-header {
@@ -2587,14 +2588,12 @@ button:active:not(:disabled),
 ───────────────────────────────────────────── */
 .mobile-chat-fullscreen {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 100dvh;
+  inset: 0;
   z-index: 900;
   background: var(--surface);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .mobile-chat-topbar {

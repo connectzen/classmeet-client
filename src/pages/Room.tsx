@@ -58,6 +58,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [roomQuizSubmitted, setRoomQuizSubmitted] = useState(false);
     const [dismissedRevealed, setDismissedRevealed] = useState(false);
     const socketIdRef = useRef<string>('');
+    const mobileChatRef = useRef<HTMLDivElement>(null);
 
     const copyRoomCode = () => {
         navigator.clipboard.writeText(roomCode).then(() => {
@@ -290,6 +291,30 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         setDismissedRevealed(false);
     }, [roomQuizRevealed]);
 
+    // Dynamically resize mobile chat container when keyboard opens/closes
+    useEffect(() => {
+        if (!isChatOpen) return;
+        const el = mobileChatRef.current;
+        if (!el) return;
+
+        const updateHeight = () => {
+            const vv = window.visualViewport;
+            if (vv) {
+                el.style.height = `${vv.height}px`;
+                el.style.top = `${vv.offsetTop}px`;
+            }
+        };
+
+        updateHeight();
+        window.visualViewport?.addEventListener('resize', updateHeight);
+        window.visualViewport?.addEventListener('scroll', updateHeight);
+
+        return () => {
+            window.visualViewport?.removeEventListener('resize', updateHeight);
+            window.visualViewport?.removeEventListener('scroll', updateHeight);
+        };
+    }, [isChatOpen]);
+
     // Controls
     const toggleMic = () => {
         if (!localStream) return;
@@ -471,7 +496,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
 
             {/* Mobile chat — full-screen like WhatsApp */}
             {isChatOpen && (
-                <div className="mobile-chat-fullscreen">
+                <div className="mobile-chat-fullscreen" ref={mobileChatRef}>
                     <div className="mobile-chat-topbar">
                         <button className="mobile-chat-back" onClick={() => setIsChatOpen(false)}>
                             ← Back
