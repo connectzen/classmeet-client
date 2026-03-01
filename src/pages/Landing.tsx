@@ -920,7 +920,11 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                 const isOnline = onlineUserIds.has(teacherId);
                                                 const stuCollapsed = teacherStudentsCollapsed[teacherId] !== false; // default collapsed
                                                 return (
-                                                <div key={teacherId} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 12px' }}>
+                                                <div
+                                                    key={teacherId}
+                                                    onClick={() => students.length > 0 && setTeacherStudentsCollapsed(prev => ({ ...prev, [teacherId]: !stuCollapsed }))}
+                                                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 12px', cursor: students.length > 0 ? 'pointer' : 'default' }}
+                                                >
                                                     {/* Teacher row */}
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                         <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, overflow: 'hidden' }}>
@@ -934,14 +938,10 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                             <div style={{ fontSize: 11, color: isOnline ? '#4ade80' : 'var(--text-muted)', fontWeight: isOnline ? 600 : 400 }}>{isOnline ? 'Online' : (lastSeenByUserId[teacherId] ? formatLastSeen(lastSeenByUserId[teacherId]) : 'Offline')}</div>
                                                         </div>
                                                         {students.length > 0 && (
-                                                            <button
-                                                                onClick={() => setTeacherStudentsCollapsed(prev => ({ ...prev, [teacherId]: stuCollapsed ? false : true }))}
-                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', flexShrink: 0 }}
-                                                                title={stuCollapsed ? 'Show students' : 'Hide students'}
-                                                            >
-                                                                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 20, height: 16, borderRadius: 100, padding: '0 5px', fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.35)', color: '#4ade80', marginRight: 3 }}>{students.length}</span>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+                                                                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 20, height: 16, borderRadius: 100, padding: '0 5px', fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.35)', color: '#4ade80' }}>{students.length}</span>
                                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: 'transform 0.2s', transform: stuCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}><polyline points="6 9 12 15 18 9"/></svg>
-                                                            </button>
+                                                            </div>
                                                         )}
                                                     </div>
                                                     {/* Nested students */}
