@@ -684,7 +684,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     };
 
     return (
-        <div className={`landing-container${userRole === 'teacher' || userRole === 'member' ? ' teacher-fixed-root' : ''}`}>
+        <div className={`landing-container${userRole === 'teacher' || userRole === 'member' || userRole === 'student' ? ' teacher-fixed-root' : ''}`}>
             <div className="landing-bg-orb orb-1" />
             <div className="landing-bg-orb orb-2" />
             <div className="landing-bg-orb orb-3" />
@@ -729,7 +729,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             </nav>
 
             {/* â”€â”€ Scrollable body â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-            <div className={`landing-scroll-body${userRole === 'teacher' || userRole === 'member' ? ' teacher-fixed-view' : ''}`}>
+            <div className={`landing-scroll-body${userRole === 'teacher' || userRole === 'member' || userRole === 'student' ? ' teacher-fixed-view' : ''}`}>
 
                 {/* â”€â”€ Hero â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="landing-hero">
@@ -1217,74 +1217,94 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
 
                     {/* STUDENT DASHBOARD */}
                     {userRole === 'student' && (
-                        <div className="dashboard-panel enter-up">
-                            <div className="dashboard-panel-header">
-                                <div className="dashboard-panel-title-group">
-                                    <span className="role-badge badge-student">📚 Student Dashboard</span>
-                                    <h2 className="dashboard-panel-title">Your Classes</h2>
-                                </div>
-                            </div>
+                        <div className="teacher-dashboard-layout">
 
-                            {/* Quick overview */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 20 }}>
-                                <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
-                                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Upcoming sessions</div>
-                                    <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>
-                                        {studentTeacherSessions.filter(s => new Date(s.scheduled_at) >= new Date()).length}
+                            {/* ── LEFT SIDEBAR: Your Teachers ── */}
+                            <aside className="teacher-sidebar enter-up">
+                                <div className="teacher-sidebar-section">
+                                    <div className="teacher-sidebar-section-header">
+                                        <span>Your teachers</span>
                                     </div>
+                                    {(() => {
+                                        const teacherIds = Array.from(new Set(studentTeacherSessions.map(s => s.created_by)));
+                                        return teacherIds.length === 0 ? (
+                                            <div style={{ color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.5 }}>No teachers assigned yet.</div>
+                                        ) : (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                {teacherIds.map(tid => {
+                                                    const name = teacherProfiles[tid]?.name ?? teacherNamesFromApi[tid] ?? 'Teacher';
+                                                    const avatarUrl = teacherProfiles[tid]?.avatar_url;
+                                                    return (
+                                                        <div key={tid} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '7px 10px' }}>
+                                                            <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, overflow: 'hidden' }}>
+                                                                {avatarUrl && !failedAvatarUrls.has(avatarUrl) ? (
+                                                                    <img src={avatarUrl} alt="" onError={() => markAvatarFailed(avatarUrl)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                                ) : initialsFor(name)}
+                                                            </div>
+                                                            <div style={{ width: 7, height: 7, borderRadius: '50%', background: onlineUserIds.has(tid) ? '#22c55e' : 'var(--text-muted)', flexShrink: 0 }} title={onlineUserIds.has(tid) ? 'Online' : 'Offline'} />
+                                                            <div style={{ minWidth: 0 }}>
+                                                                <div style={{ fontWeight: 600, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                                                                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{onlineUserIds.has(tid) ? 'Online' : (lastSeenByUserId[tid] ? formatLastSeen(lastSeenByUserId[tid]) : 'Offline')}</div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+                            </aside>
+
+                            {/* ── STAT CARDS ── */}
+                            <div className="teacher-stats-bar">
+                                <div className="teacher-stat-card">
+                                    <div className="teacher-stat-label">Upcoming Sessions</div>
+                                    <div className="teacher-stat-value">{studentTeacherSessions.filter(s => new Date(s.scheduled_at) >= new Date()).length}</div>
+                                </div>
+                                <div className="teacher-stat-card">
+                                    <div className="teacher-stat-label">Total Classes</div>
+                                    <div className="teacher-stat-value">{studentTeacherSessions.length}</div>
+                                </div>
+                                <div className="teacher-stat-card">
+                                    <div className="teacher-stat-label">Teachers</div>
+                                    <div className="teacher-stat-value">{Array.from(new Set(studentTeacherSessions.map(s => s.created_by))).length}</div>
                                 </div>
                             </div>
 
-                            {/* Your teachers - with live/offline indicator */}
-                            {(() => {
-                                const teacherIds = Array.from(new Set(studentTeacherSessions.map(s => s.created_by)));
-                                return teacherIds.length > 0 ? (
-                                    <div style={{ marginBottom: 20 }}>
-                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Your teachers</div>
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                                            {teacherIds.map(tid => {
-                                                const name = teacherProfiles[tid]?.name ?? teacherNamesFromApi[tid] ?? 'Teacher';
-                                                const avatarUrl = teacherProfiles[tid]?.avatar_url;
-                                                return (
-                                                    <div key={tid} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '8px 12px' }}>
-                                                        {avatarUrl && !failedAvatarUrls.has(avatarUrl) ? (
-                                                            <img src={avatarUrl} alt="" onError={() => markAvatarFailed(avatarUrl)} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                                                        ) : (
-                                                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{initialsFor(name)}</div>
-                                                        )}
-                                                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: onlineUserIds.has(tid) ? '#22c55e' : 'var(--text-muted)' }} title={onlineUserIds.has(tid) ? 'Online' : 'Offline'} />
-                                                        <div>
-                                                            <span style={{ fontWeight: 600, fontSize: 13 }}>{name}</span>
-                                                            <span style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)' }}>{onlineUserIds.has(tid) ? 'Online' : (lastSeenByUserId[tid] ? formatLastSeen(lastSeenByUserId[tid]) : 'Offline')}</span>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
+                            {/* ── MAIN PANEL ── */}
+                            <div className="dashboard-panel enter-up">
+                                {/* ── Pinned header ── */}
+                                <div className="dashboard-panel-sticky">
+                                    <div className="dashboard-panel-header">
+                                        <div className="dashboard-panel-title-group">
+                                            <span className="role-badge badge-student">📚 Student Dashboard</span>
+                                            <h2 className="dashboard-panel-title">Your Classes</h2>
                                         </div>
                                     </div>
-                                ) : null;
-                            })()}
-
-                            {/* Student scheduled sessions (teacher sessions they're targeted for) */}
-                            {studentTeacherSessions.length > 0 && (
-                                <div style={{ marginBottom: 8 }}>
-                                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Scheduled Sessions</div>
-                                    <div className={`session-grid stagger ${studentTeacherSessions.length > 1 ? 'session-grid-multi' : ''}`}>
-                                    {studentTeacherSessions.map(s => (
-                                        <MeetingBanner
-                                            key={s.id}
-                                            meeting={{ ...s, session_image_url: teacherProfiles[s.created_by]?.avatar_url || s.session_image_url }}
-                                            displayName={displayName}
-                                            userRole="student"
-                                            isCreator={false}
-                                            sessionType="teacher"
-                                            teacherName={teacherProfiles[s.created_by]?.name}
-                                            onJoin={(code, id, name, role, title) => onJoinRoom(code, id, name, role, title)}
-                                        />
-                                    ))}
-                                    </div>
                                 </div>
-                            )}
+
+                                {/* ── Scrollable content ── */}
+                                <div className="dashboard-panel-scroll-body">
+                                    {studentTeacherSessions.length > 0 ? (
+                                        <div className={`session-grid stagger ${studentTeacherSessions.length > 1 ? 'session-grid-multi' : ''}`}>
+                                            {studentTeacherSessions.map(s => (
+                                                <MeetingBanner
+                                                    key={s.id}
+                                                    meeting={{ ...s, session_image_url: teacherProfiles[s.created_by]?.avatar_url || s.session_image_url }}
+                                                    displayName={displayName}
+                                                    userRole="student"
+                                                    isCreator={false}
+                                                    sessionType="teacher"
+                                                    teacherName={teacherProfiles[s.created_by]?.name}
+                                                    onJoin={(code, id, name, role, title) => onJoinRoom(code, id, name, role, title)}
+                                                />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>No scheduled sessions yet.</div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     )}
                     </>
