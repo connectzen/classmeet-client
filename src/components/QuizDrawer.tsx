@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { toPng } from 'html-to-image';
 import ConfirmModal from './ConfirmModal';
 import AlertModal from './AlertModal';
+import RichEditor from './RichEditor';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -23,6 +24,7 @@ interface Quiz {
     my_score?: number | null;
     target_group_ids?: string[];
     target_student_ids?: string[];
+    room_ids?: string[];
 }
 
 interface Question {
@@ -511,7 +513,7 @@ function CreateQuizForm({ userId, rooms, courses, onCreated, onCancel }: {
     onCreated: (q: Quiz) => void; onCancel: () => void;
 }) {
     const [title, setTitle] = useState('');
-    const [roomId, setRoomId] = useState('');
+    const [roomIds, setRoomIds] = useState<string[]>([]);
     const [courseId, setCourseId] = useState('');
     const [timeLimit, setTimeLimit] = useState('');
     const [targetGroupIds, setTargetGroupIds] = useState<string[]>([]);
@@ -533,10 +535,13 @@ function CreateQuizForm({ userId, rooms, courses, onCreated, onCancel }: {
     function toggleStudent(id: string) {
         setTargetStudentIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
     }
+    function toggleRoom(id: string) {
+        setRoomIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    }
 
     async function handleCreate() {
         if (!title.trim()) { setErr('Title is required'); return; }
-        const hasRoom = !!roomId;
+        const hasRoom = roomIds.length > 0;
         const hasCourse = !!courseId;
         const hasGroups = targetGroupIds.length > 0;
         const hasStudents = targetStudentIds.length > 0;
@@ -551,7 +556,8 @@ function CreateQuizForm({ userId, rooms, courses, onCreated, onCancel }: {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     title: title.trim(),
-                    roomId: roomId || undefined,
+                    roomIds: hasRoom ? roomIds : undefined,
+                    roomId: hasRoom ? roomIds[0] : undefined,
                     courseId: courseId || undefined,
                     createdBy: userId,
                     timeLimitMinutes: timeLimit ? Number(timeLimit) : null,
@@ -599,15 +605,22 @@ function CreateQuizForm({ userId, rooms, courses, onCreated, onCancel }: {
                 </>
             )}
 
-            <label className="quiz-label" style={{ marginTop: 18 }}>Assign to Room</label>
+            <label className="quiz-label" style={{ marginTop: 18 }}>Assign to Room(s)</label>
             {rooms.length === 0 && !courseId && groups.length === 0 && students.length === 0 ? (
                 <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Select a course, create a room, or assign to groups/students below.</p>
-            ) : (
-                <select className="quiz-input" value={roomId} onChange={e => setRoomId(e.target.value)}>
-                    <option value="">— Select a room (optional) —</option>
-                    {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
-            )}
+            ) : rooms.length > 0 ? (
+                <>
+                    <div style={{ maxHeight: 150, overflowY: 'auto', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 8, background: 'rgba(99,102,241,0.05)' }}>
+                        {rooms.map(r => (
+                            <label key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(99,102,241,0.1)' }}>
+                                <input type="checkbox" checked={roomIds.includes(r.id)} onChange={() => toggleRoom(r.id)} style={{ accentColor: '#6366f1' }} />
+                                <span style={{ fontSize: 13, fontWeight: 500 }}>{r.name}</span>
+                            </label>
+                        ))}
+                    </div>
+                    {roomIds.length > 0 && <p style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{roomIds.length} room(s) selected</p>}
+                </>
+            ) : null}
 
             {(groups.length > 0 || students.length > 0) && (
                 <div style={{ marginTop: 18 }}>
@@ -672,7 +685,12 @@ function EditQuizForm({ quiz, userId, rooms, courses, onSaved, onCancel }: {
     onCancel: () => void;
 }) {
     const [title, setTitle] = useState(quiz.title);
-    const [roomId, setRoomId] = useState(quiz.room_id && !quiz.room_id.startsWith('course-only-') && quiz.room_id !== 'group-targeted' ? quiz.room_id : '');
+    // Multi-room: seed from room_ids array if present, else fall back to legacy room_id
+    const [roomIds, setRoomIds] = useState<string[]>(() => {
+        if (quiz.room_ids && quiz.room_ids.length > 0) return quiz.room_ids;
+        if (quiz.room_id && !quiz.room_id.startsWith('course-only-') && quiz.room_id !== 'group-targeted') return [quiz.room_id];
+        return [];
+    });
     const [courseId, setCourseId] = useState(quiz.course_id || '');
     const [timeLimit, setTimeLimit] = useState(quiz.time_limit_minutes != null ? String(quiz.time_limit_minutes) : '');
     const [targetGroupIds, setTargetGroupIds] = useState<string[]>(quiz.target_group_ids || []);
@@ -695,9 +713,13 @@ function EditQuizForm({ quiz, userId, rooms, courses, onSaved, onCancel }: {
         setTargetStudentIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
     }
 
+    function toggleRoom(id: string) {
+        setRoomIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    }
+
     async function handleSave() {
         if (!title.trim()) { setErr('Title is required'); return; }
-        const hasRoom = !!roomId;
+        const hasRoom = roomIds.length > 0;
         const hasCourse = !!courseId;
         const hasGroups = targetGroupIds.length > 0;
         const hasStudents = targetStudentIds.length > 0;
@@ -712,7 +734,7 @@ function EditQuizForm({ quiz, userId, rooms, courses, onSaved, onCancel }: {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     title: title.trim(),
-                    roomId: roomId || undefined,
+                    roomIds: roomIds.length > 0 ? roomIds : undefined,
                     courseId: courseId || undefined,
                     timeLimitMinutes: timeLimit ? Number(timeLimit) : null,
                     targetGroupIds: hasGroups ? targetGroupIds : undefined,
@@ -748,15 +770,22 @@ function EditQuizForm({ quiz, userId, rooms, courses, onSaved, onCancel }: {
                 </>
             )}
 
-            <label className="quiz-label" style={{ marginTop: 18 }}>Assign to Room</label>
+            <label className="quiz-label" style={{ marginTop: 18 }}>Assign to Room(s)</label>
             {rooms.length === 0 && !courseId && groups.length === 0 && students.length === 0 ? (
                 <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Select a course, create a room, or assign to groups/students below.</p>
-            ) : (
-                <select className="quiz-input" value={roomId} onChange={e => setRoomId(e.target.value)}>
-                    <option value="">— Select a room (optional) —</option>
-                    {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
-            )}
+            ) : rooms.length > 0 ? (
+                <>
+                    <div style={{ maxHeight: 150, overflowY: 'auto', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 8, background: 'rgba(99,102,241,0.05)' }}>
+                        {rooms.map(r => (
+                            <label key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(99,102,241,0.1)' }}>
+                                <input type="checkbox" checked={roomIds.includes(r.id)} onChange={() => toggleRoom(r.id)} style={{ accentColor: '#6366f1' }} />
+                                <span style={{ fontSize: 13, fontWeight: 500 }}>{r.name}</span>
+                            </label>
+                        ))}
+                    </div>
+                    {roomIds.length > 0 && <p style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{roomIds.length} room(s) selected</p>}
+                </>
+            ) : null}
 
             {(groups.length > 0 || students.length > 0) && (
                 <div style={{ marginTop: 18 }}>
@@ -1060,12 +1089,12 @@ function QuestionForm({ quizId, question, parentQuestionId, onSaved, onCancel }:
 
             {/* Question Text */}
             <label className="quiz-label">Question</label>
-            <textarea
-                className="quiz-input"
-                style={{ minHeight: 80, resize: 'vertical' }}
-                placeholder="Type your question here…"
+            <RichEditor
                 value={questionText}
-                onChange={e => setQuestionText(e.target.value)}
+                onChange={setQuestionText}
+                placeholder="Type your question here…"
+                minHeight={80}
+                compact
             />
 
             {/* Points — prominent placement */}
@@ -1340,13 +1369,15 @@ function SubmissionDetail({ quiz, submission, onGraded, onDone }: {
             {/* Overall feedback and final score override */}
             <div style={{ background: 'var(--surface-3)', borderRadius: 12, padding: 14, marginBottom: 14, border: '1px solid var(--border)' }}>
                 <label className="quiz-label">Overall Feedback</label>
-                <textarea
-                    className="quiz-input"
-                    style={{ minHeight: 60, resize: 'vertical', marginBottom: 10 }}
-                    placeholder="Optional overall comment for the student…"
-                    value={overallFeedback}
-                    onChange={e => setOverallFeedback(e.target.value)}
-                />
+                <div style={{ marginBottom: 10 }}>
+                    <RichEditor
+                        value={overallFeedback}
+                        onChange={setOverallFeedback}
+                        placeholder="Optional overall comment for the student…"
+                        minHeight={60}
+                        compact
+                    />
+                </div>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                     <label className="quiz-label" style={{ marginBottom: 0 }}>Final score override %</label>
                     <input
@@ -1682,12 +1713,12 @@ export function TakeQuiz({ quiz, submissionId, userId, showConfirm, showAlert, o
 
                 {/* Answer area — skip for video parent (has children); children have their own answer UI */}
                 {!q.children?.length && (q.type === 'text' || q.type === 'video') && (
-                    <textarea
-                        className="quiz-input"
-                        style={{ minHeight: 100, resize: 'vertical' }}
-                        placeholder="Type your answer here…"
+                    <RichEditor
                         value={curAns.answerText || ''}
-                        onChange={e => setAnswer({ answerText: e.target.value })}
+                        onChange={html => setAnswer({ answerText: html })}
+                        placeholder="Type your answer here…"
+                        minHeight={100}
+                        compact
                     />
                 )}
 

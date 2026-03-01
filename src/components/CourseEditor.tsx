@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import RichEditor from './RichEditor';
 import {
     DndContext,
     closestCenter,
@@ -184,17 +185,12 @@ function SortableLessonCard({
                         )}
                         {type === 'text' && (
                             <div style={{ marginTop: 12 }}>
-                                <textarea
+                                <RichEditor
                                     value={lesson.content}
-                                    onChange={e => onUpdate(idx, { content: e.target.value }, false)}
-                                    onBlur={() => { if (lesson.id) onUpdate(idx, { content: lesson.content }, true); }}
-                                    placeholder="Lesson content (supports plain text)"
-                                    rows={6}
-                                    style={{
-                                        width: '100%', padding: '10px 12px', borderRadius: 8,
-                                        border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)',
-                                        color: 'var(--text)', fontSize: 14, resize: 'vertical', boxSizing: 'border-box',
-                                    }}
+                                    onChange={html => onUpdate(idx, { content: html }, false)}
+                                    onBlur={html => { if (lesson.id) onUpdate(idx, { content: html }, true); }}
+                                    placeholder="Lesson content…"
+                                    minHeight={140}
                                 />
                             </div>
                         )}
@@ -410,16 +406,12 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
                             </div>
                             <div>
                                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>Description (optional)</label>
-                                <textarea
+                                <RichEditor
                                     value={description}
-                                    onChange={e => setDescription(e.target.value)}
-                                    placeholder="Brief overview of the course..."
-                                    rows={3}
-                                    style={{
-                                        width: '100%', padding: '10px 14px', borderRadius: 10,
-                                        border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(0,0,0,0.2)',
-                                        color: 'var(--text)', fontSize: 14, resize: 'vertical', boxSizing: 'border-box',
-                                    }}
+                                    onChange={setDescription}
+                                    placeholder="Brief overview of the course…"
+                                    minHeight={90}
+                                    compact
                                 />
                             </div>
                             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
@@ -445,18 +437,16 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
                                         color: 'var(--text)', fontSize: 14,
                                     }}
                                 />
-                                <textarea
-                                    value={description}
-                                    onChange={e => setDescription(e.target.value)}
-                                    onBlur={() => { if (isEdit) handleUpdateCourse(); }}
-                                    placeholder="Description (optional)"
-                                    rows={1}
-                                    style={{
-                                        flex: 1, minWidth: 160, padding: '8px 12px', borderRadius: 8,
-                                        border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(0,0,0,0.2)',
-                                        color: 'var(--text)', fontSize: 13, resize: 'none',
-                                    }}
-                                />
+                                <div style={{ flex: 1, minWidth: 160 }}>
+                                    <RichEditor
+                                        value={description}
+                                        onChange={setDescription}
+                                        onBlur={() => { if (isEdit) handleUpdateCourse(); }}
+                                        placeholder="Description (optional)"
+                                        minHeight={56}
+                                        compact
+                                    />
+                                </div>
                             </div>
 
                             {/* Curriculum editor */}

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import RichEditor, { RichContent, isRichEmpty } from './RichEditor';
 
 export interface ChatMsg {
     socketId: string;
@@ -22,9 +23,10 @@ export default function ChatPanel({ messages, mySocketId, onSend, hideHeader }: 
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    const handleSend = () => {
-        if (!text.trim()) return;
-        onSend(text.trim());
+    const handleSend = (html?: string) => {
+        const content = html ?? text;
+        if (isRichEmpty(content)) return;
+        onSend(content);
         setText('');
     };
 
@@ -52,7 +54,9 @@ export default function ChatPanel({ messages, mySocketId, onSend, hideHeader }: 
                     return (
                         <div key={i} className={`chat-message ${isMe ? 'chat-message-me' : 'chat-message-other'}`}>
                             {!isMe && <span className="chat-sender">{msg.name}</span>}
-                            <div className="chat-bubble">{msg.message}</div>
+                            <div className="chat-bubble">
+                                <RichContent html={msg.message} className="chat-msg-rich" />
+                            </div>
                             <span className="chat-time">{formatTime(msg.timestamp)}</span>
                         </div>
                     );
@@ -61,15 +65,20 @@ export default function ChatPanel({ messages, mySocketId, onSend, hideHeader }: 
             </div>
 
             <div className="chat-input-row">
-                <input
-                    className="chat-input"
-                    type="text"
-                    placeholder="Type a message…"
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    onKeyDown={(e: React.KeyboardEvent) => e.key === 'Enter' && handleSend()}
-                />
-                <button className="chat-send-btn" onClick={handleSend} disabled={!text.trim()}>
+                <div style={{ flex: 1 }}>
+                    <RichEditor
+                        value={text}
+                        onChange={setText}
+                        onSubmit={handleSend}
+                        placeholder="Type a message…"
+                        minHeight={40}
+                        maxHeight={130}
+                        compact
+                        chatMode
+                        style={{ borderRadius: 10, border: '1px solid rgba(99,102,241,0.25)' }}
+                    />
+                </div>
+                <button className="chat-send-btn" onClick={() => handleSend()} disabled={isRichEmpty(text)}>
                     <svg className="send-icon" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
                     </svg>

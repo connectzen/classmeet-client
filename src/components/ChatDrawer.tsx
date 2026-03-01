@@ -1,6 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useChat, type ChatMessage, type Conversation } from '../hooks/useChat';
 import { insforge } from '../lib/insforge';
+import RichEditor, { RichContent, isRichEmpty } from './RichEditor';
+
+function stripHtml(html: string) {
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    return div.textContent || '';
+}
 
 export type ChatHookResult = ReturnType<typeof useChat>;
 
@@ -189,28 +196,17 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
         }
     };
 
-    const handleSend = async () => {
+    const handleSend = async (html?: string) => {
         if (!activeConvId) return;
-        if (!text.trim() && !stagedFile) return;
+        const content = html ?? text;
+        if (isRichEmpty(content) && !stagedFile) return;
         if (stagedFile) {
-            await sendMessage(activeConvId, text, stagedFile.url, stagedFile.mediaType, stagedFile.name);
+            await sendMessage(activeConvId, content, stagedFile.url, stagedFile.mediaType, stagedFile.name);
             setStagedFile(null);
         } else {
-            await sendMessage(activeConvId, text);
+            await sendMessage(activeConvId, content);
         }
         setText('');
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
-    };
-
-    const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        setText(e.target.value);
-        if (activeConvId) {
-            emitTyping(activeConvId);
-            if (typingTimer.current) clearTimeout(typingTimer.current);
-        }
     };
 
     const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -457,7 +453,7 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                                     </div>
                                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                         {conv.last_message
-                                            ? (conv.last_message.is_deleted ? '🚫 Message removed' : conv.last_message.media_type ? `📎 ${conv.last_message.media_name || 'Attachment'}` : conv.last_message.content || '…')
+                                            ? (conv.last_message.is_deleted ? '🚫 Message removed' : conv.last_message.media_type ? `📎 ${conv.last_message.media_name || 'Attachment'}` : stripHtml(conv.last_message.content || '') || '…')
                                             : 'No messages yet'
                                         }
                                     </div>
@@ -624,7 +620,7 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                                                                     </a>
                                                                 );
                                                             })()}
-                                                            {msg.content && <span style={{ fontSize: 14, lineHeight: 1.5 }}>{msg.content}</span>}
+                                                            {msg.content && <RichContent html={msg.content} className="chat-msg-rich" />}
                                                         </div>
 
                                                         {/* Time + read tick */}
@@ -699,26 +695,35 @@ export default function ChatDrawer({ userId, userName, userRole, inline, open, o
                                     <button onClick={() => setStagedFile(null)} title="Remove" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 18, lineHeight: 1, padding: '2px 4px', flexShrink: 0 }}>✕</button>
                                 </div>
                             )}
-                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, background: 'var(--surface-2)', borderRadius: 16, padding: '8px 12px', border: '1px solid var(--border)' }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
                                 {/* File attach */}
                                 <button onClick={() => fileInputRef.current?.click()} title="Attach file or image" disabled={!!stagedFile || uploading}
-                                    style={{ background: 'none', border: 'none', cursor: (stagedFile || uploading) ? 'default' : 'pointer', color: (stagedFile || uploading) ? 'var(--border)' : 'var(--text-muted)', fontSize: 20, padding: '2px 4px', flexShrink: 0, lineHeight: 1 }}>
+                                    style={{ background: 'none', border: 'none', cursor: (stagedFile || uploading) ? 'default' : 'pointer', color: (stagedFile || uploading) ? 'var(--border)' : 'var(--text-muted)', fontSize: 20, padding: '2px 4px', flexShrink: 0, lineHeight: 1, marginBottom: 6 }}>
                                     {uploading ? '⏳' : '📎'}
                                 </button>
                                 <input ref={fileInputRef} type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip" style={{ display: 'none' }} onChange={handleFileChange} />
 
-                                <textarea
-                                    value={text}
-                                    onChange={handleTextChange}
-                                    onKeyDown={handleKeyDown}
-                                    placeholder={stagedFile ? 'Add a caption… (optional)' : 'Type a message…'}
-                                    rows={1}
-                                    style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 14, resize: 'none', maxHeight: 120, fontFamily: 'inherit', lineHeight: 1.5, paddingTop: 2 }}
-                                />
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <RichEditor
+                                        value={text}
+                                        onChange={html => {
+                                            setText(html);
+                                            if (activeConvId) emitTyping(activeConvId);
+                                        }}
+                                        onSubmit={handleSend}
+                                        placeholder={stagedFile ? 'Add a caption… (optional)' : 'Type a message…'}
+                                        minHeight={42}
+                                        maxHeight={160}
+                                        compact
+                                        chatMode
+                                        style={{ borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-2)' }}
+                                        editorStyle={{ padding: '0 2px' }}
+                                    />
+                                </div>
 
-                                <button onClick={handleSend}
-                                    disabled={!text.trim() && !stagedFile}
-                                    style={{ background: (text.trim() || stagedFile) ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'var(--surface-3)', border: 'none', borderRadius: 12, width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (text.trim() || stagedFile) ? 'pointer' : 'default', flexShrink: 0, transition: 'background 0.2s' }}>
+                                <button onClick={() => handleSend()}
+                                    disabled={isRichEmpty(text) && !stagedFile}
+                                    style={{ background: (!isRichEmpty(text) || stagedFile) ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'var(--surface-3)', border: 'none', borderRadius: 12, width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (!isRichEmpty(text) || stagedFile) ? 'pointer' : 'default', flexShrink: 0, transition: 'background 0.2s', marginBottom: 6 }}>
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                                 </button>
                             </div>

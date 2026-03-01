@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
     DndContext,
     closestCenter,
@@ -16,63 +16,7 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useEditor, EditorContent } from '@tiptap/react';
-import { Extension } from '@tiptap/core';
-import StarterKit from '@tiptap/starter-kit';
-import Underline from '@tiptap/extension-underline';
-import TiptapImage from '@tiptap/extension-image';
-import Link from '@tiptap/extension-link';
-import { TextStyle, Color } from '@tiptap/extension-text-style';
-
-// Custom FontSize extension (uses TextStyle mark, no extra package needed)
-const FontSizeExtension = Extension.create({
-    name: 'fontSize',
-    addOptions() { return { types: ['textStyle'] }; },
-    addGlobalAttributes() {
-        return [{
-            types: ['textStyle'],
-            attributes: {
-                fontSize: {
-                    default: null,
-                    parseHTML: el => el.style.fontSize?.replace(/['"]+/g, '') || null,
-                    renderHTML: attrs => attrs.fontSize ? { style: `font-size: ${attrs.fontSize}` } : {},
-                },
-            },
-        }];
-    },
-});
-
-// Custom FontFamily extension
-const FontFamilyExtension = Extension.create({
-    name: 'fontFamily',
-    addOptions() { return { types: ['textStyle'] }; },
-    addGlobalAttributes() {
-        return [{
-            types: ['textStyle'],
-            attributes: {
-                fontFamily: {
-                    default: null,
-                    parseHTML: el => el.style.fontFamily?.replace(/['"]+/g, '') || null,
-                    renderHTML: attrs => attrs.fontFamily ? { style: `font-family: ${attrs.fontFamily}` } : {},
-                },
-            },
-        }];
-    },
-});
-
-const FONTS = [
-    { label: 'Default',          value: '' },
-    { label: 'Inter',            value: 'Inter, sans-serif' },
-    { label: 'Roboto',           value: 'Roboto, sans-serif' },
-    { label: 'Poppins',          value: 'Poppins, sans-serif' },
-    { label: 'Lato',             value: 'Lato, sans-serif' },
-    { label: 'Georgia',          value: 'Georgia, serif' },
-    { label: 'Playfair Display', value: "'Playfair Display', serif" },
-    { label: 'Merriweather',     value: 'Merriweather, serif' },
-    { label: 'Courier New',      value: "'Courier New', monospace" },
-];
-
-const SIZES = ['11', '12', '14', '16', '18', '20', '24', '28', '32', '36', '42', '48', '60', '72'];
+import RichEditor from './RichEditor';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -83,288 +27,13 @@ interface Lesson {
     lesson_type: LessonType; video_url: string | null; audio_url: string | null; order_index: number;
 }
 interface Quiz { id: string; title: string; status: string; }
-interface Assignment { id: string; title: string; description: string; order_index: number; }
+interface Assignment { id: string; title: string; description: string; order_index: number; assignment_type?: string; file_url?: string | null; }
 interface Topic { id: string; title: string; order_index: number; lessons: Lesson[]; quizzes: Quiz[]; assignments: Assignment[]; }
 
 interface Props {
     courseId: string;
     userId: string;
     onCoursesChange?: () => void;
-}
-
-// ─── Tiptap toolbar button ────────────────────────────────────────────────────
-function TBtn({ label, active, onClick, title, extraStyle }: {
-    label: string; active?: boolean; onClick: () => void; title?: string; extraStyle?: React.CSSProperties;
-}) {
-    return (
-        <button
-            type="button"
-            title={title}
-            onMouseDown={(e) => { e.preventDefault(); onClick(); }}
-            style={{
-                padding: '3px 8px', borderRadius: 5, border: 'none',
-                background: active ? '#6366f1' : 'rgba(255,255,255,0.07)',
-                color: active ? '#ffffff' : '#94a3b8',
-                fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                boxShadow: active ? '0 0 0 1px rgba(99,102,241,0.6)' : 'none',
-                ...extraStyle,
-            }}
-        >
-            {label}
-        </button>
-    );
-}
-
-// ─── Font size dropdown with live hover preview ───────────────────────────────
-function SizeDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
-    const [open, setOpen] = useState(false);
-    const [pos, setPos] = useState({ top: 0, left: 0 });
-    const btnRef = useRef<HTMLButtonElement>(null);
-    const origRef = useRef<string | undefined>(undefined);
-    const currentPx = (editor?.getAttributes('textStyle') as { fontSize?: string }).fontSize || '';
-    const current = currentPx.replace('px', '');
-
-    function apply(size: string) {
-        if (size) editor?.chain().setMark('textStyle', { fontSize: size + 'px' }).run();
-        else editor?.chain().setMark('textStyle', { fontSize: null }).run();
-    }
-    function onHover(size: string) {
-        if (origRef.current === undefined) origRef.current = current;
-        apply(size);
-    }
-    function onLeave() {
-        if (origRef.current !== undefined) { apply(origRef.current); origRef.current = undefined; }
-    }
-    function onSelect(size: string) {
-        origRef.current = undefined;
-        apply(size);
-        editor?.chain().focus().run();
-        setOpen(false);
-    }
-    function handleToggle(e: React.MouseEvent) {
-        e.preventDefault();
-        if (!open && btnRef.current) {
-            const r = btnRef.current.getBoundingClientRect();
-            setPos({ top: r.bottom + 4, left: r.left });
-        }
-        setOpen(o => !o);
-    }
-
-    return (
-        <div style={{ position: 'relative' }}>
-            {open && <div style={{ position: 'fixed', inset: 0, zIndex: 9000 }} onMouseDown={e => e.preventDefault()} onClick={() => { onLeave(); setOpen(false); }} />}
-            <button ref={btnRef} type="button" onMouseDown={handleToggle}
-                style={{ padding: '3px 8px', borderRadius: 5, border: 'none', background: open ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)', color: current ? '#a5b4fc' : '#94a3b8', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
-                {current || 'Size'} <span style={{ fontSize: 9, opacity: 0.6 }}>▾</span>
-            </button>
-            {open && (
-                <div onMouseLeave={onLeave} onWheel={e => e.stopPropagation()}
-                    style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9001, background: '#13131a', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', minWidth: 72, padding: '4px 0', maxHeight: 280, overflowY: 'auto' }}>
-                    <div onMouseDown={e => e.preventDefault()} onMouseEnter={() => onHover('')} onClick={() => onSelect('')}
-                        style={{ padding: '5px 16px', cursor: 'pointer', fontSize: 12, color: !current ? '#a5b4fc' : '#64748b', fontWeight: !current ? 600 : 400 }}>
-                        Default
-                    </div>
-                    {SIZES.map(size => (
-                        <div key={size} onMouseDown={e => e.preventDefault()} onMouseEnter={() => onHover(size)} onClick={() => onSelect(size)}
-                            style={{ padding: '5px 16px', cursor: 'pointer', fontSize: 12, color: current === size ? '#a5b4fc' : '#94a3b8', fontWeight: current === size ? 700 : 400, background: current === size ? 'rgba(99,102,241,0.12)' : 'transparent' }}>
-                            {size}
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-}
-
-// ─── Font family dropdown with live hover preview ─────────────────────────────
-function FontDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
-    const [open, setOpen] = useState(false);
-    const [pos, setPos] = useState({ top: 0, left: 0 });
-    const btnRef = useRef<HTMLButtonElement>(null);
-    const origRef = useRef<string | undefined>(undefined);
-    const currentFont = (editor?.getAttributes('textStyle') as { fontFamily?: string }).fontFamily || '';
-    const currentLabel = FONTS.find(f => f.value === currentFont)?.label || 'Font';
-
-    function apply(fontFamily: string) {
-        if (fontFamily) editor?.chain().setMark('textStyle', { fontFamily }).run();
-        else editor?.chain().setMark('textStyle', { fontFamily: null }).run();
-    }
-    function onHover(value: string) {
-        if (origRef.current === undefined) origRef.current = currentFont;
-        apply(value);
-    }
-    function onLeave() {
-        if (origRef.current !== undefined) { apply(origRef.current); origRef.current = undefined; }
-    }
-    function onSelect(value: string) {
-        origRef.current = undefined;
-        apply(value);
-        editor?.chain().focus().run();
-        setOpen(false);
-    }
-    function handleToggle(e: React.MouseEvent) {
-        e.preventDefault();
-        if (!open && btnRef.current) {
-            const r = btnRef.current.getBoundingClientRect();
-            setPos({ top: r.bottom + 4, left: r.left });
-        }
-        setOpen(o => !o);
-    }
-
-    return (
-        <div style={{ position: 'relative' }}>
-            {open && <div style={{ position: 'fixed', inset: 0, zIndex: 9000 }} onMouseDown={e => e.preventDefault()} onClick={() => { onLeave(); setOpen(false); }} />}
-            <button ref={btnRef} type="button" onMouseDown={handleToggle}
-                style={{ padding: '3px 8px', borderRadius: 5, border: 'none', background: open ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)', color: currentFont ? '#a5b4fc' : '#94a3b8', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3, maxWidth: 110 }}>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentLabel}</span>
-                <span style={{ fontSize: 9, opacity: 0.6, flexShrink: 0 }}>▾</span>
-            </button>
-            {open && (
-                <div onMouseLeave={onLeave} onWheel={e => e.stopPropagation()}
-                    style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9001, background: '#13131a', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', minWidth: 190, padding: '4px 0', maxHeight: 300, overflowY: 'auto' }}>
-                    {FONTS.map(font => (
-                        <div key={font.value} onMouseDown={e => e.preventDefault()} onMouseEnter={() => onHover(font.value)} onClick={() => onSelect(font.value)}
-                            style={{ padding: '8px 16px', cursor: 'pointer', fontFamily: font.value || 'inherit', fontSize: 13, color: currentFont === font.value ? '#a5b4fc' : '#e2e8f0', background: currentFont === font.value ? 'rgba(99,102,241,0.12)' : 'transparent', fontWeight: currentFont === font.value ? 600 : 400 }}>
-                            {font.label}
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-}
-
-// ─── Rich text editor (Tiptap) ────────────────────────────────────────────────
-function LessonRichEditor({ lessonId, initialContent, onSave }: {
-    lessonId: string;
-    initialContent: string;
-    onSave: (html: string) => void;
-}) {
-    // Force re-render whenever the editor state changes so toolbar buttons
-    // reflect the current selection/marks instantly (bold, italic, etc.)
-    const [, forceUpdate] = useState(0);
-
-    const editor = useEditor({
-        extensions: [
-            StarterKit,
-            Underline,
-            TiptapImage,
-            Link.configure({ openOnClick: false }),
-            TextStyle,
-            Color,
-            FontSizeExtension,
-            FontFamilyExtension,
-        ],
-        content: initialContent || '',
-        editorProps: {
-            attributes: { class: 'curriculum-tiptap' },
-        },
-        onBlur: ({ editor }) => { onSave(editor.getHTML()); },
-        onUpdate: () => forceUpdate(n => n + 1),
-        onSelectionUpdate: () => forceUpdate(n => n + 1),
-    });
-
-    const headingLevel = editor?.isActive('heading', { level: 1 }) ? '1'
-        : editor?.isActive('heading', { level: 2 }) ? '2'
-        : editor?.isActive('heading', { level: 3 }) ? '3' : '0';
-
-    const currentColor = (editor?.getAttributes('textStyle') as { color?: string }).color || '#a5b4fc';
-
-    // Smart list toggle: exits the current list type first before switching
-    function handleBulletList() {
-        if (!editor) return;
-        if (editor.isActive('orderedList')) {
-            editor.chain().focus().toggleOrderedList().toggleBulletList().run();
-        } else {
-            editor.chain().focus().toggleBulletList().run();
-        }
-    }
-    function handleOrderedList() {
-        if (!editor) return;
-        if (editor.isActive('bulletList')) {
-            editor.chain().focus().toggleBulletList().toggleOrderedList().run();
-        } else {
-            editor.chain().focus().toggleOrderedList().run();
-        }
-    }
-    function handleBlockquote() {
-        if (!editor) return;
-        if (editor.isActive('bulletList') || editor.isActive('orderedList')) {
-            // Exit the list first, then apply blockquote to that paragraph
-            editor.chain().focus().liftListItem('listItem').toggleBlockquote().run();
-        } else {
-            editor.chain().focus().toggleBlockquote().run();
-        }
-    }
-
-    return (
-        <div>
-            <style>{`
-                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Roboto:wght@400;700&family=Poppins:wght@400;700&family=Lato:wght@400;700&family=Merriweather:wght@400;700&family=Playfair+Display:wght@400;700&display=swap');
-                .curriculum-tiptap { min-height:120px; outline:none; padding:10px 14px; color:#e2e8f0; font-size:14px; line-height:1.7; }
-                .curriculum-tiptap p { margin:0 0 6px; }
-                .curriculum-tiptap ul { list-style-type:disc; padding-left:22px; margin:0 0 6px; }
-                .curriculum-tiptap ol { list-style-type:decimal; padding-left:22px; margin:0 0 6px; }
-                .curriculum-tiptap ul li::marker { color:#a5b4fc; font-size:1.1em; }
-                .curriculum-tiptap ol li::marker { color:#a5b4fc; font-weight:700; }
-                .curriculum-tiptap blockquote { border-left:3px solid #6366f1; padding-left:12px; color:#94a3b8; margin:0 0 6px; font-style:italic; }
-                .curriculum-tiptap strong { color:#f1f5f9; }
-                .curriculum-tiptap em { color:#cbd5e1; }
-                .curriculum-tiptap a { color:#818cf8; text-decoration:underline; }
-                .curriculum-tiptap h1 { font-size:1.6em; font-weight:800; margin:0 0 10px; color:#f1f5f9; line-height:1.3; }
-                .curriculum-tiptap h2 { font-size:1.3em; font-weight:700; margin:0 0 8px; color:#f1f5f9; line-height:1.3; }
-                .curriculum-tiptap h3 { font-size:1.1em; font-weight:600; margin:0 0 6px; color:#e2e8f0; line-height:1.3; }
-                .curriculum-tiptap p:last-child { margin-bottom:0; }
-            `}</style>
-            <div style={{ border: '1px solid rgba(99,102,241,0.3)', borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
-                {/* Toolbar */}
-                <div style={{ display: 'flex', gap: 3, padding: '6px 8px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexWrap: 'wrap', alignItems: 'center', background: 'rgba(255,255,255,0.02)' }}>
-                    {/* Heading style */}
-                    <select
-                        value={headingLevel}
-                        onChange={e => {
-                            const v = e.target.value;
-                            if (v === '0') editor?.chain().focus().setParagraph().run();
-                            else editor?.chain().focus().setHeading({ level: Number(v) as 1 | 2 | 3 }).run();
-                        }}
-                        style={{ padding: '3px 6px', borderRadius: 5, border: 'none', background: 'rgba(255,255,255,0.07)', color: '#94a3b8', fontSize: 12, cursor: 'pointer', colorScheme: 'dark' }}
-                    >
-                        <option value="0">Normal</option>
-                        <option value="1">H1</option>
-                        <option value="2">H2</option>
-                        <option value="3">H3</option>
-                    </select>
-                    {/* Font family */}
-                    <FontDropdown editor={editor} />
-                    {/* Font size with live hover preview */}
-                    <SizeDropdown editor={editor} />
-                    <div style={{ width: 1, background: 'rgba(255,255,255,0.1)', margin: '2px 1px', alignSelf: 'stretch' }} />
-                    <TBtn label="B" title="Bold" active={editor?.isActive('bold')} onClick={() => editor?.chain().focus().toggleBold().run()} extraStyle={{ fontWeight: 900 }} />
-                    <TBtn label="I" title="Italic" active={editor?.isActive('italic')} onClick={() => editor?.chain().focus().toggleItalic().run()} extraStyle={{ fontStyle: 'italic' }} />
-                    <TBtn label="U" title="Underline" active={editor?.isActive('underline')} onClick={() => editor?.chain().focus().toggleUnderline().run()} extraStyle={{ textDecoration: 'underline' }} />
-                    {/* Color picker — visible button with colored "A" underline */}
-                    <label
-                        title="Text color (select text first)"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 7px', borderRadius: 5, background: 'rgba(255,255,255,0.07)', cursor: 'pointer', position: 'relative', flexShrink: 0, userSelect: 'none' }}
-                    >
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8', borderBottom: `3px solid ${currentColor}`, paddingBottom: 1, lineHeight: 1 }}>A</span>
-                        <span style={{ fontSize: 11, color: '#64748b' }}>▾</span>
-                        <input
-                            type="color"
-                            value={currentColor}
-                            onChange={e => editor?.chain().focus().setColor(e.target.value).run()}
-                            style={{ position: 'absolute', opacity: 0, inset: 0, width: '100%', height: '100%', cursor: 'pointer' }}
-                        />
-                    </label>
-                    <div style={{ width: 1, background: 'rgba(255,255,255,0.1)', margin: '2px 1px', alignSelf: 'stretch' }} />
-                    <TBtn label="≡ Bullets" title="Bullet list" active={editor?.isActive('bulletList')} onClick={handleBulletList} />
-                    <TBtn label="1. List" title="Ordered list" active={editor?.isActive('orderedList')} onClick={handleOrderedList} />
-                    <TBtn label="❝ Quote" title="Blockquote (exits list first if in one)" active={editor?.isActive('blockquote')} onClick={handleBlockquote} />
-                </div>
-                <EditorContent editor={editor} />
-            </div>
-        </div>
-    );
 }
 
 // ─── Sortable Lesson Card ─────────────────────────────────────────────────────
@@ -436,11 +105,12 @@ function SortableLessonCard({
                             </div>
                         )}
                         {lesson.lesson_type === 'text' && (
-                            <LessonRichEditor
+                            <RichEditor
                                 key={lesson.id}
-                                lessonId={lesson.id}
-                                initialContent={lesson.content}
-                                onSave={(html) => onUpdate(lesson.id, { content: html })}
+                                value={lesson.content}
+                                onBlur={html => onUpdate(lesson.id, { content: html })}
+                                placeholder="Lesson content…"
+                                minHeight={120}
                             />
                         )}
                     </div>
@@ -471,6 +141,8 @@ function SortableTopicCard({
     const [showAssignmentForm, setShowAssignmentForm] = useState(false);
     const [assignmentTitle, setAssignmentTitle] = useState('');
     const [assignmentDesc, setAssignmentDesc] = useState('');
+    const [assignmentType, setAssignmentType] = useState<'text' | 'link' | 'file'>('text');
+    const [assignmentUrl, setAssignmentUrl] = useState('');
     const [expandedLessonId, setExpandedLessonId] = useState<string | null>(null);
 
     const sensors = useSensors(
@@ -525,14 +197,27 @@ function SortableTopicCard({
         const r = await fetch(`${SERVER}/api/topics/${topic.id}/assignments`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: assignmentTitle.trim(), description: assignmentDesc.trim(), courseId, createdBy: userId }),
+            body: JSON.stringify({
+                title: assignmentTitle.trim(),
+                description: assignmentDesc.trim(),
+                courseId,
+                createdBy: userId,
+                assignmentType,
+                fileUrl: assignmentType !== 'text' ? assignmentUrl.trim() || null : null,
+            }),
         });
         if (r.ok) {
             const a = await r.json();
             onTopicDataChange(topic.id, {
-                assignments: [...topic.assignments, { id: a.id, title: a.title, description: a.description || '', order_index: a.order_index ?? 0 }],
+                assignments: [...topic.assignments, {
+                    id: a.id, title: a.title, description: a.description || '',
+                    order_index: a.order_index ?? 0,
+                    assignment_type: a.assignment_type || 'text',
+                    file_url: a.file_url || null,
+                }],
             });
-            setAssignmentTitle(''); setAssignmentDesc(''); setShowAssignmentForm(false);
+            setAssignmentTitle(''); setAssignmentDesc(''); setAssignmentUrl('');
+            setAssignmentType('text'); setShowAssignmentForm(false);
         }
     }
 
@@ -661,10 +346,17 @@ function SortableTopicCard({
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 9 }}>
                                 {topic.assignments.map(a => (
                                     <div key={a.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(251,191,36,0.2)', background: 'rgba(251,191,36,0.05)' }}>
-                                        <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>📋</span>
+                                        <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>
+                                            {a.assignment_type === 'link' ? '🔗' : a.assignment_type === 'file' ? '📎' : '📋'}
+                                        </span>
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <div style={{ fontSize: 13, color: '#fcd34d', fontWeight: 600 }}>{a.title}</div>
                                             {a.description && <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{a.description}</div>}
+                                            {a.file_url && (
+                                                <a href={a.file_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: '#818cf8', marginTop: 2, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {a.file_url}
+                                                </a>
+                                            )}
                                         </div>
                                         <button type="button" onClick={() => handleDeleteAssignment(a.id)} style={{ background: 'transparent', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 12, padding: '2px 5px', flexShrink: 0 }} title="Delete">✕</button>
                                     </div>
@@ -688,6 +380,15 @@ function SortableTopicCard({
                         {/* Assignment inline form */}
                         {showAssignmentForm && (
                             <div style={{ marginTop: 10, padding: '12px 14px', borderRadius: 10, border: '1px solid rgba(251,191,36,0.2)', background: 'rgba(251,191,36,0.04)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {/* Type selector */}
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                    {(['text', 'link', 'file'] as const).map(t => (
+                                        <button key={t} type="button" onClick={() => setAssignmentType(t)}
+                                            style={{ padding: '5px 12px', borderRadius: 6, border: `1px solid ${assignmentType === t ? 'rgba(251,191,36,0.6)' : 'rgba(255,255,255,0.08)'}`, background: assignmentType === t ? 'rgba(251,191,36,0.15)' : 'transparent', color: assignmentType === t ? '#fcd34d' : '#64748b', fontSize: 12, fontWeight: assignmentType === t ? 700 : 500, cursor: 'pointer', textTransform: 'capitalize' }}>
+                                            {t === 'text' ? '📄 Text' : t === 'link' ? '🔗 Link' : '📎 File'}
+                                        </button>
+                                    ))}
+                                </div>
                                 <input
                                     value={assignmentTitle}
                                     onChange={e => setAssignmentTitle(e.target.value)}
@@ -695,16 +396,24 @@ function SortableTopicCard({
                                     autoFocus
                                     style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#e2e8f0', fontSize: 13, boxSizing: 'border-box', width: '100%' }}
                                 />
-                                <textarea
+                                <RichEditor
                                     value={assignmentDesc}
-                                    onChange={e => setAssignmentDesc(e.target.value)}
+                                    onChange={setAssignmentDesc}
                                     placeholder="Description (optional)"
-                                    rows={2}
-                                    style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#e2e8f0', fontSize: 13, resize: 'none', boxSizing: 'border-box', width: '100%' }}
+                                    minHeight={70}
+                                    compact
                                 />
+                                {assignmentType !== 'text' && (
+                                    <input
+                                        value={assignmentUrl}
+                                        onChange={e => setAssignmentUrl(e.target.value)}
+                                        placeholder={assignmentType === 'link' ? 'URL (e.g. https://...)' : 'File URL'}
+                                        style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#e2e8f0', fontSize: 13, boxSizing: 'border-box', width: '100%' }}
+                                    />
+                                )}
                                 <div style={{ display: 'flex', gap: 6 }}>
                                     <button type="button" onClick={handleAddAssignment} disabled={!assignmentTitle.trim()} style={{ padding: '6px 14px', borderRadius: 7, border: 'none', background: assignmentTitle.trim() ? '#fbbf24' : 'rgba(251,191,36,0.3)', color: '#0a0a0f', fontSize: 12, fontWeight: 700, cursor: assignmentTitle.trim() ? 'pointer' : 'not-allowed' }}>Add</button>
-                                    <button type="button" onClick={() => { setShowAssignmentForm(false); setAssignmentTitle(''); setAssignmentDesc(''); }} style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
+                                    <button type="button" onClick={() => { setShowAssignmentForm(false); setAssignmentTitle(''); setAssignmentDesc(''); setAssignmentUrl(''); setAssignmentType('text'); }} style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
                                 </div>
                             </div>
                         )}

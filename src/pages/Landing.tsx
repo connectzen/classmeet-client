@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import RichEditor from '../components/RichEditor';
 import { io } from 'socket.io-client';
 import { useUser } from '../lib/AuthContext';
 import { insforge } from '../lib/insforge';
@@ -1422,15 +1423,14 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             </div>
                             <div>
                                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                                    What will you cover? <span style={{ color: '#475569', fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>(one topic per line → shown as bullets)</span>
+                                    What will you cover?
                                 </label>
-                                <textarea
-                                    className="form-input"
-                                    placeholder={"Introduction to the topic\nKey concepts and definitions\nPractice exercises"}
+                                <RichEditor
                                     value={sessionDesc}
-                                    onChange={e => setSessionDesc(e.target.value)}
-                                    rows={4}
-                                    style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}
+                                    onChange={setSessionDesc}
+                                    placeholder="Introduction to the topic&#10;Key concepts and definitions&#10;Practice exercises"
+                                    minHeight={100}
+                                    compact
                                 />
                             </div>
                             {(userRole === 'teacher' || userRole === 'member') && (
@@ -1565,15 +1565,14 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             </div>
                             <div>
                                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                                    What will you cover? <span style={{ color: '#475569', fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>(one topic per line → shown as bullets)</span>
+                                    What will you cover?
                                 </label>
-                                <textarea
-                                    className="form-input"
-                                    placeholder={"Introduction to the topic\nKey concepts and definitions\nPractice exercises"}
+                                <RichEditor
                                     value={editSessionDesc}
-                                    onChange={e => setEditSessionDesc(e.target.value)}
-                                    rows={4}
-                                    style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}
+                                    onChange={setEditSessionDesc}
+                                    placeholder="Introduction to the topic&#10;Key concepts and definitions&#10;Practice exercises"
+                                    minHeight={100}
+                                    compact
                                 />
                             </div>
                             {(userRole === 'teacher' || userRole === 'member') && (

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toPng } from 'html-to-image';
 import { TakeQuiz } from './QuizDrawer';
 import ConfirmModal from './ConfirmModal';
+import RichEditor from './RichEditor';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -630,16 +631,12 @@ function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate, onSaved
                                             />
                                             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>/ {q.points} pts</span>
                                         </div>
-                                        <textarea
+                                        <RichEditor
                                             value={g.feedback}
-                                            onChange={e => setGrades(prev => ({ ...prev, [a.id]: { ...prev[a.id], feedback: e.target.value } }))}
+                                            onChange={html => setGrades(prev => ({ ...prev, [a.id]: { ...prev[a.id], feedback: html } }))}
                                             placeholder="Feedback for this answer..."
-                                            rows={2}
-                                            style={{
-                                                width: '100%', padding: '6px 10px', borderRadius: 6,
-                                                border: '1px solid var(--border)', background: 'var(--surface-2)',
-                                                color: 'var(--text)', fontSize: 12, resize: 'vertical',
-                                            }}
+                                            minHeight={56}
+                                            compact
                                         />
                                     </div>
                                 )}
@@ -657,16 +654,12 @@ function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate, onSaved
                 <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                     Overall Comment
                 </label>
-                <textarea
+                <RichEditor
                     value={overallFeedback}
-                    onChange={e => setOverallFeedback(e.target.value)}
+                    onChange={setOverallFeedback}
                     placeholder="Write an overall comment for this student..."
-                    rows={2}
-                    style={{
-                        width: '100%', padding: '8px 12px', borderRadius: 8,
-                        border: '1px solid var(--border)', background: 'var(--surface-2)',
-                        color: 'var(--text)', fontSize: 13, resize: 'vertical',
-                    }}
+                    minHeight={60}
+                    compact
                 />
                 <button
                     onClick={saveAll}

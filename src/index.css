@@ -3881,3 +3881,37 @@ input[type="radio"] {
 }
 .gap-4 { gap: var(--sp-4); }
 .gap-6 { gap: var(--sp-6); }
+
+/* ── Rich-render: styles for RichContent HTML output ── */
+.rich-render { font-size: 14px; line-height: 1.65; color: inherit; word-break: break-word; }
+.rich-render p { margin: 0 0 5px; }
+.rich-render p:last-child { margin-bottom: 0; }
+.rich-render ul { list-style-type: disc; padding-left: 20px; margin: 0 0 5px; }
+.rich-render ol { list-style-type: decimal; padding-left: 20px; margin: 0 0 5px; }
+.rich-render ul li::marker { color: #a5b4fc; }
+.rich-render ol li::marker { color: #a5b4fc; font-weight: 700; }
+.rich-render blockquote { border-left: 3px solid #6366f1; padding-left: 10px; margin: 0 0 5px; font-style: italic; opacity: 0.85; }
+.rich-render strong { font-weight: 700; }
+.rich-render em { font-style: italic; }
+.rich-render u { text-decoration: underline; }
+.rich-render a { color: #818cf8; text-decoration: underline; word-break: break-all; }
+.rich-render h1 { font-size: 1.5em; font-weight: 800; margin: 0 0 8px; line-height: 1.3; }
+.rich-render h2 { font-size: 1.25em; font-weight: 700; margin: 0 0 6px; line-height: 1.3; }
+.rich-render h3 { font-size: 1.1em; font-weight: 600; margin: 0 0 4px; line-height: 1.3; }
+.rich-render img { max-width: 100%; border-radius: 6px; margin: 4px 0; }
+.rich-render code { background: rgba(99,102,241,0.15); padding: 1px 6px; border-radius: 4px; font-size: 0.88em; }
+.rich-render pre { background: rgba(0,0,0,0.35); padding: 10px 12px; border-radius: 7px; overflow-x: auto; }
+
+/* Rich content inside chat bubbles */
+.chat-msg-rich { font-size: 14px; line-height: 1.5; }
+.chat-msg-rich p { margin: 0 0 3px; }
+.chat-msg-rich p:last-child { margin-bottom: 0; }
+.chat-msg-rich ul,
+.chat-msg-rich ol { padding-left: 18px; margin: 0 0 3px; }
+.chat-msg-rich a { color: inherit; opacity: 0.85; }
+.chat-message-me .chat-msg-rich a { color: #fff; }
+.chat-message-other .chat-msg-rich a { color: #818cf8; }
+
+/* Chat input row — accommodate RichEditor */
+.chat-input-row { align-items: flex-end; gap: 8px; }
+.chat-input-row .rich-editor-content { min-height: 36px !important; font-size: 14px; padding: 6px 10px; }

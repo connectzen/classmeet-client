@@ -4,6 +4,7 @@ import UserMenu from '../components/UserMenu';
 import ChatDrawer from '../components/ChatDrawer';
 import ConfirmModal from '../components/ConfirmModal';
 import AlertModal from '../components/AlertModal';
+import RichEditor from '../components/RichEditor';
 import { io } from 'socket.io-client';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
@@ -843,11 +844,12 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                                     <div style={{ display: 'grid', gap: 14 }}>
                                         <Input placeholder="Meeting subject / title *" value={meetingForm.title}
                                             onChange={e => setMeetingForm({ ...meetingForm, title: e.target.value })} />
-                                        <textarea placeholder="Short description (optional)"
+                                        <RichEditor
                                             value={meetingForm.description}
-                                            onChange={e => setMeetingForm({ ...meetingForm, description: e.target.value })}
-                                            rows={2}
-                                            style={{ background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: 10, padding: '9px 14px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box', resize: 'vertical' }}
+                                            onChange={desc => setMeetingForm({ ...meetingForm, description: desc })}
+                                            placeholder="Short description (optional)"
+                                            minHeight={70}
+                                            compact
                                         />
                                         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
                                             <div>
@@ -1007,7 +1009,13 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                                                         {editError && <p style={{ color: '#f87171', fontSize: 13, margin: '0 0 10px' }}>{editError}</p>}
                                                         <div style={{ display: 'grid', gap: 10 }}>
                                                             <input value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} placeholder="Title" style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 14 }} />
-                                                            <textarea value={editForm.description} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} placeholder="Description (optional)" rows={2} style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 14, resize: 'vertical' }} />
+                                                            <RichEditor
+                                                                value={editForm.description}
+                                                                onChange={desc => setEditForm(p => ({ ...p, description: desc }))}
+                                                                placeholder="Description (optional)"
+                                                                minHeight={60}
+                                                                compact
+                                                            />
                                                             <input type="datetime-local" value={editForm.scheduledAt} onChange={e => setEditForm(p => ({ ...p, scheduledAt: e.target.value }))} style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 14 }} />
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                                 <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Max participants:</span>
