@@ -180,6 +180,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [studentsCollapsed, setStudentsCollapsed] = useState(true);
     const [groupsCollapsed, setGroupsCollapsed] = useState(true);
     const [teachersCollapsed, setTeachersCollapsed] = useState(true);
+    const [teacherStudentsCollapsed, setTeacherStudentsCollapsed] = useState<Record<string, boolean>>({});
 
     // Student groups modal state
     const [groupModalMode, setGroupModalMode] = useState<'create' | 'edit' | 'manage' | null>(null);
@@ -915,39 +916,59 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                         <div style={{ color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.5, marginTop: 8 }}>No teachers assigned yet.</div>
                                     ) : (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                            {memberTeachersWithStudents.map(({ teacherId, teacherName, students }) => (
+                                            {memberTeachersWithStudents.map(({ teacherId, teacherName, students }) => {
+                                                const isOnline = onlineUserIds.has(teacherId);
+                                                const stuCollapsed = teacherStudentsCollapsed[teacherId] !== false; // default collapsed
+                                                return (
                                                 <div key={teacherId} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 12px' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: students.length > 0 ? 8 : 0 }}>
+                                                    {/* Teacher row */}
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                         <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, overflow: 'hidden' }}>
                                                             {teacherProfiles[teacherId]?.avatar_url && !failedAvatarUrls.has(teacherProfiles[teacherId].avatar_url!) ? (
                                                                 <img src={teacherProfiles[teacherId].avatar_url!} alt="" onError={() => teacherProfiles[teacherId].avatar_url && markAvatarFailed(teacherProfiles[teacherId].avatar_url!)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                             ) : initialsFor(teacherProfiles[teacherId]?.name || teacherName, 'T')}
                                                         </div>
-                                                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: onlineUserIds.has(teacherId) ? '#22c55e' : 'var(--text-muted)', flexShrink: 0 }} />
-                                                        <div style={{ minWidth: 0 }}>
+                                                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: isOnline ? '#22c55e' : 'var(--text-muted)', flexShrink: 0 }} />
+                                                        <div style={{ minWidth: 0, flex: 1 }}>
                                                             <div style={{ fontWeight: 600, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{teacherProfiles[teacherId]?.name || teacherName}</div>
-                                                            <div style={{ fontSize: 11, color: onlineUserIds.has(teacherId) ? '#4ade80' : 'var(--text-muted)', fontWeight: onlineUserIds.has(teacherId) ? 600 : 400 }}>{onlineUserIds.has(teacherId) ? 'Online' : (lastSeenByUserId[teacherId] ? formatLastSeen(lastSeenByUserId[teacherId]) : 'Offline')}</div>
+                                                            <div style={{ fontSize: 11, color: isOnline ? '#4ade80' : 'var(--text-muted)', fontWeight: isOnline ? 600 : 400 }}>{isOnline ? 'Online' : (lastSeenByUserId[teacherId] ? formatLastSeen(lastSeenByUserId[teacherId]) : 'Offline')}</div>
                                                         </div>
+                                                        {students.length > 0 && (
+                                                            <button
+                                                                onClick={() => setTeacherStudentsCollapsed(prev => ({ ...prev, [teacherId]: stuCollapsed ? false : true }))}
+                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                                                                title={stuCollapsed ? 'Show students' : 'Hide students'}
+                                                            >
+                                                                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 20, height: 16, borderRadius: 100, padding: '0 5px', fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.35)', color: '#4ade80', marginRight: 3 }}>{students.length}</span>
+                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: 'transform 0.2s', transform: stuCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}><polyline points="6 9 12 15 18 9"/></svg>
+                                                            </button>
+                                                        )}
                                                     </div>
-                                                    {students.length > 0 && (
-                                                        <div style={{ paddingLeft: 10, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                                    {/* Nested students */}
+                                                    {students.length > 0 && !stuCollapsed && (
+                                                        <div style={{ marginTop: 8, paddingLeft: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
                                                             {students.map(st => {
                                                                 const avatarUrl = studentProfiles[st.id]?.avatar_url || st.avatar_url;
                                                                 const showStudentAvatar = avatarUrl && !failedAvatarUrls.has(avatarUrl);
+                                                                const stOnline = onlineUserIds.has(st.id);
                                                                 return (
-                                                                    <div key={st.id} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(0,0,0,0.2)', borderRadius: 6, padding: '3px 8px' }}>
-                                                                        <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, flexShrink: 0, overflow: 'hidden' }}>
+                                                                    <div key={st.id} style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'rgba(0,0,0,0.18)', borderRadius: 8, padding: '4px 8px' }}>
+                                                                        <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, flexShrink: 0, overflow: 'hidden' }}>
                                                                             {showStudentAvatar ? <img src={avatarUrl} alt="" onError={() => markAvatarFailed(avatarUrl)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initialsFor(st.name)}
                                                                         </div>
-                                                                        <div style={{ width: 5, height: 5, borderRadius: '50%', background: onlineUserIds.has(st.id) ? '#22c55e' : 'var(--text-muted)' }} />
-                                                                        <span style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 80 }}>{st.name}</span>
+                                                                        <div style={{ width: 5, height: 5, borderRadius: '50%', background: stOnline ? '#22c55e' : 'var(--text-muted)', flexShrink: 0 }} />
+                                                                        <div style={{ minWidth: 0 }}>
+                                                                            <div style={{ fontSize: 11, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{st.name}</div>
+                                                                            <div style={{ fontSize: 10, color: stOnline ? '#4ade80' : 'var(--text-muted)', fontWeight: stOnline ? 600 : 400 }}>{stOnline ? 'Online' : 'Offline'}</div>
+                                                                        </div>
                                                                     </div>
                                                                 );
                                                             })}
                                                         </div>
                                                     )}
                                                 </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     ))}
                                 </div>
