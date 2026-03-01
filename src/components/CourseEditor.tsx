@@ -373,7 +373,7 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
             position: 'fixed', inset: 0, zIndex: 999999,
             background: 'rgba(0,0,0,0.8)',
             display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-            padding: '40px 20px', overflowY: 'auto',
+            padding: '80px 20px 40px', overflowY: 'auto',
         }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
             <div style={{
                 background: 'var(--surface-2, #18181f)',

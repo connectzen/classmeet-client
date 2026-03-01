@@ -21,6 +21,8 @@ import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import TiptapImage from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
+import TextStyle from '@tiptap/extension-text-style';
+import { Color } from '@tiptap/extension-color';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -73,6 +75,8 @@ function LessonRichEditor({ lessonId, initialContent, onSave }: {
             Underline,
             TiptapImage,
             Link.configure({ openOnClick: false }),
+            TextStyle,
+            Color,
         ],
         content: initialContent || '',
         editorProps: {
@@ -81,25 +85,64 @@ function LessonRichEditor({ lessonId, initialContent, onSave }: {
         onBlur: ({ editor }) => { onSave(editor.getHTML()); },
     });
 
+    const headingLevel = editor?.isActive('heading', { level: 1 }) ? '1'
+        : editor?.isActive('heading', { level: 2 }) ? '2'
+        : editor?.isActive('heading', { level: 3 }) ? '3' : '0';
+
     return (
         <div>
             <style>{`
                 .curriculum-tiptap { min-height:120px; outline:none; padding:10px 14px; color:#e2e8f0; font-size:14px; line-height:1.7; }
                 .curriculum-tiptap p { margin:0 0 6px; }
-                .curriculum-tiptap ul,.curriculum-tiptap ol { padding-left:20px; margin:0 0 6px; }
+                .curriculum-tiptap ul { list-style-type:disc; padding-left:22px; margin:0 0 6px; }
+                .curriculum-tiptap ol { list-style-type:decimal; padding-left:22px; margin:0 0 6px; }
+                .curriculum-tiptap ul li::marker { color:#a5b4fc; font-size:1.1em; }
+                .curriculum-tiptap ol li::marker { color:#a5b4fc; font-weight:700; }
                 .curriculum-tiptap blockquote { border-left:3px solid #6366f1; padding-left:12px; color:#94a3b8; margin:0 0 6px; font-style:italic; }
                 .curriculum-tiptap strong { color:#f1f5f9; }
                 .curriculum-tiptap em { color:#cbd5e1; }
                 .curriculum-tiptap a { color:#818cf8; text-decoration:underline; }
+                .curriculum-tiptap h1 { font-size:1.6em; font-weight:800; margin:0 0 10px; color:#f1f5f9; line-height:1.3; }
+                .curriculum-tiptap h2 { font-size:1.3em; font-weight:700; margin:0 0 8px; color:#f1f5f9; line-height:1.3; }
+                .curriculum-tiptap h3 { font-size:1.1em; font-weight:600; margin:0 0 6px; color:#e2e8f0; line-height:1.3; }
                 .curriculum-tiptap p:last-child { margin-bottom:0; }
             `}</style>
             <div style={{ border: '1px solid rgba(99,102,241,0.3)', borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
-                <div style={{ display: 'flex', gap: 3, padding: '6px 8px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexWrap: 'wrap', background: 'rgba(255,255,255,0.02)' }}>
+                {/* Toolbar */}
+                <div style={{ display: 'flex', gap: 3, padding: '6px 8px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexWrap: 'wrap', alignItems: 'center', background: 'rgba(255,255,255,0.02)' }}>
+                    {/* Heading size */}
+                    <select
+                        value={headingLevel}
+                        onMouseDown={e => e.preventDefault()}
+                        onChange={e => {
+                            const v = e.target.value;
+                            if (v === '0') editor?.chain().focus().setParagraph().run();
+                            else editor?.chain().focus().setHeading({ level: Number(v) as 1 | 2 | 3 }).run();
+                        }}
+                        style={{ padding: '3px 6px', borderRadius: 5, border: 'none', background: 'rgba(255,255,255,0.07)', color: '#94a3b8', fontSize: 12, cursor: 'pointer', colorScheme: 'dark' }}
+                    >
+                        <option value="0">Normal</option>
+                        <option value="1">H1</option>
+                        <option value="2">H2</option>
+                        <option value="3">H3</option>
+                    </select>
+                    <div style={{ width: 1, background: 'rgba(255,255,255,0.1)', margin: '2px 1px', alignSelf: 'stretch' }} />
                     <TBtn label="B" title="Bold" active={editor?.isActive('bold')} onClick={() => editor?.chain().focus().toggleBold().run()} extraStyle={{ fontWeight: 900 }} />
                     <TBtn label="I" title="Italic" active={editor?.isActive('italic')} onClick={() => editor?.chain().focus().toggleItalic().run()} extraStyle={{ fontStyle: 'italic' }} />
                     <TBtn label="U" title="Underline" active={editor?.isActive('underline')} onClick={() => editor?.chain().focus().toggleUnderline().run()} extraStyle={{ textDecoration: 'underline' }} />
-                    <div style={{ width: 1, background: 'rgba(255,255,255,0.1)', margin: '2px 2px' }} />
-                    <TBtn label="• List" title="Bullet list" active={editor?.isActive('bulletList')} onClick={() => editor?.chain().focus().toggleBulletList().run()} />
+                    {/* Color picker */}
+                    <label title="Text color" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 5, background: 'rgba(255,255,255,0.07)', cursor: 'pointer', position: 'relative', overflow: 'hidden', flexShrink: 0 }}>
+                        <span style={{ fontSize: 13, userSelect: 'none' }}>A</span>
+                        <div style={{ position: 'absolute', bottom: 2, left: 3, right: 3, height: 3, borderRadius: 2, background: (editor?.getAttributes('textStyle').color as string) || '#a5b4fc' }} />
+                        <input
+                            type="color"
+                            defaultValue="#a5b4fc"
+                            onInput={e => editor?.chain().focus().setColor((e.target as HTMLInputElement).value).run()}
+                            style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer', inset: 0 }}
+                        />
+                    </label>
+                    <div style={{ width: 1, background: 'rgba(255,255,255,0.1)', margin: '2px 1px', alignSelf: 'stretch' }} />
+                    <TBtn label="≡ Bullets" title="Bullet list" active={editor?.isActive('bulletList')} onClick={() => editor?.chain().focus().toggleBulletList().run()} />
                     <TBtn label="1. List" title="Ordered list" active={editor?.isActive('orderedList')} onClick={() => editor?.chain().focus().toggleOrderedList().run()} />
                     <TBtn label="❝ Quote" title="Blockquote" active={editor?.isActive('blockquote')} onClick={() => editor?.chain().focus().toggleBlockquote().run()} />
                 </div>
@@ -324,9 +367,12 @@ function SortableTopicCard({
     return (
         <div ref={setNodeRef} style={dragStyle}>
             <div style={{ background: 'var(--surface-2, #13131a)', borderRadius: 13, border: '1px solid rgba(99,102,241,0.2)', overflow: 'hidden' }}>
-                {/* Topic header */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 14px', background: 'rgba(99,102,241,0.07)', borderBottom: expanded ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
-                    <div {...attributes} {...listeners} style={{ cursor: 'grab', color: '#475569', fontSize: 16, touchAction: 'none', padding: '2px 3px', flexShrink: 0 }} title="Drag topic">⠿</div>
+                {/* Topic header — click anywhere to expand/collapse */}
+                <div
+                    onClick={!editingTitle ? onToggleExpand : undefined}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 14px', background: 'rgba(99,102,241,0.07)', borderBottom: expanded ? '1px solid rgba(255,255,255,0.05)' : 'none', cursor: editingTitle ? 'default' : 'pointer', userSelect: 'none' }}
+                >
+                    <div {...attributes} {...listeners} onClick={e => e.stopPropagation()} style={{ cursor: 'grab', color: '#475569', fontSize: 16, touchAction: 'none', padding: '2px 3px', flexShrink: 0 }} title="Drag topic">⠿</div>
                     {editingTitle ? (
                         <input
                             autoFocus
@@ -337,22 +383,20 @@ function SortableTopicCard({
                                 if (e.key === 'Enter') { setEditingTitle(false); if (titleVal.trim()) onUpdateTopic(topic.id, titleVal.trim()); }
                                 if (e.key === 'Escape') { setEditingTitle(false); setTitleVal(topic.title); }
                             }}
+                            onClick={e => e.stopPropagation()}
                             style={{ flex: 1, padding: '5px 8px', borderRadius: 6, border: '1px solid rgba(99,102,241,0.5)', background: 'rgba(0,0,0,0.3)', color: '#e2e8f0', fontSize: 14, fontWeight: 600 }}
                         />
                     ) : (
-                        <span
-                            onDoubleClick={() => { setEditingTitle(true); setTitleVal(topic.title); }}
-                            style={{ flex: 1, fontSize: 14, fontWeight: 700, color: '#e2e8f0', cursor: 'default', userSelect: 'none' }}
-                        >
+                        <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: '#e2e8f0' }}>
                             {topic.title}
                         </span>
                     )}
                     <span style={{ fontSize: 11, color: '#475569', whiteSpace: 'nowrap', flexShrink: 0 }}>
                         {itemCount} item{itemCount !== 1 ? 's' : ''}
                     </span>
-                    <button type="button" onClick={() => { setEditingTitle(true); setTitleVal(topic.title); }} style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 14, padding: '3px 5px', borderRadius: 5, flexShrink: 0 }} title="Rename">✏️</button>
-                    <button type="button" onClick={() => onDeleteTopic(topic.id)} style={{ background: 'rgba(239,68,68,0.12)', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: 13, padding: '4px 8px', borderRadius: 5, flexShrink: 0 }} title="Delete topic">🗑</button>
-                    <button type="button" onClick={onToggleExpand} style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 13, padding: '3px 5px', flexShrink: 0, transition: 'transform 0.2s', transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▼</button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setEditingTitle(true); setTitleVal(topic.title); }} style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 14, padding: '3px 5px', borderRadius: 5, flexShrink: 0 }} title="Rename">✏️</button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); onDeleteTopic(topic.id); }} style={{ background: 'rgba(239,68,68,0.12)', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: 13, padding: '4px 8px', borderRadius: 5, flexShrink: 0 }} title="Delete topic">🗑</button>
+                    <span style={{ color: '#64748b', fontSize: 13, padding: '3px 5px', flexShrink: 0, transition: 'transform 0.2s', transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)', display: 'inline-block' }}>▼</span>
                 </div>
 
                 {/* Topic content */}
