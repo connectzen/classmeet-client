@@ -1434,7 +1434,7 @@ function SubmissionDetail({ quiz, submission, onGraded, onDone }: {
                                     📎 View submission
                                 </a>
                             ) : (
-                                {ans.answer_text ? <RichContent html={ans.answer_text} /> : <span style={{ color: 'var(--text-muted)' }}>Empty</span>}
+                                ans.answer_text ? <RichContent html={ans.answer_text} /> : <span style={{ color: 'var(--text-muted)' }}>Empty</span>
                             )}
                         </div>
 
