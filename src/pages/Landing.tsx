@@ -684,7 +684,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     };
 
     return (
-        <div className={`landing-container${userRole === 'teacher' ? ' teacher-fixed-root' : ''}`}>
+        <div className={`landing-container${userRole === 'teacher' || userRole === 'member' ? ' teacher-fixed-root' : ''}`}>
             <div className="landing-bg-orb orb-1" />
             <div className="landing-bg-orb orb-2" />
             <div className="landing-bg-orb orb-3" />
@@ -729,7 +729,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             </nav>
 
             {/* â”€â”€ Scrollable body â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-            <div className={`landing-scroll-body${userRole === 'teacher' ? ' teacher-fixed-view' : ''}`}>
+            <div className={`landing-scroll-body${userRole === 'teacher' || userRole === 'member' ? ' teacher-fixed-view' : ''}`}>
 
                 {/* â”€â”€ Hero â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="landing-hero">
@@ -889,164 +889,149 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     )}
 
                     {userRole === 'member' && (
-                        <div className="dashboard-panel enter-up">
-                            <div className="dashboard-panel-header">
-                                <div className="dashboard-panel-title-group">
-                                    <span className="role-badge badge-teacher">👤 Member Dashboard</span>
-                                    <h2 className="dashboard-panel-title">Your Classes</h2>
-                                </div>
-                                <button
-                                    className="btn-dashboard-create"
-                                    onClick={() => {
-                                        setScheduleMode(true);
-                                        setScheduleError('');
-                                        setSessionTitle('');
-                                        setSessionDesc('');
-                                        setSessionDateTime('');
-                                        setTargetStudentIds([]);
-                                        setScheduleSessionType('guest');
-                                        fetchAllStudents();
-                                    }}
-                                >
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                                        <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-                                    </svg>
-                                    Schedule session
-                                </button>
-                            </div>
+                        <div className="teacher-dashboard-layout">
 
-                            {/* Quick overview - Teachers first, then Students, Active courses, Upcoming sessions */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 20 }}>
-                                <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
-                                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Teachers</div>
-                                    <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>{loadingMemberTeachers && memberTeachers.length === 0 ? '…' : memberTeachers.length}</div>
-                                </div>
-                                <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
-                                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Students</div>
-                                    <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>{loadingStudentsList && allStudents.length === 0 ? '…' : allStudents.length}</div>
-                                </div>
-                                <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
-                                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Active courses</div>
-                                    <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>{memberCoursesCount}</div>
-                                </div>
-                                <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '14px 16px' }}>
-                                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Upcoming sessions</div>
-                                    <div style={{ fontSize: 22, fontWeight: 800, color: '#a5b4fc' }}>
-                                        {memberSessions.filter(s => new Date(s.scheduled_at) >= new Date()).length}
+                            {/* ── LEFT SIDEBAR: Teachers & their students ── */}
+                            <aside className="teacher-sidebar enter-up">
+                                <div className="teacher-sidebar-section">
+                                    <div className="teacher-sidebar-section-header">
+                                        <span>Your teachers</span>
                                     </div>
-                                </div>
-                            </div>
-
-                            {/* Teachers and students hierarchy */}
-                            <div style={{ marginBottom: 20 }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Teachers & their students</div>
-                                {loadingTeachersWithStudents && memberTeachersWithStudents.length === 0 ? (
-                                    <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>
-                                ) : memberTeachersWithStudents.length === 0 ? (
-                                    <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No teachers or students.</div>
-                                ) : (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                                        {memberTeachersWithStudents.map(({ teacherId, teacherName, students }) => (
-                                            <div key={teacherId} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 14 }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                                                    {teacherProfiles[teacherId]?.avatar_url && !failedAvatarUrls.has(teacherProfiles[teacherId].avatar_url!) ? (
-                                                        <img src={teacherProfiles[teacherId].avatar_url!} alt="" onError={() => teacherProfiles[teacherId].avatar_url && markAvatarFailed(teacherProfiles[teacherId].avatar_url!)} style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                                                    ) : (
-                                                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{initialsFor(teacherProfiles[teacherId]?.name || teacherName, 'T')}</div>
-                                                    )}
-                                                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: onlineUserIds.has(teacherId) ? '#22c55e' : 'var(--text-muted)' }} />
-                                                    <span style={{ fontWeight: 600, fontSize: 13 }}>{teacherProfiles[teacherId]?.name || teacherName}</span>
-                                                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{onlineUserIds.has(teacherId) ? 'Online' : (lastSeenByUserId[teacherId] ? formatLastSeen(lastSeenByUserId[teacherId]) : 'Offline')}</span>
-                                                </div>
-                                                <div style={{ paddingLeft: 36, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                                                    {students.length === 0 ? (
-                                                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>No students</span>
-                                                    ) : (
-                                                        students.map(st => {
-                                                            const avatarUrl = studentProfiles[st.id]?.avatar_url || st.avatar_url;
-                                                            const showStudentAvatar = avatarUrl && !failedAvatarUrls.has(avatarUrl);
-                                                            return (
-                                                            <div key={st.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.2)', borderRadius: 8, padding: '4px 10px' }}>
-                                                                <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0, overflow: 'hidden' }}>
-                                                                    {showStudentAvatar ? (
-                                                                        <img src={avatarUrl} alt="" onError={() => markAvatarFailed(avatarUrl)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                                    ) : (
-                                                                        initialsFor(st.name)
-                                                                    )}
-                                                                </div>
-                                                                <div style={{ width: 6, height: 6, borderRadius: '50%', background: onlineUserIds.has(st.id) ? '#22c55e' : 'var(--text-muted)' }} />
-                                                                <span style={{ fontSize: 12 }}>{st.name}</span>
-                                                                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{onlineUserIds.has(st.id) ? 'Online' : (lastSeenByUserId[st.id] ? formatLastSeen(lastSeenByUserId[st.id]) : '')}</span>
-                                                            </div>
-                                                            );
-                                                        })
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
-                            {memberSessions.length > 0 && (
-                                <div style={{ marginBottom: 20 }}>
-                                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Your sessions</div>
-                                    <div className={`session-grid stagger ${memberSessions.length > 1 ? 'session-grid-multi' : ''}`}>
-                                        {memberSessions.map(s => (
-                                            <div key={s.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%' }}>
-                                                <MeetingBanner
-                                                    meeting={{ ...s, session_image_url: teacherProfiles[s.created_by]?.avatar_url || s.session_image_url }}
-                                                    displayName={displayName}
-                                                    userRole="teacher"
-                                                    isCreator={true}
-                                                    sessionType="teacher"
-                                                    teacherName={teacherProfiles[s.created_by]?.name || displayName}
-                                                    onJoin={(code, id, name, role, title) => onJoinRoom(code, id, name, role, title)}
-                                                />
-                                                <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', gap: 6, zIndex: 10 }}>
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handleEditSession(s); }}
-                                                        title="Edit session"
-                                                        style={{
-                                                            background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.35)',
-                                                            borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 600,
-                                                            color: '#a5b4fc', cursor: 'pointer',
-                                                        }}
-                                                    >Edit</button>
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handleDeleteSession(s); }}
-                                                        title="Delete session"
-                                                        style={{
-                                                            background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)',
-                                                            borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 600,
-                                                            color: '#fca5a5', cursor: 'pointer',
-                                                        }}
-                                                    >Delete</button>
-                                                </div>
-                                                <div style={{ marginTop: 8, padding: '8px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
-                                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Share link (no login required)</div>
-                                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                                                        <input
-                                                            readOnly
-                                                            value={`${typeof window !== 'undefined' ? window.location.origin : ''}?guest=${s.room_code}`}
-                                                            style={{ flex: 1, minWidth: 120, padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: 'var(--text)', fontSize: 12 }}
-                                                        />
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => navigator.clipboard.writeText(`${window.location.origin}?guest=${s.room_code}`)}
-                                                            style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: 'var(--primary, #6366f1)', color: '#fff', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}
-                                                        >Copy</button>
+                                    {loadingTeachersWithStudents && memberTeachersWithStudents.length === 0 ? (
+                                        <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>
+                                    ) : memberTeachersWithStudents.length === 0 ? (
+                                        <div style={{ color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.5 }}>No teachers assigned yet.</div>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                            {memberTeachersWithStudents.map(({ teacherId, teacherName, students }) => (
+                                                <div key={teacherId} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 12px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: students.length > 0 ? 8 : 0 }}>
+                                                        <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, overflow: 'hidden' }}>
+                                                            {teacherProfiles[teacherId]?.avatar_url && !failedAvatarUrls.has(teacherProfiles[teacherId].avatar_url!) ? (
+                                                                <img src={teacherProfiles[teacherId].avatar_url!} alt="" onError={() => teacherProfiles[teacherId].avatar_url && markAvatarFailed(teacherProfiles[teacherId].avatar_url!)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                            ) : initialsFor(teacherProfiles[teacherId]?.name || teacherName, 'T')}
+                                                        </div>
+                                                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: onlineUserIds.has(teacherId) ? '#22c55e' : 'var(--text-muted)', flexShrink: 0 }} />
+                                                        <div style={{ minWidth: 0 }}>
+                                                            <div style={{ fontWeight: 600, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{teacherProfiles[teacherId]?.name || teacherName}</div>
+                                                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{onlineUserIds.has(teacherId) ? 'Online' : (lastSeenByUserId[teacherId] ? formatLastSeen(lastSeenByUserId[teacherId]) : 'Offline')}</div>
+                                                        </div>
                                                     </div>
+                                                    {students.length > 0 && (
+                                                        <div style={{ paddingLeft: 10, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                                            {students.map(st => {
+                                                                const avatarUrl = studentProfiles[st.id]?.avatar_url || st.avatar_url;
+                                                                const showStudentAvatar = avatarUrl && !failedAvatarUrls.has(avatarUrl);
+                                                                return (
+                                                                    <div key={st.id} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(0,0,0,0.2)', borderRadius: 6, padding: '3px 8px' }}>
+                                                                        <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, flexShrink: 0, overflow: 'hidden' }}>
+                                                                            {showStudentAvatar ? <img src={avatarUrl} alt="" onError={() => markAvatarFailed(avatarUrl)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initialsFor(st.name)}
+                                                                        </div>
+                                                                        <div style={{ width: 5, height: 5, borderRadius: '50%', background: onlineUserIds.has(st.id) ? '#22c55e' : 'var(--text-muted)' }} />
+                                                                        <span style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 80 }}>{st.name}</span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            </div>
-                                        ))}
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </aside>
+
+                            {/* ── STAT CARDS ── */}
+                            <div className="teacher-stats-bar">
+                                <div className="teacher-stat-card">
+                                    <div className="teacher-stat-label">Teachers</div>
+                                    <div className="teacher-stat-value">{loadingMemberTeachers && memberTeachers.length === 0 ? '…' : memberTeachers.length}</div>
+                                </div>
+                                <div className="teacher-stat-card">
+                                    <div className="teacher-stat-label">Students</div>
+                                    <div className="teacher-stat-value">{loadingStudentsList && allStudents.length === 0 ? '…' : allStudents.length}</div>
+                                </div>
+                                <div className="teacher-stat-card">
+                                    <div className="teacher-stat-label">Active Courses</div>
+                                    <div className="teacher-stat-value">{memberCoursesCount}</div>
+                                </div>
+                                <div className="teacher-stat-card">
+                                    <div className="teacher-stat-label">Upcoming Sessions</div>
+                                    <div className="teacher-stat-value">{memberSessions.filter(s => new Date(s.scheduled_at) >= new Date()).length}</div>
+                                </div>
+                            </div>
+
+                            {/* ── MAIN PANEL ── */}
+                            <div className="dashboard-panel enter-up">
+                                {/* ── Pinned header: badge | title centered | schedule btn ── */}
+                                <div className="dashboard-panel-sticky">
+                                    <div className="dashboard-panel-header panel-header-3col">
+                                        <span className="role-badge badge-teacher">👤 Member Dashboard</span>
+                                        <h2 className="dashboard-panel-title">Your Classes</h2>
+                                        <button
+                                            className="btn-dashboard-create"
+                                            onClick={() => {
+                                                setScheduleMode(true);
+                                                setScheduleError('');
+                                                setSessionTitle('');
+                                                setSessionDesc('');
+                                                setSessionDateTime('');
+                                                setTargetStudentIds([]);
+                                                setScheduleSessionType('guest');
+                                                fetchAllStudents();
+                                            }}
+                                        >
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                                            </svg>
+                                            Schedule session
+                                        </button>
                                     </div>
                                 </div>
-                            )}
-                            <MemberCoursesSection userId={user!.id} onCoursesChange={fetchMemberCoursesCount} />
-                            <p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 24 }}>
-                                Create courses and quizzes, and chat with your teachers and students.
-                            </p>
+
+                                {/* ── Scrollable content ── */}
+                                <div className="dashboard-panel-scroll-body">
+                                    {memberSessions.length > 0 && (
+                                        <div style={{ marginBottom: 20 }}>
+                                            <div className={`session-grid stagger ${memberSessions.length > 1 ? 'session-grid-multi' : ''}`}>
+                                                {memberSessions.map(s => (
+                                                    <div key={s.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%' }}>
+                                                        <MeetingBanner
+                                                            meeting={{ ...s, session_image_url: teacherProfiles[s.created_by]?.avatar_url || s.session_image_url }}
+                                                            displayName={displayName}
+                                                            userRole="teacher"
+                                                            isCreator={true}
+                                                            sessionType="teacher"
+                                                            teacherName={teacherProfiles[s.created_by]?.name || displayName}
+                                                            onJoin={(code, id, name, role, title) => onJoinRoom(code, id, name, role, title)}
+                                                        />
+                                                        <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', gap: 6, zIndex: 10 }}>
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handleEditSession(s); }}
+                                                                title="Edit session"
+                                                                style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 600, color: '#a5b4fc', cursor: 'pointer' }}
+                                                            >Edit</button>
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handleDeleteSession(s); }}
+                                                                title="Delete session"
+                                                                style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 600, color: '#fca5a5', cursor: 'pointer' }}
+                                                            >Delete</button>
+                                                        </div>
+                                                        <div style={{ marginTop: 8, padding: '8px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+                                                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Share link (no login required)</div>
+                                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                                                <input readOnly value={`${typeof window !== 'undefined' ? window.location.origin : ''}?guest=${s.room_code}`} style={{ flex: 1, minWidth: 120, padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: 'var(--text)', fontSize: 12 }} />
+                                                                <button type="button" onClick={() => navigator.clipboard.writeText(`${window.location.origin}?guest=${s.room_code}`)} style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: 'var(--primary, #6366f1)', color: '#fff', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>Copy</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    <MemberCoursesSection userId={user!.id} onCoursesChange={fetchMemberCoursesCount} />
+                                </div>
+                            </div>
                         </div>
                     )}
 
@@ -1156,15 +1141,11 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             {/* ── MAIN PANEL ── */}
                             <div className="dashboard-panel enter-up">
 
-                                {/* ── Pinned header: badge, title, schedule btn, sessions label ── */}
+                                {/* ── Pinned header: badge | title centered | schedule btn ── */}
                                 <div className="dashboard-panel-sticky">
-                                    <div className="dashboard-panel-header">
-                                        <div className="dashboard-panel-title-group">
-                                            <span className="role-badge badge-teacher">🎓 Teacher Dashboard</span>
-                                            <h2 className="dashboard-panel-title">Your Classes</h2>
-                                        </div>
-
-                                        {/* Schedule Class button */}
+                                    <div className="dashboard-panel-header panel-header-3col">
+                                        <span className="role-badge badge-teacher">🎓 Teacher Dashboard</span>
+                                        <h2 className="dashboard-panel-title">Your Classes</h2>
                                         <button
                                             className="btn-dashboard-create"
                                             onClick={() => {

@@ -342,6 +342,22 @@ button:active:not(:disabled),
   gap: 12px;
 }
 
+/* 3-column header: badge left | title centered | button right */
+.panel-header-3col {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: unset;
+}
+.panel-header-3col .dashboard-panel-title {
+  text-align: center;
+  margin: 0;
+}
+.panel-header-3col .btn-dashboard-create {
+  justify-self: end;
+}
+
 .dashboard-panel-title {
   font-size: 1.35rem;
   font-weight: 800;
