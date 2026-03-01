@@ -61,6 +61,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [roomQuizzes, setRoomQuizzes] = useState<{ id: string; title: string; question_count?: number; room_id?: string }[]>([]);
     const [loadingRoomQuizzes, setLoadingRoomQuizzes] = useState(false);
     const [roomQuizSubmitted, setRoomQuizSubmitted] = useState(false);
+    const [studentQuizStarted, setStudentQuizStarted] = useState(false);
     const [dismissedRevealed, setDismissedRevealed] = useState(false);
     const socketIdRef = useRef<string>('');
     const mobileChatRef = useRef<HTMLDivElement>(null);
@@ -235,7 +236,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const { socketId, connected, joinError: socketJoinError, existingParticipants, currentSpotlight,
         roomQuiz, roomQuizSubmissions, roomQuizRevealed, revealedStudentIds,
         sendSignal, sendMessage, endRoom, muteParticipant, camParticipant, broadcastSelfCam, changeSpotlight,
-        startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
+        startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz, emitCourseToggle,
     } = useSocket({
             roomCode, roomId, roomName, name, role, isGuestRoomHost,
             onParticipantJoined: handleParticipantJoined,
@@ -251,6 +252,13 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
             onSpotlightChanged: handleSpotlightChanged,
             onTeacherJoined: handleTeacherJoined,
             onAdminRefresh: undefined,
+            onCourseToggle: (active, courseIds) => {
+                // Students/guests receive teacher's course toggle broadcast
+                if (role !== 'teacher') {
+                    setCourseToggleOn(active);
+                    if (active && courseIds.length > 0) setSessionCourseIds(courseIds);
+                }
+            },
         });
 
     // Keep ref in sync so callbacks can read current socketId without stale closures
@@ -311,7 +319,13 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     }, [quizToggleOn, role, sessionQuizIds]);
 
     useEffect(() => {
-        if (!roomQuiz) setRoomQuizSubmitted(false);
+        if (!roomQuiz) {
+            setRoomQuizSubmitted(false);
+        } else {
+            // New quiz arrived — student needs to click "Start Quiz" first
+            setStudentQuizStarted(false);
+            setRoomQuizSubmitted(false);
+        }
     }, [roomQuiz]);
     useEffect(() => {
         setDismissedRevealed(false);
@@ -769,6 +783,36 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                         ) : role !== 'teacher' && roomQuiz ? (
                             roomQuizSubmitted ? (
                                 <PostSubmitWaiting studentCount={allParticipants.filter(p => p.role !== 'teacher').length} />
+                            ) : !studentQuizStarted ? (
+                                // Student sees "Start Quiz" prompt before quiz begins
+                                <div style={{
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                    height: '100%', gap: 20, padding: 32, background: 'var(--surface-2)', borderRadius: 12,
+                                }}>
+                                    <div style={{ fontSize: 48 }}>📝</div>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Quiz Ready</div>
+                                        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+                                            {((roomQuiz.quiz as any)?.title) ? (
+                                                <span dangerouslySetInnerHTML={{ __html: (roomQuiz.quiz as any).title }} />
+                                            ) : 'Quiz'}
+                                        </div>
+                                        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                                            {((roomQuiz.quiz as any)?.questions?.length ?? 0)} question{((roomQuiz.quiz as any)?.questions?.length ?? 0) !== 1 ? 's' : ''}
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => setStudentQuizStarted(true)}
+                                        style={{
+                                            padding: '12px 32px', borderRadius: 12, border: 'none', cursor: 'pointer',
+                                            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                                            color: '#fff', fontWeight: 700, fontSize: 15,
+                                            boxShadow: '0 4px 16px rgba(99,102,241,0.4)',
+                                        }}
+                                    >
+                                        ▶ Start Quiz
+                                    </button>
+                                </div>
                             ) : (
                                 <RoomQuizParticipant
                                     quiz={roomQuiz.quiz as { id: string; title: string; questions: unknown[] }}
@@ -826,6 +870,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                         onClick={() => {
                                             const next = !courseToggleOn;
                                             setCourseToggleOn(next);
+                                            emitCourseToggle(next, sessionCourseIds);
                                             if (next) { if (quizToggleOn && roomQuiz) stopRoomQuiz(); setQuizToggleOn(false); }
                                         }}
                                         style={{

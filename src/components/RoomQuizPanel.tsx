@@ -751,28 +751,38 @@ export function RoomQuizHost({
                     <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>No quizzes attached to this session. Add quizzes when scheduling the class.</p>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {quizzes.map((q, i) => (
-                            <div
-                                key={q.id}
-                                style={{
-                                    padding: '10px 14px', borderRadius: 10,
-                                    background: i < queueIndex ? 'rgba(34,197,94,0.08)' : i === queueIndex ? 'rgba(99,102,241,0.18)' : 'var(--surface-3)',
-                                    border: i === queueIndex ? '1px solid rgba(99,102,241,0.5)' : '1px solid var(--border)',
-                                    opacity: i < queueIndex ? 0.55 : 1,
-                                    display: 'flex', alignItems: 'center', gap: 10,
-                                }}
-                            >
-                                <span style={{ fontSize: 14, minWidth: 20, flexShrink: 0 }}>
-                                    {i < queueIndex ? '✓' : i === queueIndex ? '▶' : `${i + 1}.`}
-                                </span>
-                                <span style={{ flex: 1, fontSize: 13, fontWeight: i === queueIndex ? 600 : 400 }}>
-                                    <RichContent html={q.title} style={{ display: 'inline' }} />
-                                </span>
-                                {q.question_count != null && (
-                                    <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{q.question_count} Q</span>
-                                )}
-                            </div>
-                        ))}
+                        {quizzes.map((q, i) => {
+                            const isDone = i < queueIndex;
+                            const isCurrent = i === queueIndex;
+                            return (
+                                <button
+                                    key={q.id}
+                                    onClick={() => { if (!isDone) setQueueIndex(i); }}
+                                    disabled={isDone}
+                                    style={{
+                                        padding: '10px 14px', borderRadius: 10, border: 'none', textAlign: 'left',
+                                        background: isDone ? 'rgba(34,197,94,0.08)' : isCurrent ? 'rgba(99,102,241,0.18)' : 'var(--surface-3)',
+                                        outline: isCurrent ? '1px solid rgba(99,102,241,0.5)' : '1px solid var(--border)',
+                                        opacity: isDone ? 0.55 : 1,
+                                        display: 'flex', alignItems: 'center', gap: 10,
+                                        cursor: isDone ? 'default' : 'pointer',
+                                        transition: 'background 0.15s, outline 0.15s',
+                                    }}
+                                    onMouseEnter={e => { if (!isDone && !isCurrent) (e.currentTarget as HTMLElement).style.background = 'rgba(99,102,241,0.1)'; }}
+                                    onMouseLeave={e => { if (!isDone && !isCurrent) (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; }}
+                                >
+                                    <span style={{ fontSize: 14, minWidth: 20, flexShrink: 0 }}>
+                                        {isDone ? '✓' : isCurrent ? '▶' : `${i + 1}.`}
+                                    </span>
+                                    <span style={{ flex: 1, fontSize: 13, fontWeight: isCurrent ? 600 : 400 }}>
+                                        <RichContent html={q.title} style={{ display: 'inline' }} />
+                                    </span>
+                                    {q.question_count != null && (
+                                        <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{q.question_count} Q</span>
+                                    )}
+                                </button>
+                            );
+                        })}
                     </div>
                 )}
                 {quizzes.length > 0 && (

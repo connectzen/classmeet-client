@@ -36,6 +36,7 @@ interface UseSocketOptions {
     onSpotlightChanged: (spotlightSocketId: string) => void;
     onTeacherJoined: () => void;
     onAdminRefresh?: (data: { type: string }) => void;
+    onCourseToggle?: (active: boolean, courseIds: string[]) => void;
 }
 
 export function useSocket(options: UseSocketOptions) {
@@ -44,7 +45,7 @@ export function useSocket(options: UseSocketOptions) {
         onParticipantJoined, onParticipantLeft,
         onSignal, onChatMessage, onRoomEnded,
         onForceMute, onForceCam, onParticipantMuteChanged, onParticipantCamChanged, onTeacherDisconnected,
-        onSpotlightChanged, onTeacherJoined, onAdminRefresh,
+        onSpotlightChanged, onTeacherJoined, onAdminRefresh, onCourseToggle,
     } = options;
 
     // Keep refs so the single registered socket listeners always call the latest callbacks
@@ -61,6 +62,7 @@ export function useSocket(options: UseSocketOptions) {
     const onTeacherDisconnectedRef = useRef(onTeacherDisconnected);
     const onSpotlightChangedRef = useRef(onSpotlightChanged);
     const onTeacherJoinedRef = useRef(onTeacherJoined);
+    const onCourseToggleRef = useRef(onCourseToggle);
 
     onAdminRefreshRef.current = onAdminRefresh;
     onParticipantJoinedRef.current = onParticipantJoined;
@@ -75,6 +77,7 @@ export function useSocket(options: UseSocketOptions) {
     onTeacherDisconnectedRef.current = onTeacherDisconnected;
     onSpotlightChangedRef.current = onSpotlightChanged;
     onTeacherJoinedRef.current = onTeacherJoined;
+    onCourseToggleRef.current = onCourseToggle;
 
     const socketRef = useRef<Socket | null>(null);
     const [socketId, setSocketId] = useState('');
@@ -152,6 +155,9 @@ export function useSocket(options: UseSocketOptions) {
         socket.on('room:quiz-student-revealed', ({ studentId }: { studentId: string }) => {
             setRevealedStudentIds(prev => new Set(prev).add(studentId));
         });
+        socket.on('course:toggle', ({ active, courseIds }: { active: boolean; courseIds: string[] }) => {
+            onCourseToggleRef.current?.(active, courseIds);
+        });
         socket.on('disconnect', () => setConnected(false));
 
         return () => {
@@ -204,10 +210,14 @@ export function useSocket(options: UseSocketOptions) {
         socketRef.current?.emit('room-quiz-reveal', { roomCode, type, submissionId, data });
     }, [roomCode]);
 
+    const emitCourseToggle = useCallback((active: boolean, courseIds: string[]) => {
+        socketRef.current?.emit('course-toggle', { roomCode, active, courseIds });
+    }, [roomCode]);
+
     return {
         socketId, connected, joinError, existingParticipants, currentSpotlight,
         roomQuiz, roomQuizSubmissions, roomQuizRevealed, revealedStudentIds,
         sendSignal, sendMessage, endRoom, muteParticipant, camParticipant, broadcastSelfCam, changeSpotlight,
-        startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
+        startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz, emitCourseToggle,
     };
 }
