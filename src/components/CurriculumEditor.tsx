@@ -21,8 +21,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import TiptapImage from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
-import TextStyle from '@tiptap/extension-text-style';
-import { Color } from '@tiptap/extension-color';
+import { TextStyle, Color } from '@tiptap/extension-text-style';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
