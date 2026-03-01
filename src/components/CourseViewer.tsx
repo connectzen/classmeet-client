@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import DOMPurify from 'dompurify';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -172,16 +173,21 @@ export default function CourseViewer({ course, onClose }: Props) {
                                     )}
                                     {lesson.lesson_type === 'text' && (
                                         lesson.content ? (
-                                            <div
-                                                style={{
-                                                    color: 'var(--text)',
-                                                    lineHeight: 1.6,
-                                                    fontSize: 14,
-                                                    whiteSpace: 'pre-wrap',
-                                                }}
-                                            >
-                                                {lesson.content}
-                                            </div>
+                                            <>
+                                                <style>{`
+                                                    .lesson-html-content p { margin: 0 0 8px; }
+                                                    .lesson-html-content ul,.lesson-html-content ol { padding-left:20px; margin:0 0 8px; }
+                                                    .lesson-html-content blockquote { border-left:3px solid #6366f1; padding-left:12px; color:#94a3b8; margin:0 0 8px; font-style:italic; }
+                                                    .lesson-html-content strong { color:#f1f5f9; }
+                                                    .lesson-html-content em { color:#cbd5e1; }
+                                                    .lesson-html-content a { color:#818cf8; text-decoration:underline; }
+                                                `}</style>
+                                                <div
+                                                    className="lesson-html-content"
+                                                    style={{ color: 'var(--text)', lineHeight: 1.7, fontSize: 14 }}
+                                                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(lesson.content) }}
+                                                />
+                                            </>
                                         ) : (
                                             <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>No content for this lesson.</p>
                                         )

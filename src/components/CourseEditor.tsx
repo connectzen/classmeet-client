@@ -16,6 +16,7 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import CurriculumEditor from './CurriculumEditor';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -378,11 +379,12 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
                 background: 'var(--surface-2, #18181f)',
                 borderRadius: 16,
                 width: '100%',
-                maxWidth: 560,
+                maxWidth: step === 2 ? 760 : 560,
                 maxHeight: '90vh',
                 overflowY: 'auto',
                 boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
                 border: '1px solid rgba(99,102,241,0.2)',
+                transition: 'max-width 0.25s ease',
             }} onClick={e => e.stopPropagation()}>
                 <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>
@@ -431,12 +433,14 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
 
                     {step === 2 && courseId && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                            {/* Course title / description quick edit */}
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', paddingBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                                 <input
                                     type="text"
                                     value={title}
                                     onChange={e => setTitle(e.target.value)}
                                     onBlur={() => { if (isEdit) handleUpdateCourse(); }}
+                                    placeholder="Course title"
                                     style={{
                                         flex: 1, minWidth: 160, padding: '8px 12px', borderRadius: 8,
                                         border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(0,0,0,0.2)',
@@ -447,7 +451,7 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
                                     value={description}
                                     onChange={e => setDescription(e.target.value)}
                                     onBlur={() => { if (isEdit) handleUpdateCourse(); }}
-                                    placeholder="Description"
+                                    placeholder="Description (optional)"
                                     rows={1}
                                     style={{
                                         flex: 1, minWidth: 160, padding: '8px 12px', borderRadius: 8,
@@ -456,30 +460,12 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
                                     }}
                                 />
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>Lessons ({lessons.length})</span>
-                                <button type="button" onClick={handleAddLesson} disabled={saving} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#6366f1', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer' }}>+ Add Lesson</button>
-                            </div>
-                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                                <SortableContext items={lessons.map((l, i) => l.id || `lesson-${i}`)} strategy={verticalListSortingStrategy}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                        {lessons.map((l, idx) => (
-                                            <SortableLessonCard
-                                                key={l.id || idx}
-                                                lesson={l}
-                                                idx={idx}
-                                                onUpdate={(i, u, save) => { updateLessonLocal(i, u); if (save) handleUpdateLesson(i, u); }}
-                                                onDelete={handleDeleteLesson}
-                                                saving={saving}
-                                                expanded={expandedLessonIdx === idx}
-                                                onToggleExpand={() => setExpandedLessonIdx(prev => prev === idx ? -1 : idx)}
-                                            />
-                                        ))}
-                                    </div>
-                                </SortableContext>
-                            </DndContext>
-                            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
-                                {!isEdit && <button type="button" onClick={() => setStep(1)} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: 'var(--text-muted)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Back</button>}
+
+                            {/* Curriculum editor */}
+                            <CurriculumEditor courseId={courseId} userId={userId} onCoursesChange={onSaved} />
+
+                            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                                {!isEdit && <button type="button" onClick={() => setStep(1)} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: 'var(--text-muted)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>← Back</button>}
                                 <button type="button" onClick={() => { onSaved(); onClose(); }} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: '#6366f1', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Done</button>
                             </div>
                         </div>
