@@ -37,6 +37,8 @@ interface UseSocketOptions {
     onTeacherJoined: () => void;
     onAdminRefresh?: (data: { type: string }) => void;
     onCourseToggle?: (active: boolean, courseIds: string[]) => void;
+    onCourseNavigate?: (courseIdx: number, lessonIdx: number) => void;
+    onCourseNavLock?: (locked: boolean) => void;
 }
 
 export function useSocket(options: UseSocketOptions) {
@@ -45,7 +47,7 @@ export function useSocket(options: UseSocketOptions) {
         onParticipantJoined, onParticipantLeft,
         onSignal, onChatMessage, onRoomEnded,
         onForceMute, onForceCam, onParticipantMuteChanged, onParticipantCamChanged, onTeacherDisconnected,
-        onSpotlightChanged, onTeacherJoined, onAdminRefresh, onCourseToggle,
+        onSpotlightChanged, onTeacherJoined, onAdminRefresh, onCourseToggle, onCourseNavigate, onCourseNavLock,
     } = options;
 
     // Keep refs so the single registered socket listeners always call the latest callbacks
@@ -63,6 +65,8 @@ export function useSocket(options: UseSocketOptions) {
     const onSpotlightChangedRef = useRef(onSpotlightChanged);
     const onTeacherJoinedRef = useRef(onTeacherJoined);
     const onCourseToggleRef = useRef(onCourseToggle);
+    const onCourseNavigateRef = useRef(onCourseNavigate);
+    const onCourseNavLockRef = useRef(onCourseNavLock);
 
     onAdminRefreshRef.current = onAdminRefresh;
     onParticipantJoinedRef.current = onParticipantJoined;
@@ -78,6 +82,8 @@ export function useSocket(options: UseSocketOptions) {
     onSpotlightChangedRef.current = onSpotlightChanged;
     onTeacherJoinedRef.current = onTeacherJoined;
     onCourseToggleRef.current = onCourseToggle;
+    onCourseNavigateRef.current = onCourseNavigate;
+    onCourseNavLockRef.current = onCourseNavLock;
 
     const socketRef = useRef<Socket | null>(null);
     const [socketId, setSocketId] = useState('');
@@ -138,13 +144,13 @@ export function useSocket(options: UseSocketOptions) {
         socket.on('admin:refresh', (data: { type: string }) => { onAdminRefreshRef.current?.(data); });
         socket.on('room:quiz-active', ({ quizId, quiz }: { quizId: string; quiz: unknown }) => {
             setRoomQuiz({ quizId, quiz });
-            setRoomQuizSubmissions([]);
+            setRoomQuizSubmissions([]); // clear on new quiz
+            setRoomQuizRevealed(null);
+            setRevealedStudentIds(new Set());
         });
         socket.on('room:quiz-inactive', () => {
             setRoomQuiz(null);
-            setRoomQuizSubmissions([]);
-            setRoomQuizRevealed(null);
-            setRevealedStudentIds(new Set());
+            // Keep submissions so teacher can grade after stopping the quiz
         });
         socket.on('room:quiz-submission', ({ submissions }: { submissions: { submissionId: string; studentId: string; studentName: string; score: number | null }[] }) => {
             setRoomQuizSubmissions(submissions || []);
@@ -157,6 +163,12 @@ export function useSocket(options: UseSocketOptions) {
         });
         socket.on('course:toggle', ({ active, courseIds }: { active: boolean; courseIds: string[] }) => {
             onCourseToggleRef.current?.(active, courseIds);
+        });
+        socket.on('course:navigate', ({ activeCourseIdx, activeLessonIdx }: { activeCourseIdx: number; activeLessonIdx: number }) => {
+            onCourseNavigateRef.current?.(activeCourseIdx, activeLessonIdx);
+        });
+        socket.on('course:nav-lock', ({ locked }: { locked: boolean }) => {
+            onCourseNavLockRef.current?.(locked);
         });
         socket.on('disconnect', () => setConnected(false));
 
@@ -214,10 +226,19 @@ export function useSocket(options: UseSocketOptions) {
         socketRef.current?.emit('course-toggle', { roomCode, active, courseIds });
     }, [roomCode]);
 
+    const emitCourseNavigate = useCallback((courseIdx: number, lessonIdx: number) => {
+        socketRef.current?.emit('course-navigate', { roomCode, activeCourseIdx: courseIdx, activeLessonIdx: lessonIdx });
+    }, [roomCode]);
+
+    const emitCourseNavLock = useCallback((locked: boolean) => {
+        socketRef.current?.emit('course-nav-lock', { roomCode, locked });
+    }, [roomCode]);
+
     return {
         socketId, connected, joinError, existingParticipants, currentSpotlight,
         roomQuiz, roomQuizSubmissions, roomQuizRevealed, revealedStudentIds,
         sendSignal, sendMessage, endRoom, muteParticipant, camParticipant, broadcastSelfCam, changeSpotlight,
-        startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz, emitCourseToggle,
+        startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
+        emitCourseToggle, emitCourseNavigate, emitCourseNavLock,
     };
 }

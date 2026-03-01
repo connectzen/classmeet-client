@@ -706,6 +706,7 @@ interface RoomQuizHostProps {
     revealedStudentIds: Set<string>;
     onStartQuiz: (quizId: string) => void;
     onStopQuiz: () => void;
+    onClose?: () => void;
     onReveal: (type: 'individual' | 'class-reveal' | 'final', submissionId?: string, data?: unknown) => void;
 }
 
@@ -718,15 +719,24 @@ export function RoomQuizHost({
     revealedStudentIds,
     onStartQuiz,
     onStopQuiz,
+    onClose,
     onReveal,
 }: RoomQuizHostProps) {
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [localScores, setLocalScores] = useState<Record<string, number | null>>({});
     const [queueIndex, setQueueIndex] = useState(0);
+    const [lastQuizId, setLastQuizId] = useState<string | null>(null);
 
     useEffect(() => { injectStyles(); }, []);
     // Reset queue when quiz list changes (new session / toggle off-on)
     useEffect(() => { setQueueIndex(0); }, [quizzes]);
+    // Track the ID of the quiz that was most recently active (for grading after stop)
+    useEffect(() => {
+        if (activeQuiz) {
+            const qid = (activeQuiz.quiz as { id?: string })?.id;
+            if (qid) setLastQuizId(qid);
+        }
+    }, [activeQuiz]);
 
     const handleStopAndAdvance = () => {
         onStopQuiz();
@@ -804,8 +814,58 @@ export function RoomQuizHost({
                         </div>
                     )
                 )}
+                {/* Grading section: visible when quiz was stopped and submissions exist */}
+                {submissions.length > 0 && lastQuizId && (
+                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+                        <h4 style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>
+                            Submissions ({submissions.length}) — click a student to grade, then Reveal to show their result
+                        </h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {submissions.map((s) => {
+                                const isExpanded = expandedId === s.submissionId;
+                                const isRevealed = revealedStudentIds.has(s.studentId);
+                                const score = localScores[s.submissionId] !== undefined ? localScores[s.submissionId] : s.score;
+                                const scoreColor = score == null ? '#94a3b8' : score >= 50 ? '#22c55e' : '#f59e0b';
+                                return (
+                                    <div key={s.submissionId} style={{
+                                        background: 'var(--surface-3)', borderRadius: 10,
+                                        border: isExpanded ? '1px solid #6366f1' : '1px solid transparent',
+                                        overflow: 'hidden',
+                                    }}>
+                                        <div onClick={() => setExpandedId(isExpanded ? null : s.submissionId)}
+                                            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', cursor: 'pointer' }}>
+                                            <StudentAvatar name={s.studentName} />
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>{s.studentName}</div>
+                                                <div style={{ fontSize: 12, color: scoreColor, fontWeight: 600 }}>{score != null ? `${score}%` : 'Pending'}</div>
+                                            </div>
+                                            {isRevealed ? (
+                                                <span style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: 'rgba(34,197,94,0.15)', color: '#22c55e' }}>Revealed</span>
+                                            ) : (
+                                                <button onClick={(e) => { e.stopPropagation(); onReveal('class-reveal', s.submissionId, { studentId: s.studentId, studentName: s.studentName, score }); }}
+                                                    style={{ padding: '5px 12px', borderRadius: 6, border: 'none', background: 'linear-gradient(135deg, #6366f1, #818cf8)', color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                                    Reveal to Class
+                                                </button>
+                                            )}
+                                            <span style={{ fontSize: 16, color: 'var(--text-muted)', transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▾</span>
+                                        </div>
+                                        {isExpanded && (
+                                            <InlineGrading
+                                                quizId={lastQuizId}
+                                                submissionId={s.submissionId}
+                                                studentId={s.studentId}
+                                                onScoreUpdate={(newScore) => setLocalScores(prev => ({ ...prev, [s.submissionId]: newScore }))}
+                                                onSaved={() => setExpandedId(null)}
+                                            />
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
                 <button
-                    onClick={onStopQuiz}
+                    onClick={onClose ?? onStopQuiz}
                     style={{
                         padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)',
                         background: 'transparent', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer', alignSelf: 'flex-start',
