@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import DOMPurify from 'dompurify';
+import { RichContent } from './RichEditor';
 
 export interface AdminMeeting {
     id: string;
@@ -257,15 +258,8 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                                 color: '#f1f5f9', letterSpacing: '-0.02em', lineHeight: 1.3,
                             }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(meeting.title, { ADD_ATTR: ['style'] }) }} />
                         </div>
-                        {descBullets.length > 0 ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                                {descBullets.map((line, i) => (
-                                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 7 }}>
-                                        <span style={{ color: accentColor, flexShrink: 0, fontSize: 13, lineHeight: 1.7, fontWeight: 700 }}>›</span>
-                                        <span style={{ color: '#94a3b8', fontSize: 12, lineHeight: 1.7 }}>{line}</span>
-                                    </div>
-                                ))}
-                            </div>
+                        {meeting.description ? (
+                            <RichContent html={meeting.description} style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.7 }} />
                         ) : (
                             <p style={{ margin: 0, fontSize: 12, color: '#475569', fontStyle: 'italic' }}>No description added.</p>
                         )}
