@@ -20,14 +20,18 @@ interface Props {
     courseIds: string[];
     serverUrl: string;
     role: string;
-    /** Teacher: called when teacher navigates — broadcasts to students */
-    onNavigate?: (courseIdx: number, lessonIdx: number) => void;
+    /** Controlled: current lesson index (owned by Room.tsx) */
+    activeLessonIdx: number;
+    /** Controlled: current course index (owned by Room.tsx) */
+    activeCourseIdx: number;
+    /** Called when user navigates to a lesson/course */
+    onNav: (courseIdx: number, lessonIdx: number) => void;
+    /** Called when course data loads or active course changes, with total lessons */
+    onCoursesLoaded?: (totalLessons: number) => void;
     /** Teacher: current lock state to show in the toggle button */
     navLockedForStudents?: boolean;
     /** Teacher: called when lock/unlock is toggled */
     onNavLockToggle?: (locked: boolean) => void;
-    /** Student: external nav from teacher broadcast (when navLocked = true, follows this) */
-    externalNav?: { courseIdx: number; lessonIdx: number } | null;
     /** Student: whether they are locked to follow teacher (default true) */
     navLocked?: boolean;
     /** Teacher: called when teacher scrolls — broadcasts scroll ratio to students */
@@ -38,20 +42,21 @@ interface Props {
 
 export default function RoomCoursePanel({
     courseIds, serverUrl, role,
-    onNavigate, navLockedForStudents, onNavLockToggle,
-    externalNav, navLocked = true,
+    activeLessonIdx, activeCourseIdx, onNav, onCoursesLoaded,
+    navLockedForStudents, onNavLockToggle,
+    navLocked = true,
     onScrollSync, externalScroll,
 }: Props) {
     const [courses, setCourses] = useState<CourseData[]>([]);
-    const [activeCourseIdx, setActiveCourseIdx] = useState(0);
-    const [activeLessonIdx, setActiveLessonIdx] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
     const contentRef = useRef<HTMLDivElement>(null);
     const scrollThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastScrollRatioRef = useRef<number>(0);
 
     const isTeacher = role === 'teacher';
+    const canNav = isTeacher || !navLocked;
 
     useEffect(() => {
         if (!courseIds.length) { setLoading(false); return; }
@@ -69,24 +74,19 @@ export default function RoomCoursePanel({
             )
         ).then(results => {
             setCourses(results);
-            setActiveCourseIdx(0);
-            setActiveLessonIdx(0);
         }).finally(() => setLoading(false));
     }, [courseIds, serverUrl]);
 
-    // Student: follow teacher navigation when locked
+    // Notify parent of total lessons for the active course
     useEffect(() => {
-        if (!isTeacher && navLocked && externalNav) {
-            setActiveCourseIdx(externalNav.courseIdx);
-            setActiveLessonIdx(externalNav.lessonIdx);
+        if (courses.length > 0) {
+            onCoursesLoaded?.(courses[activeCourseIdx]?.lessons.length ?? 0);
         }
-    }, [externalNav, navLocked, isTeacher]);
+    }, [courses, activeCourseIdx, onCoursesLoaded]);
 
     // Reset scroll to top when lesson changes
     useEffect(() => {
-        if (contentRef.current) {
-            contentRef.current.scrollTop = 0;
-        }
+        if (contentRef.current) contentRef.current.scrollTop = 0;
     }, [activeLessonIdx, activeCourseIdx]);
 
     // Student: apply external scroll position when locked
@@ -95,9 +95,7 @@ export default function RoomCoursePanel({
         const el = contentRef.current;
         if (!el) return;
         const maxScroll = el.scrollHeight - el.clientHeight;
-        if (maxScroll > 0) {
-            el.scrollTop = externalScroll * maxScroll;
-        }
+        if (maxScroll > 0) el.scrollTop = externalScroll * maxScroll;
     }, [externalScroll, navLocked, isTeacher]);
 
     // Teacher: throttled scroll handler
@@ -108,26 +106,14 @@ export default function RoomCoursePanel({
         const maxScroll = el.scrollHeight - el.clientHeight;
         if (maxScroll <= 0) return;
         const ratio = el.scrollTop / maxScroll;
-        // Only emit if ratio changed meaningfully (>0.5%)
         if (Math.abs(ratio - lastScrollRatioRef.current) < 0.005) return;
         lastScrollRatioRef.current = ratio;
-        if (scrollThrottleRef.current) return; // already queued
+        if (scrollThrottleRef.current) return;
         scrollThrottleRef.current = setTimeout(() => {
             scrollThrottleRef.current = null;
             onScrollSync(lastScrollRatioRef.current);
         }, 80);
     }, [isTeacher, onScrollSync]);
-
-    // Teacher navigation helpers — update local state AND broadcast
-    const navToCourse = (ci: number, li = 0) => {
-        setActiveCourseIdx(ci);
-        setActiveLessonIdx(li);
-        onNavigate?.(ci, li);
-    };
-    const navToLesson = (li: number) => {
-        setActiveLessonIdx(li);
-        onNavigate?.(activeCourseIdx, li);
-    };
 
     if (loading) {
         return (
@@ -145,11 +131,8 @@ export default function RoomCoursePanel({
         );
     }
 
-    const course = courses[activeCourseIdx];
+    const course = courses[activeCourseIdx] ?? courses[0];
     const lesson = course.lessons[activeLessonIdx] || null;
-    const totalLessons = course.lessons.length;
-    // Students locked to teacher can't navigate independently
-    const canNav = isTeacher || !navLocked;
 
     return (
         <div style={{
@@ -162,7 +145,7 @@ export default function RoomCoursePanel({
                     {courses.map((c, i) => (
                         <button
                             key={c.id}
-                            onClick={() => canNav ? (isTeacher ? navToCourse(i) : setActiveCourseIdx(i)) : undefined}
+                            onClick={() => canNav ? onNav(i, 0) : undefined}
                             disabled={!canNav}
                             style={{
                                 padding: '4px 12px', borderRadius: 8, border: 'none', fontSize: 13,
@@ -187,7 +170,7 @@ export default function RoomCoursePanel({
                         <RichContent html={course.title} style={{ display: 'inline' }} />
                     </div>
                 </div>
-                <span style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>{totalLessons} lesson{totalLessons !== 1 ? 's' : ''}</span>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>{course.lessons.length} lesson{course.lessons.length !== 1 ? 's' : ''}</span>
 
                 {/* Teacher: nav lock toggle for students */}
                 {isTeacher && (
@@ -217,14 +200,22 @@ export default function RoomCoursePanel({
                 )}
             </div>
 
-            {/* Body: sidebar + content */}
+            {/* Body: collapsible sidebar + lesson content */}
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-                {/* Lesson list sidebar */}
-                <div style={{ width: 200, flexShrink: 0, borderRight: '1px solid var(--border)', overflowY: 'auto' }}>
+
+                {/* Lesson list sidebar — hidden by default, slides in */}
+                <div style={{
+                    width: sidebarOpen ? 200 : 0,
+                    flexShrink: 0,
+                    borderRight: sidebarOpen ? '1px solid var(--border)' : 'none',
+                    overflowY: sidebarOpen ? 'auto' : 'hidden',
+                    overflowX: 'hidden',
+                    transition: 'width 0.2s ease',
+                }}>
                     {course.lessons.map((l, i) => (
                         <button
                             key={l.id}
-                            onClick={() => canNav ? (isTeacher ? navToLesson(i) : setActiveLessonIdx(i)) : undefined}
+                            onClick={() => canNav ? onNav(activeCourseIdx, i) : undefined}
                             disabled={!canNav}
                             style={{
                                 display: 'flex', alignItems: 'flex-start', gap: 8, width: '100%',
@@ -245,14 +236,31 @@ export default function RoomCoursePanel({
                     )}
                 </div>
 
-                {/* Lesson content — teacher scroll is broadcast to locked students */}
+                {/* Lesson content — fills full width when sidebar is closed */}
                 <div
                     ref={contentRef}
                     onScroll={isTeacher ? handleTeacherScroll : undefined}
-                    style={{ flex: 1, overflowY: 'auto', padding: 20 }}
+                    style={{ flex: 1, overflowY: 'auto', padding: 20, position: 'relative' }}
                 >
+                    {/* Sidebar toggle button */}
+                    <button
+                        onClick={() => setSidebarOpen(v => !v)}
+                        title={sidebarOpen ? 'Hide lesson list' : 'Show lesson list'}
+                        style={{
+                            position: 'absolute', top: 12, left: 12, zIndex: 2,
+                            width: 28, height: 28, borderRadius: 7,
+                            border: '1px solid var(--border)',
+                            background: 'var(--surface-3)',
+                            color: 'var(--text-muted)',
+                            cursor: 'pointer', fontSize: 14, fontWeight: 700,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}
+                    >
+                        {sidebarOpen ? '‹' : '☰'}
+                    </button>
+
                     {lesson ? (
-                        <>
+                        <div style={{ paddingLeft: 40 }}>
                             <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{lesson.title}</h3>
                             {lesson.lesson_type === 'video' && lesson.video_url ? (
                                 <video src={lesson.video_url} controls style={{ width: '100%', borderRadius: 10, marginBottom: 16, background: '#000' }} />
@@ -262,52 +270,11 @@ export default function RoomCoursePanel({
                             ) : (
                                 <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No content for this lesson.</p>
                             )}
-                        </>
+                        </div>
                     ) : (
-                        <p style={{ color: 'var(--text-muted)' }}>Select a lesson to view its content.</p>
+                        <p style={{ color: 'var(--text-muted)', paddingLeft: 40 }}>Select a lesson from the list.</p>
                     )}
                 </div>
-            </div>
-
-            {/* Navigation footer */}
-            <div style={{
-                padding: '10px 16px', borderTop: '1px solid var(--border)',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-            }}>
-                <button
-                    onClick={() => {
-                        if (!canNav) return;
-                        const next = Math.max(0, activeLessonIdx - 1);
-                        isTeacher ? navToLesson(next) : setActiveLessonIdx(next);
-                    }}
-                    disabled={activeLessonIdx === 0 || !canNav}
-                    style={{
-                        padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)',
-                        background: 'transparent', color: (activeLessonIdx === 0 || !canNav) ? 'var(--text-muted)' : 'var(--text)',
-                        cursor: (activeLessonIdx === 0 || !canNav) ? 'default' : 'pointer', fontSize: 13, fontWeight: 600,
-                    }}
-                >
-                    ← Prev
-                </button>
-                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    Lesson {activeLessonIdx + 1} of {totalLessons || 1}
-                </span>
-                <button
-                    onClick={() => {
-                        if (!canNav) return;
-                        const next = Math.min(totalLessons - 1, activeLessonIdx + 1);
-                        isTeacher ? navToLesson(next) : setActiveLessonIdx(next);
-                    }}
-                    disabled={activeLessonIdx >= totalLessons - 1 || !canNav}
-                    style={{
-                        padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)',
-                        background: (activeLessonIdx >= totalLessons - 1 || !canNav) ? 'transparent' : 'rgba(99,102,241,0.2)',
-                        color: (activeLessonIdx >= totalLessons - 1 || !canNav) ? 'var(--text-muted)' : '#a5b4fc',
-                        cursor: (activeLessonIdx >= totalLessons - 1 || !canNav) ? 'default' : 'pointer', fontSize: 13, fontWeight: 600,
-                    }}
-                >
-                    Next →
-                </button>
             </div>
         </div>
     );

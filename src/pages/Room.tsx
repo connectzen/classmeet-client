@@ -66,6 +66,9 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [courseNavLocked, setCourseNavLocked] = useState(true);
     const [externalCourseNav, setExternalCourseNav] = useState<{ courseIdx: number; lessonIdx: number } | null>(null);
     const [externalCourseScroll, setExternalCourseScroll] = useState<number | null>(null);
+    const [courseLessonIdx, setCourseLessonIdx] = useState(0);
+    const [courseCourseIdx, setCourseCourseIdx] = useState(0);
+    const [courseTotalLessons, setCourseTotalLessons] = useState(1);
     const [dismissedRevealed, setDismissedRevealed] = useState(false);
     const socketIdRef = useRef<string>('');
     const mobileChatRef = useRef<HTMLDivElement>(null);
@@ -278,6 +281,13 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     // Keep ref in sync so callbacks can read current socketId without stale closures
     socketIdRef.current = socketId;
 
+    // Course navigation — shared by teacher (broadcasts) and student (local only)
+    const handleCourseNav = useCallback((courseIdx: number, lessonIdx: number) => {
+        setCourseCourseIdx(courseIdx);
+        setCourseLessonIdx(lessonIdx);
+        if (role === 'teacher') emitCourseNavigate(courseIdx, lessonIdx);
+    }, [role, emitCourseNavigate]);
+
     const { remoteStreams, handleSignal: handleWebRTCSignal, initiatePeerConnections, addNewPeer, removePeer } =
         useWebRTC({ localStream, onSendSignal: sendSignal });
 
@@ -344,6 +354,22 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     useEffect(() => {
         setDismissedRevealed(false);
     }, [roomQuizRevealed]);
+
+    // Student: follow teacher navigation when locked
+    useEffect(() => {
+        if (role !== 'teacher' && courseNavLocked && externalCourseNav) {
+            setCourseLessonIdx(externalCourseNav.lessonIdx);
+            setCourseCourseIdx(externalCourseNav.courseIdx);
+        }
+    }, [externalCourseNav, courseNavLocked, role]);
+
+    // Reset course nav indices when course panel closes
+    useEffect(() => {
+        if (!courseToggleOn) {
+            setCourseLessonIdx(0);
+            setCourseCourseIdx(0);
+        }
+    }, [courseToggleOn]);
 
     // Dynamically resize mobile chat container when keyboard opens/closes
     useEffect(() => {
@@ -771,7 +797,10 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 courseIds={sessionCourseIds}
                                 serverUrl={SERVER_URL}
                                 role={role}
-                                onNavigate={(ci, li) => emitCourseNavigate(ci, li)}
+                                activeLessonIdx={courseLessonIdx}
+                                activeCourseIdx={courseCourseIdx}
+                                onNav={handleCourseNav}
+                                onCoursesLoaded={setCourseTotalLessons}
                                 navLockedForStudents={courseNavLocked}
                                 onNavLockToggle={(locked) => { setCourseNavLocked(locked); emitCourseNavLock(locked); }}
                                 onScrollSync={emitCourseScroll}
@@ -806,7 +835,10 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                     courseIds={sessionCourseIds}
                                     serverUrl={SERVER_URL}
                                     role={role}
-                                    externalNav={externalCourseNav}
+                                    activeLessonIdx={courseLessonIdx}
+                                    activeCourseIdx={courseCourseIdx}
+                                    onNav={handleCourseNav}
+                                    onCoursesLoaded={setCourseTotalLessons}
                                     navLocked={courseNavLocked}
                                     externalScroll={courseNavLocked ? externalCourseScroll : null}
                                 />
@@ -960,6 +992,32 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                         <button id="btn-devices" className="control-btn" onClick={() => setShowDevicePicker(true)}>
                             ⚙️ <span className="control-label">Devices</span>
                         </button>
+
+                        {/* Course lesson nav — shown when course panel is open */}
+                        {courseToggleOn && (
+                            <>
+                                <div style={{ width: 1, height: 32, background: 'var(--border)', flexShrink: 0 }} />
+                                <button
+                                    className={`control-btn ${(courseLessonIdx === 0 || (role !== 'teacher' && courseNavLocked)) ? 'control-btn-off' : ''}`}
+                                    onClick={() => { if (courseLessonIdx > 0 && (role === 'teacher' || !courseNavLocked)) handleCourseNav(courseCourseIdx, courseLessonIdx - 1); }}
+                                    disabled={courseLessonIdx === 0 || (role !== 'teacher' && courseNavLocked)}
+                                >
+                                    ← <span className="control-label">Prev</span>
+                                </button>
+                                <span style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'center', flexShrink: 0, lineHeight: 1.3, minWidth: 52 }}>
+                                    {courseLessonIdx + 1} / {courseTotalLessons || 1}<br />
+                                    <span style={{ fontSize: 9, opacity: 0.7 }}>lesson</span>
+                                </span>
+                                <button
+                                    className={`control-btn ${(courseLessonIdx >= (courseTotalLessons || 1) - 1 || (role !== 'teacher' && courseNavLocked)) ? 'control-btn-off' : ''}`}
+                                    onClick={() => { if (courseLessonIdx < (courseTotalLessons || 1) - 1 && (role === 'teacher' || !courseNavLocked)) handleCourseNav(courseCourseIdx, courseLessonIdx + 1); }}
+                                    disabled={courseLessonIdx >= (courseTotalLessons || 1) - 1 || (role !== 'teacher' && courseNavLocked)}
+                                >
+                                    <span className="control-label">Next</span> →
+                                </button>
+                                <div style={{ width: 1, height: 32, background: 'var(--border)', flexShrink: 0 }} />
+                            </>
+                        )}
 
                         {/* Mobile chat toggle */}
                         <button id="btn-mobile-chat" className="control-btn mobile-only" onClick={() => setIsChatOpen(true)}>
