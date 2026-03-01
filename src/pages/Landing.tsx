@@ -1255,27 +1255,22 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             {/* ── LEFT SIDEBAR: Your Teachers ── */}
                             <aside className="teacher-sidebar enter-up">
                                 <div className="teacher-sidebar-section">
-                                    <button
-                                        onClick={() => setTeachersCollapsed(c => !c)}
-                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit' }}
-                                    >
-                                        <div className="teacher-sidebar-section-header" style={{ margin: 0, flex: 1, alignItems: 'center' }}>
-                                            <span style={{ whiteSpace: 'nowrap' }}>Your teachers</span>
-                                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, height: 18, borderRadius: 100, padding: '0 6px', fontSize: 11, fontWeight: 700, background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.35)', color: '#93c5fd' }}>
-                                                {Array.from(new Set(studentTeacherSessions.map(s => s.created_by))).length}
-                                            </span>
-                                        </div>
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginLeft: 6, transition: 'transform 0.2s', transform: teachersCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}><polyline points="6 9 12 15 18 9"/></svg>
-                                    </button>
-                                    {!teachersCollapsed && (() => {
+                                    <div className="teacher-sidebar-section-header" style={{ marginBottom: 10, alignItems: 'center' }}>
+                                        <span style={{ whiteSpace: 'nowrap' }}>Your teachers</span>
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, height: 18, borderRadius: 100, padding: '0 6px', fontSize: 11, fontWeight: 700, background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.35)', color: '#93c5fd' }}>
+                                            {Array.from(new Set(studentTeacherSessions.map(s => s.created_by))).length}
+                                        </span>
+                                    </div>
+                                    {(() => {
                                         const teacherIds = Array.from(new Set(studentTeacherSessions.map(s => s.created_by)));
                                         return teacherIds.length === 0 ? (
-                                            <div style={{ color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.5, marginTop: 8 }}>No teachers assigned yet.</div>
+                                            <div style={{ color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.5 }}>No teachers assigned yet.</div>
                                         ) : (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                                 {teacherIds.map(tid => {
                                                     const name = teacherProfiles[tid]?.name ?? teacherNamesFromApi[tid] ?? 'Teacher';
                                                     const avatarUrl = teacherProfiles[tid]?.avatar_url;
+                                                    const isOnline = onlineUserIds.has(tid);
                                                     return (
                                                         <div key={tid} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '7px 10px' }}>
                                                             <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, overflow: 'hidden' }}>
@@ -1283,10 +1278,12 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                                     <img src={avatarUrl} alt="" onError={() => markAvatarFailed(avatarUrl)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                                 ) : initialsFor(name)}
                                                             </div>
-                                                            <div style={{ width: 7, height: 7, borderRadius: '50%', background: onlineUserIds.has(tid) ? '#22c55e' : 'var(--text-muted)', flexShrink: 0 }} title={onlineUserIds.has(tid) ? 'Online' : 'Offline'} />
+                                                            <div style={{ width: 7, height: 7, borderRadius: '50%', background: isOnline ? '#22c55e' : 'var(--text-muted)', flexShrink: 0 }} title={isOnline ? 'Online' : 'Offline'} />
                                                             <div style={{ minWidth: 0 }}>
                                                                 <div style={{ fontWeight: 600, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
-                                                                <div style={{ fontSize: 11, color: onlineUserIds.has(tid) ? '#4ade80' : 'var(--text-muted)', fontWeight: onlineUserIds.has(tid) ? 600 : 400 }}>{onlineUserIds.has(tid) ? 'Online' : (lastSeenByUserId[tid] ? formatLastSeen(lastSeenByUserId[tid]) : 'Offline')}</div>
+                                                                <div style={{ fontSize: 11, fontWeight: isOnline ? 600 : 400, color: isOnline ? '#4ade80' : 'var(--text-muted)' }}>
+                                                                    {isOnline ? 'Online' : (lastSeenByUserId[tid] ? formatLastSeen(lastSeenByUserId[tid]) : 'Offline')}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     );
