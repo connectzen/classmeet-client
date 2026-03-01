@@ -614,7 +614,7 @@ function CreateQuizForm({ userId, rooms, courses, onCreated, onCancel }: {
                         {rooms.map(r => (
                             <label key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(99,102,241,0.1)' }}>
                                 <input type="checkbox" checked={roomIds.includes(r.id)} onChange={() => toggleRoom(r.id)} style={{ accentColor: '#6366f1' }} />
-                                <span style={{ fontSize: 13, fontWeight: 500 }}>{r.name}</span>
+                                <span style={{ fontSize: 13, fontWeight: 500 }}>{stripHtml(r.name)}</span>
                             </label>
                         ))}
                     </div>
@@ -779,7 +779,7 @@ function EditQuizForm({ quiz, userId, rooms, courses, onSaved, onCancel }: {
                         {rooms.map(r => (
                             <label key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(99,102,241,0.1)' }}>
                                 <input type="checkbox" checked={roomIds.includes(r.id)} onChange={() => toggleRoom(r.id)} style={{ accentColor: '#6366f1' }} />
-                                <span style={{ fontSize: 13, fontWeight: 500 }}>{r.name}</span>
+                                <span style={{ fontSize: 13, fontWeight: 500 }}>{stripHtml(r.name)}</span>
                             </label>
                         ))}
                     </div>
