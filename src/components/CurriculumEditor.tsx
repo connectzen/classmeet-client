@@ -17,11 +17,30 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useEditor, EditorContent } from '@tiptap/react';
+import { Extension } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import TiptapImage from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import { TextStyle, Color } from '@tiptap/extension-text-style';
+
+// Custom FontSize extension (uses TextStyle mark, no extra package needed)
+const FontSizeExtension = Extension.create({
+    name: 'fontSize',
+    addOptions() { return { types: ['textStyle'] }; },
+    addGlobalAttributes() {
+        return [{
+            types: ['textStyle'],
+            attributes: {
+                fontSize: {
+                    default: null,
+                    parseHTML: el => el.style.fontSize?.replace(/['"]+/g, '') || null,
+                    renderHTML: attrs => attrs.fontSize ? { style: `font-size: ${attrs.fontSize}` } : {},
+                },
+            },
+        }];
+    },
+});
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -76,6 +95,7 @@ function LessonRichEditor({ lessonId, initialContent, onSave }: {
             Link.configure({ openOnClick: false }),
             TextStyle,
             Color,
+            FontSizeExtension,
         ],
         content: initialContent || '',
         editorProps: {
@@ -87,6 +107,36 @@ function LessonRichEditor({ lessonId, initialContent, onSave }: {
     const headingLevel = editor?.isActive('heading', { level: 1 }) ? '1'
         : editor?.isActive('heading', { level: 2 }) ? '2'
         : editor?.isActive('heading', { level: 3 }) ? '3' : '0';
+
+    const currentFontSize = (editor?.getAttributes('textStyle') as { fontSize?: string }).fontSize || '';
+    const currentColor = (editor?.getAttributes('textStyle') as { color?: string }).color || '#a5b4fc';
+
+    // Smart list toggle: exits the current list type first before switching
+    function handleBulletList() {
+        if (!editor) return;
+        if (editor.isActive('orderedList')) {
+            editor.chain().focus().toggleOrderedList().toggleBulletList().run();
+        } else {
+            editor.chain().focus().toggleBulletList().run();
+        }
+    }
+    function handleOrderedList() {
+        if (!editor) return;
+        if (editor.isActive('bulletList')) {
+            editor.chain().focus().toggleBulletList().toggleOrderedList().run();
+        } else {
+            editor.chain().focus().toggleOrderedList().run();
+        }
+    }
+    function handleBlockquote() {
+        if (!editor) return;
+        if (editor.isActive('bulletList') || editor.isActive('orderedList')) {
+            // Exit the list first, then apply blockquote to that paragraph
+            editor.chain().focus().liftListItem('listItem').toggleBlockquote().run();
+        } else {
+            editor.chain().focus().toggleBlockquote().run();
+        }
+    }
 
     return (
         <div>
@@ -109,7 +159,7 @@ function LessonRichEditor({ lessonId, initialContent, onSave }: {
             <div style={{ border: '1px solid rgba(99,102,241,0.3)', borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
                 {/* Toolbar */}
                 <div style={{ display: 'flex', gap: 3, padding: '6px 8px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexWrap: 'wrap', alignItems: 'center', background: 'rgba(255,255,255,0.02)' }}>
-                    {/* Heading size */}
+                    {/* Heading style */}
                     <select
                         value={headingLevel}
                         onMouseDown={e => e.preventDefault()}
@@ -125,25 +175,53 @@ function LessonRichEditor({ lessonId, initialContent, onSave }: {
                         <option value="2">H2</option>
                         <option value="3">H3</option>
                     </select>
+                    {/* Font size */}
+                    <select
+                        value={currentFontSize}
+                        onMouseDown={e => e.preventDefault()}
+                        onChange={e => {
+                            const size = e.target.value;
+                            if (!size) {
+                                editor?.chain().focus().setMark('textStyle', { fontSize: null }).run();
+                            } else {
+                                editor?.chain().focus().setMark('textStyle', { fontSize: size }).run();
+                            }
+                        }}
+                        style={{ padding: '3px 6px', borderRadius: 5, border: 'none', background: 'rgba(255,255,255,0.07)', color: '#94a3b8', fontSize: 12, cursor: 'pointer', colorScheme: 'dark' }}
+                    >
+                        <option value="">Size</option>
+                        <option value="11px">11</option>
+                        <option value="12px">12</option>
+                        <option value="14px">14</option>
+                        <option value="16px">16</option>
+                        <option value="18px">18</option>
+                        <option value="20px">20</option>
+                        <option value="24px">24</option>
+                        <option value="28px">28</option>
+                        <option value="32px">32</option>
+                    </select>
                     <div style={{ width: 1, background: 'rgba(255,255,255,0.1)', margin: '2px 1px', alignSelf: 'stretch' }} />
                     <TBtn label="B" title="Bold" active={editor?.isActive('bold')} onClick={() => editor?.chain().focus().toggleBold().run()} extraStyle={{ fontWeight: 900 }} />
                     <TBtn label="I" title="Italic" active={editor?.isActive('italic')} onClick={() => editor?.chain().focus().toggleItalic().run()} extraStyle={{ fontStyle: 'italic' }} />
                     <TBtn label="U" title="Underline" active={editor?.isActive('underline')} onClick={() => editor?.chain().focus().toggleUnderline().run()} extraStyle={{ textDecoration: 'underline' }} />
-                    {/* Color picker */}
-                    <label title="Text color" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 5, background: 'rgba(255,255,255,0.07)', cursor: 'pointer', position: 'relative', overflow: 'hidden', flexShrink: 0 }}>
-                        <span style={{ fontSize: 13, userSelect: 'none' }}>A</span>
-                        <div style={{ position: 'absolute', bottom: 2, left: 3, right: 3, height: 3, borderRadius: 2, background: (editor?.getAttributes('textStyle').color as string) || '#a5b4fc' }} />
+                    {/* Color picker — visible button with colored "A" underline */}
+                    <label
+                        title="Text color (select text first)"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 7px', borderRadius: 5, background: 'rgba(255,255,255,0.07)', cursor: 'pointer', position: 'relative', flexShrink: 0, userSelect: 'none' }}
+                    >
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8', borderBottom: `3px solid ${currentColor}`, paddingBottom: 1, lineHeight: 1 }}>A</span>
+                        <span style={{ fontSize: 11, color: '#64748b' }}>▾</span>
                         <input
                             type="color"
-                            defaultValue="#a5b4fc"
-                            onInput={e => editor?.chain().focus().setColor((e.target as HTMLInputElement).value).run()}
-                            style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer', inset: 0 }}
+                            value={currentColor}
+                            onChange={e => editor?.chain().focus().setColor(e.target.value).run()}
+                            style={{ position: 'absolute', opacity: 0, inset: 0, width: '100%', height: '100%', cursor: 'pointer' }}
                         />
                     </label>
                     <div style={{ width: 1, background: 'rgba(255,255,255,0.1)', margin: '2px 1px', alignSelf: 'stretch' }} />
-                    <TBtn label="≡ Bullets" title="Bullet list" active={editor?.isActive('bulletList')} onClick={() => editor?.chain().focus().toggleBulletList().run()} />
-                    <TBtn label="1. List" title="Ordered list" active={editor?.isActive('orderedList')} onClick={() => editor?.chain().focus().toggleOrderedList().run()} />
-                    <TBtn label="❝ Quote" title="Blockquote" active={editor?.isActive('blockquote')} onClick={() => editor?.chain().focus().toggleBlockquote().run()} />
+                    <TBtn label="≡ Bullets" title="Bullet list" active={editor?.isActive('bulletList')} onClick={handleBulletList} />
+                    <TBtn label="1. List" title="Ordered list" active={editor?.isActive('orderedList')} onClick={handleOrderedList} />
+                    <TBtn label="❝ Quote" title="Blockquote (exits list first if in one)" active={editor?.isActive('blockquote')} onClick={handleBlockquote} />
                 </div>
                 <EditorContent editor={editor} />
             </div>
