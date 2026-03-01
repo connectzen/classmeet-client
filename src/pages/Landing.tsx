@@ -181,6 +181,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [groupsCollapsed, setGroupsCollapsed] = useState(true);
     const [teachersCollapsed, setTeachersCollapsed] = useState(true);
     const [teacherStudentsCollapsed, setTeacherStudentsCollapsed] = useState<Record<string, boolean>>({});
+    const [copiedSessionId, setCopiedSessionId] = useState<string | null>(null);
 
     // Student groups modal state
     const [groupModalMode, setGroupModalMode] = useState<'create' | 'edit' | 'manage' | null>(null);
@@ -1054,7 +1055,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Share link (no login required)</div>
                                                             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                                                                 <input readOnly value={`${typeof window !== 'undefined' ? window.location.origin : ''}?guest=${s.room_code}`} style={{ flex: 1, minWidth: 120, padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: 'var(--text)', fontSize: 12 }} />
-                                                                <button type="button" onClick={() => navigator.clipboard.writeText(`${window.location.origin}?guest=${s.room_code}`)} style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: 'var(--primary, #6366f1)', color: '#fff', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>Copy</button>
+                                                                <button type="button" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}?guest=${s.room_code}`); setCopiedSessionId(s.id); setTimeout(() => setCopiedSessionId(null), 2000); }} style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: copiedSessionId === s.id ? '#22c55e' : 'var(--primary, #6366f1)', color: '#fff', fontWeight: 600, fontSize: 12, cursor: 'pointer', transition: 'background 0.2s', minWidth: 64 }}>{copiedSessionId === s.id ? '✓ Copied' : 'Copy'}</button>
                                                             </div>
                                                         </div>
                                                     </div>
