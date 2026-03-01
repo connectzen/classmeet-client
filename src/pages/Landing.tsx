@@ -1086,7 +1086,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                         <div style={{ width: 7, height: 7, borderRadius: '50%', background: onlineUserIds.has(st.id) ? '#22c55e' : 'var(--text-muted)', flexShrink: 0 }} title={onlineUserIds.has(st.id) ? 'Online' : 'Offline'} />
                                                         <div style={{ minWidth: 0 }}>
                                                             <div style={{ fontWeight: 600, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{st.name || 'Student'}</div>
-                                                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{onlineUserIds.has(st.id) ? 'Online' : (lastSeenByUserId[st.id] ? formatLastSeen(lastSeenByUserId[st.id]) : 'Offline')}</div>
+                                                            <div style={{ fontSize: 11, color: onlineUserIds.has(st.id) ? '#4ade80' : 'var(--text-muted)', fontWeight: onlineUserIds.has(st.id) ? 600 : 400 }}>{onlineUserIds.has(st.id) ? 'Online' : (lastSeenByUserId[st.id] ? formatLastSeen(lastSeenByUserId[st.id]) : 'Offline')}</div>
                                                         </div>
                                                     </div>
                                                     );
@@ -1123,7 +1123,10 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                             {teacherGroups.map(g => (
                                                 <div key={g.id} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 12px' }}>
                                                     <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{g.name}</div>
-                                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>{g.member_count} member{g.member_count !== 1 ? 's' : ''}</div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 8 }}>
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 20, height: 17, borderRadius: 100, padding: '0 6px', fontSize: 10, fontWeight: 700, background: g.member_count > 0 ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.06)', border: g.member_count > 0 ? '1px solid rgba(34,197,94,0.35)' : '1px solid rgba(255,255,255,0.1)', color: g.member_count > 0 ? '#4ade80' : 'var(--text-muted)' }}>{g.member_count}</span>
+                                                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>member{g.member_count !== 1 ? 's' : ''}</span>
+                                                    </div>
                                                     <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                                                         <button
                                                             onClick={async () => { setEditingGroup(g); setGroupModalMode('manage'); setGroupError(''); const r = await fetch(`${SERVER_URL}/api/groups/${g.id}/members`); const members = r.ok ? await r.json() : []; setGroupMembers(members); setGroupMemberIds(members.map((m: { id: string }) => m.id)); }}
