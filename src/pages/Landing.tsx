@@ -1437,15 +1437,22 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     {userRole === 'member' && (
                                         <div>
                                             <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Who can join?</label>
-                                            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, color: 'var(--text)' }}>
-                                                    <input type="radio" name="scheduleSessionType" checked={scheduleSessionType === 'guest'} onChange={() => setScheduleSessionType('guest')} style={{ accentColor: '#6366f1' }} />
-                                                    Anyone with the link (guest)
-                                                </label>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, color: 'var(--text)' }}>
-                                                    <input type="radio" name="scheduleSessionType" checked={scheduleSessionType === 'students'} onChange={() => setScheduleSessionType('students')} style={{ accentColor: '#6366f1' }} />
-                                                    Selected students
-                                                </label>
+                                            <div style={{ display: 'flex', gap: 8 }}>
+                                                {([
+                                                    { value: 'guest', icon: '🔗', label: 'Anyone with link', sub: 'No login needed' },
+                                                    { value: 'students', icon: '👥', label: 'Selected people', sub: 'Students or teachers' },
+                                                ] as const).map(opt => {
+                                                    const active = scheduleSessionType === opt.value;
+                                                    return (
+                                                        <button key={opt.value} type="button" onClick={() => setScheduleSessionType(opt.value)} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, border: active ? '2px solid #6366f1' : '1px solid rgba(255,255,255,0.1)', background: active ? 'rgba(99,102,241,0.18)' : 'rgba(255,255,255,0.03)', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}>
+                                                            <span style={{ fontSize: 20, flexShrink: 0 }}>{opt.icon}</span>
+                                                            <div>
+                                                                <div style={{ fontSize: 13, fontWeight: 700, color: active ? '#a5b4fc' : 'var(--text)' }}>{opt.label}</div>
+                                                                <div style={{ fontSize: 11, color: active ? '#818cf8' : 'var(--text-muted)', marginTop: 1 }}>{opt.sub}</div>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     )}
@@ -1573,15 +1580,22 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     {userRole === 'member' && (
                                         <div>
                                             <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Who can join?</label>
-                                            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, color: 'var(--text)' }}>
-                                                    <input type="radio" name="editSessionType" checked={editSessionType === 'guest'} onChange={() => setEditSessionType('guest')} style={{ accentColor: '#6366f1' }} />
-                                                    Anyone with the link (guest)
-                                                </label>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, color: 'var(--text)' }}>
-                                                    <input type="radio" name="editSessionType" checked={editSessionType === 'students'} onChange={() => setEditSessionType('students')} style={{ accentColor: '#6366f1' }} />
-                                                    Selected students
-                                                </label>
+                                            <div style={{ display: 'flex', gap: 8 }}>
+                                                {([
+                                                    { value: 'guest', icon: '🔗', label: 'Anyone with link', sub: 'No login needed' },
+                                                    { value: 'students', icon: '👥', label: 'Selected people', sub: 'Students or teachers' },
+                                                ] as const).map(opt => {
+                                                    const active = editSessionType === opt.value;
+                                                    return (
+                                                        <button key={opt.value} type="button" onClick={() => setEditSessionType(opt.value)} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, border: active ? '2px solid #6366f1' : '1px solid rgba(255,255,255,0.1)', background: active ? 'rgba(99,102,241,0.18)' : 'rgba(255,255,255,0.03)', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}>
+                                                            <span style={{ fontSize: 20, flexShrink: 0 }}>{opt.icon}</span>
+                                                            <div>
+                                                                <div style={{ fontSize: 13, fontWeight: 700, color: active ? '#a5b4fc' : 'var(--text)' }}>{opt.label}</div>
+                                                                <div style={{ fontSize: 11, color: active ? '#818cf8' : 'var(--text-muted)', marginTop: 1 }}>{opt.sub}</div>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     )}
