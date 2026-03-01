@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     DndContext,
     closestCenter,
@@ -42,6 +42,38 @@ const FontSizeExtension = Extension.create({
     },
 });
 
+// Custom FontFamily extension
+const FontFamilyExtension = Extension.create({
+    name: 'fontFamily',
+    addOptions() { return { types: ['textStyle'] }; },
+    addGlobalAttributes() {
+        return [{
+            types: ['textStyle'],
+            attributes: {
+                fontFamily: {
+                    default: null,
+                    parseHTML: el => el.style.fontFamily?.replace(/['"]+/g, '') || null,
+                    renderHTML: attrs => attrs.fontFamily ? { style: `font-family: ${attrs.fontFamily}` } : {},
+                },
+            },
+        }];
+    },
+});
+
+const FONTS = [
+    { label: 'Default',          value: '' },
+    { label: 'Inter',            value: 'Inter, sans-serif' },
+    { label: 'Roboto',           value: 'Roboto, sans-serif' },
+    { label: 'Poppins',          value: 'Poppins, sans-serif' },
+    { label: 'Lato',             value: 'Lato, sans-serif' },
+    { label: 'Georgia',          value: 'Georgia, serif' },
+    { label: 'Playfair Display', value: "'Playfair Display', serif" },
+    { label: 'Merriweather',     value: 'Merriweather, serif' },
+    { label: 'Courier New',      value: "'Courier New', monospace" },
+];
+
+const SIZES = ['11', '12', '14', '16', '18', '20', '24', '28', '32'];
+
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
 type LessonType = 'text' | 'video' | 'audio';
@@ -83,6 +115,118 @@ function TBtn({ label, active, onClick, title, extraStyle }: {
     );
 }
 
+// ─── Font size dropdown with live hover preview ───────────────────────────────
+function SizeDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
+    const [open, setOpen] = useState(false);
+    const origRef = useRef<string | undefined>(undefined);
+    const currentPx = (editor?.getAttributes('textStyle') as { fontSize?: string }).fontSize || '';
+    const current = currentPx.replace('px', '');
+
+    function apply(size: string) {
+        if (size) editor?.chain().setMark('textStyle', { fontSize: size + 'px' }).run();
+        else editor?.chain().setMark('textStyle', { fontSize: null }).run();
+    }
+    function onHover(size: string) {
+        if (origRef.current === undefined) origRef.current = current;
+        apply(size);
+    }
+    function onLeave() {
+        if (origRef.current !== undefined) { apply(origRef.current); origRef.current = undefined; }
+    }
+    function onSelect(size: string) {
+        origRef.current = undefined;
+        apply(size);
+        editor?.chain().focus().run();
+        setOpen(false);
+    }
+
+    const btnStyle: React.CSSProperties = {
+        padding: '3px 8px', borderRadius: 5, border: 'none',
+        background: open ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)',
+        color: current ? '#a5b4fc' : '#94a3b8',
+        fontSize: 12, fontWeight: 600, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', gap: 3,
+    };
+
+    return (
+        <div style={{ position: 'relative' }}>
+            {open && <div style={{ position: 'fixed', inset: 0, zIndex: 9000 }} onMouseDown={e => e.preventDefault()} onClick={() => { onLeave(); setOpen(false); }} />}
+            <button type="button" onMouseDown={e => { e.preventDefault(); setOpen(o => !o); }} style={btnStyle}>
+                {current || 'Size'} <span style={{ fontSize: 9, opacity: 0.6 }}>▾</span>
+            </button>
+            {open && (
+                <div onMouseLeave={onLeave} style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 9001, background: '#13131a', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', minWidth: 68, padding: '4px 0', maxHeight: 220, overflowY: 'auto' }}>
+                    <div onMouseDown={e => e.preventDefault()} onMouseEnter={() => onHover('')} onClick={() => onSelect('')}
+                        style={{ padding: '5px 14px', cursor: 'pointer', fontSize: 12, color: !current ? '#a5b4fc' : '#64748b', fontWeight: !current ? 600 : 400 }}>
+                        Default
+                    </div>
+                    {SIZES.map(size => (
+                        <div key={size} onMouseDown={e => e.preventDefault()} onMouseEnter={() => onHover(size)} onClick={() => onSelect(size)}
+                            style={{ padding: '5px 14px', cursor: 'pointer', fontSize: 12, color: current === size ? '#a5b4fc' : '#94a3b8', fontWeight: current === size ? 700 : 400, background: current === size ? 'rgba(99,102,241,0.12)' : 'transparent' }}>
+                            {size}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ─── Font family dropdown with live hover preview ─────────────────────────────
+function FontDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
+    const [open, setOpen] = useState(false);
+    const origRef = useRef<string | undefined>(undefined);
+    const currentFont = (editor?.getAttributes('textStyle') as { fontFamily?: string }).fontFamily || '';
+    const currentLabel = FONTS.find(f => f.value === currentFont)?.label || 'Font';
+
+    function apply(fontFamily: string) {
+        if (fontFamily) editor?.chain().setMark('textStyle', { fontFamily }).run();
+        else editor?.chain().setMark('textStyle', { fontFamily: null }).run();
+    }
+    function onHover(value: string) {
+        if (origRef.current === undefined) origRef.current = currentFont;
+        apply(value);
+    }
+    function onLeave() {
+        if (origRef.current !== undefined) { apply(origRef.current); origRef.current = undefined; }
+    }
+    function onSelect(value: string) {
+        origRef.current = undefined;
+        apply(value);
+        editor?.chain().focus().run();
+        setOpen(false);
+    }
+
+    const btnStyle: React.CSSProperties = {
+        padding: '3px 8px', borderRadius: 5, border: 'none',
+        background: open ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)',
+        color: currentFont ? '#a5b4fc' : '#94a3b8',
+        fontSize: 12, fontWeight: 600, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', gap: 3,
+        maxWidth: 110, overflow: 'hidden',
+    };
+
+    return (
+        <div style={{ position: 'relative' }}>
+            {open && <div style={{ position: 'fixed', inset: 0, zIndex: 9000 }} onMouseDown={e => e.preventDefault()} onClick={() => { onLeave(); setOpen(false); }} />}
+            <button type="button" onMouseDown={e => { e.preventDefault(); setOpen(o => !o); }} style={btnStyle}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentLabel}</span>
+                <span style={{ fontSize: 9, opacity: 0.6, flexShrink: 0 }}>▾</span>
+            </button>
+            {open && (
+                <div onMouseLeave={onLeave} style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 9001, background: '#13131a', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', minWidth: 180, padding: '4px 0' }}>
+                    {FONTS.map(font => (
+                        <div key={font.value} onMouseDown={e => e.preventDefault()} onMouseEnter={() => onHover(font.value)} onClick={() => onSelect(font.value)}
+                            style={{ padding: '7px 14px', cursor: 'pointer', fontFamily: font.value || 'inherit', fontSize: 13, color: currentFont === font.value ? '#a5b4fc' : '#e2e8f0', background: currentFont === font.value ? 'rgba(99,102,241,0.12)' : 'transparent', fontWeight: currentFont === font.value ? 600 : 400 }}>
+                            {font.label}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ─── Rich text editor (Tiptap) ────────────────────────────────────────────────
 function LessonRichEditor({ lessonId, initialContent, onSave }: {
     lessonId: string;
@@ -102,6 +246,7 @@ function LessonRichEditor({ lessonId, initialContent, onSave }: {
             TextStyle,
             Color,
             FontSizeExtension,
+            FontFamilyExtension,
         ],
         content: initialContent || '',
         editorProps: {
@@ -116,7 +261,6 @@ function LessonRichEditor({ lessonId, initialContent, onSave }: {
         : editor?.isActive('heading', { level: 2 }) ? '2'
         : editor?.isActive('heading', { level: 3 }) ? '3' : '0';
 
-    const currentFontSize = (editor?.getAttributes('textStyle') as { fontSize?: string }).fontSize || '';
     const currentColor = (editor?.getAttributes('textStyle') as { color?: string }).color || '#a5b4fc';
 
     // Smart list toggle: exits the current list type first before switching
@@ -149,6 +293,7 @@ function LessonRichEditor({ lessonId, initialContent, onSave }: {
     return (
         <div>
             <style>{`
+                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Roboto:wght@400;700&family=Poppins:wght@400;700&family=Lato:wght@400;700&family=Merriweather:wght@400;700&family=Playfair+Display:wght@400;700&display=swap');
                 .curriculum-tiptap { min-height:120px; outline:none; padding:10px 14px; color:#e2e8f0; font-size:14px; line-height:1.7; }
                 .curriculum-tiptap p { margin:0 0 6px; }
                 .curriculum-tiptap ul { list-style-type:disc; padding-left:22px; margin:0 0 6px; }
@@ -182,31 +327,10 @@ function LessonRichEditor({ lessonId, initialContent, onSave }: {
                         <option value="2">H2</option>
                         <option value="3">H3</option>
                     </select>
-                    {/* Font size */}
-                    <select
-                        value={currentFontSize}
-                        onChange={e => {
-                            const size = e.target.value;
-                            if (!size) {
-                                // Reset font size: clear the attribute, remove mark if now empty
-                                editor?.chain().focus().setMark('textStyle', { fontSize: null }).run();
-                            } else {
-                                editor?.chain().focus().setMark('textStyle', { fontSize: size }).run();
-                            }
-                        }}
-                        style={{ padding: '3px 6px', borderRadius: 5, border: 'none', background: 'rgba(255,255,255,0.07)', color: '#94a3b8', fontSize: 12, cursor: 'pointer', colorScheme: 'dark' }}
-                    >
-                        <option value="">Size</option>
-                        <option value="11px">11</option>
-                        <option value="12px">12</option>
-                        <option value="14px">14</option>
-                        <option value="16px">16</option>
-                        <option value="18px">18</option>
-                        <option value="20px">20</option>
-                        <option value="24px">24</option>
-                        <option value="28px">28</option>
-                        <option value="32px">32</option>
-                    </select>
+                    {/* Font family */}
+                    <FontDropdown editor={editor} />
+                    {/* Font size with live hover preview */}
+                    <SizeDropdown editor={editor} />
                     <div style={{ width: 1, background: 'rgba(255,255,255,0.1)', margin: '2px 1px', alignSelf: 'stretch' }} />
                     <TBtn label="B" title="Bold" active={editor?.isActive('bold')} onClick={() => editor?.chain().focus().toggleBold().run()} extraStyle={{ fontWeight: 900 }} />
                     <TBtn label="I" title="Italic" active={editor?.isActive('italic')} onClick={() => editor?.chain().focus().toggleItalic().run()} extraStyle={{ fontStyle: 'italic' }} />
