@@ -328,17 +328,18 @@ button:active:not(:disabled),
 
 .dashboard-panel-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 22px;
+  margin-bottom: 16px;
   flex-wrap: wrap;
 }
 
 .dashboard-panel-title-group {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
 }
 
 .dashboard-panel-title {

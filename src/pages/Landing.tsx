@@ -1184,9 +1184,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                             Schedule Class
                                         </button>
                                     </div>
-                                    {teacherSessions.length > 0 && (
-                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Scheduled Sessions</div>
-                                    )}
                                 </div>
 
                                 {/* ── Scrollable content: session cards + courses ── */}
