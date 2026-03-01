@@ -176,6 +176,11 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [scheduleError, setScheduleError] = useState('');
     const [loadingStudentsList, setLoadingStudentsList] = useState(false);
 
+    // Sidebar collapse state
+    const [studentsCollapsed, setStudentsCollapsed] = useState(true);
+    const [groupsCollapsed, setGroupsCollapsed] = useState(true);
+    const [teachersCollapsed, setTeachersCollapsed] = useState(true);
+
     // Student groups modal state
     const [groupModalMode, setGroupModalMode] = useState<'create' | 'edit' | 'manage' | null>(null);
     const [editingGroup, setEditingGroup] = useState<{ id: string; name: string; member_count: number } | null>(null);
@@ -894,13 +899,20 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             {/* ── LEFT SIDEBAR: Teachers & their students ── */}
                             <aside className="teacher-sidebar enter-up">
                                 <div className="teacher-sidebar-section">
-                                    <div className="teacher-sidebar-section-header">
-                                        <span>Your teachers</span>
-                                    </div>
-                                    {loadingTeachersWithStudents && memberTeachersWithStudents.length === 0 ? (
-                                        <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>
+                                    <button
+                                        onClick={() => setTeachersCollapsed(c => !c)}
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit' }}
+                                    >
+                                        <div className="teacher-sidebar-section-header" style={{ margin: 0, flex: 1 }}>
+                                            <span>Your teachers</span>
+                                            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>({memberTeachersWithStudents.length})</span>
+                                        </div>
+                                        <span style={{ fontSize: 13, color: 'var(--text-muted)', marginLeft: 6, transition: 'transform 0.2s', transform: teachersCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}>▾</span>
+                                    </button>
+                                    {!teachersCollapsed && (loadingTeachersWithStudents && memberTeachersWithStudents.length === 0 ? (
+                                        <div style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 8 }}>Loading…</div>
                                     ) : memberTeachersWithStudents.length === 0 ? (
-                                        <div style={{ color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.5 }}>No teachers assigned yet.</div>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.5, marginTop: 8 }}>No teachers assigned yet.</div>
                                     ) : (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                             {memberTeachersWithStudents.map(({ teacherId, teacherName, students }) => (
@@ -937,7 +949,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                 </div>
                                             ))}
                                         </div>
-                                    )}
+                                    ))}
                                 </div>
                             </aside>
 
@@ -1042,52 +1054,70 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             <aside className="teacher-sidebar enter-up">
                                 {/* Your students */}
                                 <div className="teacher-sidebar-section">
-                                    <div className="teacher-sidebar-section-header">
-                                        <span>Your students</span>
-                                    </div>
-                                    {loadingTeacherStudents && teacherStudents.length === 0 ? (
-                                        <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>
-                                    ) : teacherStudents.length === 0 ? (
-                                        <div style={{ color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.5 }}>No students assigned yet. Share your invite link from Profile → Invite links.</div>
-                                    ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                            {teacherStudents.map(st => {
-                                                const avatarUrl = studentProfiles[st.id]?.avatar_url || st.avatar_url;
-                                                const showStudentAvatar = avatarUrl && !failedAvatarUrls.has(avatarUrl);
-                                                return (
-                                                <div key={st.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '7px 10px' }}>
-                                                    <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, overflow: 'hidden' }}>
-                                                        {showStudentAvatar ? (
-                                                            <img src={avatarUrl} alt="" onError={() => markAvatarFailed(avatarUrl)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                        ) : (
-                                                            initialsFor(st.name, st.email)
-                                                        )}
-                                                    </div>
-                                                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: onlineUserIds.has(st.id) ? '#22c55e' : 'var(--text-muted)', flexShrink: 0 }} title={onlineUserIds.has(st.id) ? 'Online' : 'Offline'} />
-                                                    <div style={{ minWidth: 0 }}>
-                                                        <div style={{ fontWeight: 600, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{st.name || 'Student'}</div>
-                                                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{onlineUserIds.has(st.id) ? 'Online' : (lastSeenByUserId[st.id] ? formatLastSeen(lastSeenByUserId[st.id]) : 'Offline')}</div>
-                                                    </div>
-                                                </div>
-                                                );
-                                            })}
+                                    <button
+                                        onClick={() => setStudentsCollapsed(c => !c)}
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit' }}
+                                    >
+                                        <div className="teacher-sidebar-section-header" style={{ margin: 0, flex: 1 }}>
+                                            <span>Your students</span>
+                                            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>({teacherStudents.length})</span>
                                         </div>
+                                        <span style={{ fontSize: 13, color: 'var(--text-muted)', marginLeft: 6, transition: 'transform 0.2s', transform: studentsCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}>▾</span>
+                                    </button>
+                                    {!studentsCollapsed && (
+                                        loadingTeacherStudents && teacherStudents.length === 0 ? (
+                                            <div style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 8 }}>Loading…</div>
+                                        ) : teacherStudents.length === 0 ? (
+                                            <div style={{ color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.5, marginTop: 8 }}>No students assigned yet. Share your invite link from Profile → Invite links.</div>
+                                        ) : (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                                                {teacherStudents.map(st => {
+                                                    const avatarUrl = studentProfiles[st.id]?.avatar_url || st.avatar_url;
+                                                    const showStudentAvatar = avatarUrl && !failedAvatarUrls.has(avatarUrl);
+                                                    return (
+                                                    <div key={st.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '7px 10px' }}>
+                                                        <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, overflow: 'hidden' }}>
+                                                            {showStudentAvatar ? (
+                                                                <img src={avatarUrl} alt="" onError={() => markAvatarFailed(avatarUrl)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                            ) : (
+                                                                initialsFor(st.name, st.email)
+                                                            )}
+                                                        </div>
+                                                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: onlineUserIds.has(st.id) ? '#22c55e' : 'var(--text-muted)', flexShrink: 0 }} title={onlineUserIds.has(st.id) ? 'Online' : 'Offline'} />
+                                                        <div style={{ minWidth: 0 }}>
+                                                            <div style={{ fontWeight: 600, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{st.name || 'Student'}</div>
+                                                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{onlineUserIds.has(st.id) ? 'Online' : (lastSeenByUserId[st.id] ? formatLastSeen(lastSeenByUserId[st.id]) : 'Offline')}</div>
+                                                        </div>
+                                                    </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )
                                     )}
                                 </div>
 
                                 {/* Student Groups */}
                                 <div className="teacher-sidebar-section">
-                                    <div className="teacher-sidebar-section-header">
-                                        <span>Student Groups</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <button
+                                            onClick={() => setGroupsCollapsed(c => !c)}
+                                            style={{ display: 'flex', alignItems: 'center', gap: 0, flex: 1, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit' }}
+                                        >
+                                            <div className="teacher-sidebar-section-header" style={{ margin: 0, flex: 1 }}>
+                                                <span>Student Groups</span>
+                                                <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>({teacherGroups.length})</span>
+                                            </div>
+                                            <span style={{ fontSize: 13, color: 'var(--text-muted)', marginLeft: 6, transition: 'transform 0.2s', transform: groupsCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}>▾</span>
+                                        </button>
                                         <button
                                             onClick={() => { setGroupModalMode('create'); setNewGroupName(''); setGroupError(''); }}
-                                            style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 6, padding: '3px 9px', fontSize: 11, fontWeight: 600, color: '#a5b4fc', cursor: 'pointer' }}
+                                            style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 6, padding: '3px 9px', fontSize: 11, fontWeight: 600, color: '#a5b4fc', cursor: 'pointer', flexShrink: 0 }}
                                         >+ New</button>
                                     </div>
-                                    {loadingTeacherGroups && teacherGroups.length === 0 ? (
-                                        <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>
+                                    {!groupsCollapsed && (loadingTeacherGroups && teacherGroups.length === 0 ? (
+                                        <div style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 8 }}>Loading…</div>
                                     ) : teacherGroups.length === 0 ? (
-                                        <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>No groups yet. Create groups to assign quizzes to specific students.</div>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 8 }}>No groups yet. Create groups to assign quizzes to specific students.</div>
                                     ) : (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                             {teacherGroups.map(g => (
@@ -1114,7 +1144,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                 </div>
                                             ))}
                                         </div>
-                                    )}
+                                    ))}
                                 </div>
                             </aside>
 
