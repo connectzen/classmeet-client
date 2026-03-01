@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { RichContent } from './RichEditor';
 
 interface Lesson {
@@ -30,17 +30,26 @@ interface Props {
     externalNav?: { courseIdx: number; lessonIdx: number } | null;
     /** Student: whether they are locked to follow teacher (default true) */
     navLocked?: boolean;
+    /** Teacher: called when teacher scrolls — broadcasts scroll ratio to students */
+    onScrollSync?: (scrollRatio: number) => void;
+    /** Student: external scroll ratio from teacher broadcast (0–1) */
+    externalScroll?: number | null;
 }
 
 export default function RoomCoursePanel({
     courseIds, serverUrl, role,
     onNavigate, navLockedForStudents, onNavLockToggle,
     externalNav, navLocked = true,
+    onScrollSync, externalScroll,
 }: Props) {
     const [courses, setCourses] = useState<CourseData[]>([]);
     const [activeCourseIdx, setActiveCourseIdx] = useState(0);
     const [activeLessonIdx, setActiveLessonIdx] = useState(0);
     const [loading, setLoading] = useState(true);
+
+    const contentRef = useRef<HTMLDivElement>(null);
+    const scrollThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const lastScrollRatioRef = useRef<number>(0);
 
     const isTeacher = role === 'teacher';
 
@@ -72,6 +81,42 @@ export default function RoomCoursePanel({
             setActiveLessonIdx(externalNav.lessonIdx);
         }
     }, [externalNav, navLocked, isTeacher]);
+
+    // Reset scroll to top when lesson changes
+    useEffect(() => {
+        if (contentRef.current) {
+            contentRef.current.scrollTop = 0;
+        }
+    }, [activeLessonIdx, activeCourseIdx]);
+
+    // Student: apply external scroll position when locked
+    useEffect(() => {
+        if (isTeacher || !navLocked || externalScroll == null) return;
+        const el = contentRef.current;
+        if (!el) return;
+        const maxScroll = el.scrollHeight - el.clientHeight;
+        if (maxScroll > 0) {
+            el.scrollTop = externalScroll * maxScroll;
+        }
+    }, [externalScroll, navLocked, isTeacher]);
+
+    // Teacher: throttled scroll handler
+    const handleTeacherScroll = useCallback(() => {
+        if (!isTeacher || !onScrollSync) return;
+        const el = contentRef.current;
+        if (!el) return;
+        const maxScroll = el.scrollHeight - el.clientHeight;
+        if (maxScroll <= 0) return;
+        const ratio = el.scrollTop / maxScroll;
+        // Only emit if ratio changed meaningfully (>0.5%)
+        if (Math.abs(ratio - lastScrollRatioRef.current) < 0.005) return;
+        lastScrollRatioRef.current = ratio;
+        if (scrollThrottleRef.current) return; // already queued
+        scrollThrottleRef.current = setTimeout(() => {
+            scrollThrottleRef.current = null;
+            onScrollSync(lastScrollRatioRef.current);
+        }, 80);
+    }, [isTeacher, onScrollSync]);
 
     // Teacher navigation helpers — update local state AND broadcast
     const navToCourse = (ci: number, li = 0) => {
@@ -200,8 +245,12 @@ export default function RoomCoursePanel({
                     )}
                 </div>
 
-                {/* Lesson content */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
+                {/* Lesson content — teacher scroll is broadcast to locked students */}
+                <div
+                    ref={contentRef}
+                    onScroll={isTeacher ? handleTeacherScroll : undefined}
+                    style={{ flex: 1, overflowY: 'auto', padding: 20 }}
+                >
                     {lesson ? (
                         <>
                             <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{lesson.title}</h3>

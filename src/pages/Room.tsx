@@ -65,6 +65,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [studentCourseJoined, setStudentCourseJoined] = useState(false);
     const [courseNavLocked, setCourseNavLocked] = useState(true);
     const [externalCourseNav, setExternalCourseNav] = useState<{ courseIdx: number; lessonIdx: number } | null>(null);
+    const [externalCourseScroll, setExternalCourseScroll] = useState<number | null>(null);
     const [dismissedRevealed, setDismissedRevealed] = useState(false);
     const socketIdRef = useRef<string>('');
     const mobileChatRef = useRef<HTMLDivElement>(null);
@@ -240,7 +241,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         roomQuiz, roomQuizSubmissions, roomQuizRevealed, revealedStudentIds,
         sendSignal, sendMessage, endRoom, muteParticipant, camParticipant, broadcastSelfCam, changeSpotlight,
         startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
-        emitCourseToggle, emitCourseNavigate, emitCourseNavLock,
+        emitCourseToggle, emitCourseNavigate, emitCourseNavLock, emitCourseScroll,
     } = useSocket({
             roomCode, roomId, roomName, name, role, isGuestRoomHost,
             onParticipantJoined: handleParticipantJoined,
@@ -268,6 +269,9 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
             },
             onCourseNavLock: (locked) => {
                 if (role !== 'teacher') setCourseNavLocked(locked);
+            },
+            onCourseScroll: (scrollRatio) => {
+                if (role !== 'teacher') setExternalCourseScroll(scrollRatio);
             },
         });
 
@@ -770,6 +774,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 onNavigate={(ci, li) => emitCourseNavigate(ci, li)}
                                 navLockedForStudents={courseNavLocked}
                                 onNavLockToggle={(locked) => { setCourseNavLocked(locked); emitCourseNavLock(locked); }}
+                                onScrollSync={emitCourseScroll}
                             />
                         ) : courseToggleOn && role !== 'teacher' ? (
                             !studentCourseJoined ? (
@@ -803,6 +808,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                     role={role}
                                     externalNav={externalCourseNav}
                                     navLocked={courseNavLocked}
+                                    externalScroll={courseNavLocked ? externalCourseScroll : null}
                                 />
                             )
                         ) : quizToggleOn && role === 'teacher' ? (
