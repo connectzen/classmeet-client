@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { toPng } from 'html-to-image';
 import ConfirmModal from './ConfirmModal';
 import AlertModal from './AlertModal';
-import RichEditor from './RichEditor';
+import RichEditor, { RichContent, isRichEmpty } from './RichEditor';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -921,7 +921,7 @@ function QuizBuilder({ quizId, showConfirm, onAddQuestion, onEditQuiz, onPublish
                             fontSize: 12, fontWeight: 700, color: '#fff',
                         }}>{i + 1}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4, color: '#f1f5f9' }}>{q.question_text}</div>
+                            <RichContent html={q.question_text} style={{ fontWeight: 600, fontSize: 14, marginBottom: 4, color: '#f1f5f9' }} />
                             <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                                 <span>{TYPE_ICONS[q.type]} {TYPE_LABELS[q.type]}</span>
                                 <span>· {q.points} pt{q.points !== 1 ? 's' : ''}</span>
@@ -951,7 +951,7 @@ function QuizBuilder({ quizId, showConfirm, onAddQuestion, onEditQuiz, onPublish
                                 }}>
                                     <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>{i + 1}{String.fromCharCode(97 + j)}</span>
                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ fontWeight: 500, fontSize: 13 }}>{child.question_text}</div>
+                                        <RichContent html={child.question_text} style={{ fontWeight: 500, fontSize: 13 }} />
                                         <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                                             {TYPE_ICONS[child.type]} {TYPE_LABELS[child.type]} · {child.points} pt{child.points !== 1 ? 's' : ''}
                                         </div>
@@ -1021,7 +1021,7 @@ function QuestionForm({ quizId, question, parentQuestionId, onSaved, onCancel }:
     }
 
     async function handleSave() {
-        if (!questionText.trim()) { setErr('Question text is required'); return; }
+        if (isRichEmpty(questionText)) { setErr('Question text is required'); return; }
         if (needsOptions && options.filter(o => o.trim()).length < 2) { setErr('At least 2 options required'); return; }
         setSaving(true); setErr('');
 
@@ -1030,7 +1030,7 @@ function QuestionForm({ quizId, question, parentQuestionId, onSaved, onCancel }:
 
         const cleanOptions = needsOptions ? options.filter(o => o.trim()) : null;
         const payload = {
-            type, questionText: questionText.trim(),
+            type, questionText,
             options: cleanOptions,
             correctAnswers: correctAnswers.length ? correctAnswers : null,
             videoUrl: needsVideo ? finalVideoUrl || null : null,
@@ -1402,7 +1402,7 @@ function SubmissionDetail({ quiz, submission, onGraded, onDone }: {
                         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
                             Q{i + 1} · {TYPE_ICONS[q.type]} {TYPE_LABELS[q.type]} · {q.points} pt{q.points !== 1 ? 's' : ''}
                         </div>
-                        <div style={{ fontWeight: 600, marginBottom: 8 }}>{q.question_text}</div>
+                        <RichContent html={q.question_text} style={{ fontWeight: 600, marginBottom: 8 }} />
 
                         {/* Student answer */}
                         <div style={{ background: 'var(--surface-2)', borderRadius: 8, padding: 10, marginBottom: 8, fontSize: 14 }}>
@@ -1434,7 +1434,7 @@ function SubmissionDetail({ quiz, submission, onGraded, onDone }: {
                                     📎 View submission
                                 </a>
                             ) : (
-                                <span>{ans.answer_text || <span style={{ color: 'var(--text-muted)' }}>Empty</span>}</span>
+                                {ans.answer_text ? <RichContent html={ans.answer_text} /> : <span style={{ color: 'var(--text-muted)' }}>Empty</span>}
                             )}
                         </div>
 
@@ -1691,7 +1691,7 @@ export function TakeQuiz({ quiz, submissionId, userId, showConfirm, showAlert, o
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
                         {TYPE_ICONS[q.type]} {TYPE_LABELS[q.type]} · {q.points} pt{q.points !== 1 ? 's' : ''}
                     </div>
-                    <div style={{ fontWeight: 600, fontSize: 15, lineHeight: 1.5 }}>{q.question_text}</div>
+                    <RichContent html={q.question_text} style={{ fontWeight: 600, fontSize: 15, lineHeight: 1.5 }} />
                 </div>
 
                 {/* Video player */}

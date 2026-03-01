@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toPng } from 'html-to-image';
 import { TakeQuiz } from './QuizDrawer';
 import ConfirmModal from './ConfirmModal';
-import RichEditor from './RichEditor';
+import RichEditor, { RichContent } from './RichEditor';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -578,7 +578,7 @@ function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate, onSaved
                                         background: '#6366f1', color: '#fff', borderRadius: 6,
                                         padding: '2px 7px', fontSize: 11, fontWeight: 700, flexShrink: 0,
                                     }}>Q{i + 1}</span>
-                                    <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{q.question_text}</span>
+                                    <RichContent html={q.question_text} style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }} />
                                 </div>
 
                                 {/* Student's answer */}
@@ -590,7 +590,7 @@ function InlineGrading({ quizId, submissionId, studentId, onScoreUpdate, onSaved
                                     {a.selected_options && a.selected_options.length > 0 ? (
                                         <span style={{ color: 'var(--text)' }}>{a.selected_options.join(', ')}</span>
                                     ) : a.answer_text ? (
-                                        <span style={{ color: 'var(--text)' }}>{a.answer_text}</span>
+                                        <RichContent html={a.answer_text} style={{ color: 'var(--text)' }} />
                                     ) : a.file_url && q.type === 'recording' ? (
                                         <div style={{ marginTop: 6 }}>
                                             <audio controls src={a.file_url} style={{ width: '100%', height: 36, borderRadius: 8 }} />
@@ -806,7 +806,8 @@ export function RoomQuizHost({
                     </summary>
                     {(quiz.questions || []).map((q: { id: string; question_text: string; type: string }, i: number) => (
                         <div key={q.id} style={{ padding: 10, background: 'var(--surface-3)', borderRadius: 8, marginBottom: 6, fontSize: 13 }}>
-                            {i + 1}. {q.question_text}
+                            <span style={{ fontWeight: 600, marginRight: 6 }}>{i + 1}.</span>
+                            <RichContent html={q.question_text} style={{ display: 'inline' }} />
                         </div>
                     ))}
                 </details>
