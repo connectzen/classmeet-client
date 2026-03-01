@@ -89,6 +89,10 @@ function LessonRichEditor({ lessonId, initialContent, onSave }: {
     initialContent: string;
     onSave: (html: string) => void;
 }) {
+    // Force re-render whenever the editor state changes so toolbar buttons
+    // reflect the current selection/marks instantly (bold, italic, etc.)
+    const [, forceUpdate] = useState(0);
+
     const editor = useEditor({
         extensions: [
             StarterKit,
@@ -104,6 +108,8 @@ function LessonRichEditor({ lessonId, initialContent, onSave }: {
             attributes: { class: 'curriculum-tiptap' },
         },
         onBlur: ({ editor }) => { onSave(editor.getHTML()); },
+        onUpdate: () => forceUpdate(n => n + 1),
+        onSelectionUpdate: () => forceUpdate(n => n + 1),
     });
 
     const headingLevel = editor?.isActive('heading', { level: 1 }) ? '1'
