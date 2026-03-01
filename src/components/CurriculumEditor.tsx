@@ -71,9 +71,11 @@ function TBtn({ label, active, onClick, title, extraStyle }: {
             onMouseDown={(e) => { e.preventDefault(); onClick(); }}
             style={{
                 padding: '3px 8px', borderRadius: 5, border: 'none',
-                background: active ? 'rgba(99,102,241,0.45)' : 'rgba(255,255,255,0.07)',
-                color: active ? '#a5b4fc' : '#94a3b8',
-                fontSize: 13, fontWeight: 700, cursor: 'pointer', ...extraStyle,
+                background: active ? '#6366f1' : 'rgba(255,255,255,0.07)',
+                color: active ? '#ffffff' : '#94a3b8',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                boxShadow: active ? '0 0 0 1px rgba(99,102,241,0.6)' : 'none',
+                ...extraStyle,
             }}
         >
             {label}
@@ -162,7 +164,6 @@ function LessonRichEditor({ lessonId, initialContent, onSave }: {
                     {/* Heading style */}
                     <select
                         value={headingLevel}
-                        onMouseDown={e => e.preventDefault()}
                         onChange={e => {
                             const v = e.target.value;
                             if (v === '0') editor?.chain().focus().setParagraph().run();
@@ -178,10 +179,10 @@ function LessonRichEditor({ lessonId, initialContent, onSave }: {
                     {/* Font size */}
                     <select
                         value={currentFontSize}
-                        onMouseDown={e => e.preventDefault()}
                         onChange={e => {
                             const size = e.target.value;
                             if (!size) {
+                                // Reset font size: clear the attribute, remove mark if now empty
                                 editor?.chain().focus().setMark('textStyle', { fontSize: null }).run();
                             } else {
                                 editor?.chain().focus().setMark('textStyle', { fontSize: size }).run();
