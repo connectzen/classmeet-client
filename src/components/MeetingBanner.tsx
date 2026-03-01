@@ -139,7 +139,7 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                 </div>
 
                 {/* ── Body: Image | Countdown+Join | divider | Title+Bullets ── */}
-                <div style={{ display: 'flex', gap: 14, alignItems: 'stretch' }}>
+                <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
 
                     {/* Image column */}
                     <div style={{ flexShrink: 0, textAlign: 'center' }}>
@@ -243,7 +243,7 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                     <div style={{ width: 1, background: 'rgba(255,255,255,0.08)', alignSelf: 'stretch', flexShrink: 0 }} />
 
                     {/* Title + Bullets column */}
-                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 10 }}>
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: 10 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                             <span style={{
                                 flexShrink: 0, width: 28, height: 28, borderRadius: 8,
