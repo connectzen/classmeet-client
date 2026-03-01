@@ -1094,7 +1094,6 @@ function QuestionForm({ quizId, question, parentQuestionId, onSaved, onCancel }:
                 onChange={setQuestionText}
                 placeholder="Type your question here…"
                 minHeight={80}
-                compact
             />
 
             {/* Points — prominent placement */}
@@ -1718,7 +1717,6 @@ export function TakeQuiz({ quiz, submissionId, userId, showConfirm, showAlert, o
                         onChange={html => setAnswer({ answerText: html })}
                         placeholder="Type your answer here…"
                         minHeight={100}
-                        compact
                     />
                 )}
 

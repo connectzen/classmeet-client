@@ -5,7 +5,8 @@ import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import TiptapImage from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
-import { TextStyle, Color } from '@tiptap/extension-text-style';
+import { TextStyle } from '@tiptap/extension-text-style';
+import Color from '@tiptap/extension-color';
 import DOMPurify from 'dompurify';
 
 // ── Google Fonts (loaded once globally) ──────────────────────────────────────
