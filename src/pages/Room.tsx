@@ -801,8 +801,6 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 activeCourseIdx={courseCourseIdx}
                                 onNav={handleCourseNav}
                                 onCoursesLoaded={setCourseTotalLessons}
-                                navLockedForStudents={courseNavLocked}
-                                onNavLockToggle={(locked) => { setCourseNavLocked(locked); emitCourseNavLock(locked); }}
                                 onScrollSync={emitCourseScroll}
                             />
                         ) : courseToggleOn && role !== 'teacher' ? (
@@ -921,61 +919,6 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                         )}
                     </div>
 
-                    {/* Quiz + Course Toggles (teacher only) */}
-                    {role === 'teacher' && (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, padding: '12px 16px', borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
-                            {/* Quiz toggle */}
-                            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>Quiz</span>
-                            <button
-                                onClick={() => {
-                                    const next = !quizToggleOn;
-                                    if (quizToggleOn && roomQuiz) stopRoomQuiz();
-                                    setQuizToggleOn(next);
-                                    if (next) { setCourseToggleOn(false); setRoomQuizSubmitted(false); }
-                                }}
-                                style={{
-                                    width: 52, height: 28, borderRadius: 14, border: 'none', cursor: 'pointer',
-                                    background: quizToggleOn ? '#22c55e' : 'var(--surface-3)',
-                                    position: 'relative', transition: 'background 0.2s',
-                                }}
-                            >
-                                <span style={{
-                                    position: 'absolute', top: 4, left: quizToggleOn ? 28 : 4,
-                                    width: 20, height: 20, borderRadius: '50%', background: '#fff',
-                                    transition: 'left 0.2s',
-                                }} />
-                            </button>
-                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{quizToggleOn ? 'ON' : 'OFF'}</span>
-
-                            {/* Course toggle — only shown if session has courses attached */}
-                            {sessionCourseIds.length > 0 && (
-                                <>
-                                    <span style={{ width: 1, height: 20, background: 'var(--border)' }} />
-                                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>Course</span>
-                                    <button
-                                        onClick={() => {
-                                            const next = !courseToggleOn;
-                                            setCourseToggleOn(next);
-                                            emitCourseToggle(next, sessionCourseIds);
-                                            if (next) { if (quizToggleOn && roomQuiz) stopRoomQuiz(); setQuizToggleOn(false); }
-                                        }}
-                                        style={{
-                                            width: 52, height: 28, borderRadius: 14, border: 'none', cursor: 'pointer',
-                                            background: courseToggleOn ? '#22c55e' : 'var(--surface-3)',
-                                            position: 'relative', transition: 'background 0.2s',
-                                        }}
-                                    >
-                                        <span style={{
-                                            position: 'absolute', top: 4, left: courseToggleOn ? 28 : 4,
-                                            width: 20, height: 20, borderRadius: '50%', background: '#fff',
-                                            transition: 'left 0.2s',
-                                        }} />
-                                    </button>
-                                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{courseToggleOn ? 'ON' : 'OFF'}</span>
-                                </>
-                            )}
-                        </div>
-                    )}
 
                     {/* Controls */}
                     <div className="room-controls">
@@ -1015,8 +958,49 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 >
                                     <span className="control-label">Next</span> →
                                 </button>
+                                {/* Teacher: lock/unlock student navigation */}
+                                {role === 'teacher' && (
+                                    <button
+                                        className={`control-btn ${courseNavLocked ? '' : 'control-btn-off'}`}
+                                        onClick={() => { const locked = !courseNavLocked; setCourseNavLocked(locked); emitCourseNavLock(locked); }}
+                                        title={courseNavLocked ? 'Students follow your navigation — click to let them browse freely' : 'Students browse freely — click to lock them to your view'}
+                                    >
+                                        {courseNavLocked ? '🔒' : '🔓'}
+                                        <span className="control-label">{courseNavLocked ? 'Locked' : 'Free'}</span>
+                                    </button>
+                                )}
                                 <div style={{ width: 1, height: 32, background: 'var(--border)', flexShrink: 0 }} />
                             </>
+                        )}
+
+                        {/* Quiz toggle (teacher only) */}
+                        {role === 'teacher' && (
+                            <button
+                                className={`control-btn ${quizToggleOn ? '' : 'control-btn-off'}`}
+                                onClick={() => {
+                                    const next = !quizToggleOn;
+                                    if (quizToggleOn && roomQuiz) stopRoomQuiz();
+                                    setQuizToggleOn(next);
+                                    if (next) { setCourseToggleOn(false); emitCourseToggle(false, []); setRoomQuizSubmitted(false); }
+                                }}
+                            >
+                                📝 <span className="control-label">Quiz {quizToggleOn ? 'ON' : 'OFF'}</span>
+                            </button>
+                        )}
+
+                        {/* Course toggle (teacher only, when session has courses) */}
+                        {role === 'teacher' && sessionCourseIds.length > 0 && (
+                            <button
+                                className={`control-btn ${courseToggleOn ? '' : 'control-btn-off'}`}
+                                onClick={() => {
+                                    const next = !courseToggleOn;
+                                    setCourseToggleOn(next);
+                                    emitCourseToggle(next, sessionCourseIds);
+                                    if (next) { if (quizToggleOn && roomQuiz) stopRoomQuiz(); setQuizToggleOn(false); }
+                                }}
+                            >
+                                📚 <span className="control-label">Course {courseToggleOn ? 'ON' : 'OFF'}</span>
+                            </button>
                         )}
 
                         {/* Mobile chat toggle */}

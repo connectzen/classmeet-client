@@ -28,10 +28,6 @@ interface Props {
     onNav: (courseIdx: number, lessonIdx: number) => void;
     /** Called when course data loads or active course changes, with total lessons */
     onCoursesLoaded?: (totalLessons: number) => void;
-    /** Teacher: current lock state to show in the toggle button */
-    navLockedForStudents?: boolean;
-    /** Teacher: called when lock/unlock is toggled */
-    onNavLockToggle?: (locked: boolean) => void;
     /** Student: whether they are locked to follow teacher (default true) */
     navLocked?: boolean;
     /** Teacher: called when teacher scrolls — broadcasts scroll ratio to students */
@@ -43,7 +39,6 @@ interface Props {
 export default function RoomCoursePanel({
     courseIds, serverUrl, role,
     activeLessonIdx, activeCourseIdx, onNav, onCoursesLoaded,
-    navLockedForStudents, onNavLockToggle,
     navLocked = true,
     onScrollSync, externalScroll,
 }: Props) {
@@ -160,45 +155,6 @@ export default function RoomCoursePanel({
                     ))}
                 </div>
             )}
-
-            {/* Header */}
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 18 }}>📖</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Course</div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        <RichContent html={course.title} style={{ display: 'inline' }} />
-                    </div>
-                </div>
-                <span style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>{course.lessons.length} lesson{course.lessons.length !== 1 ? 's' : ''}</span>
-
-                {/* Teacher: nav lock toggle for students */}
-                {isTeacher && (
-                    <button
-                        onClick={() => onNavLockToggle?.(!navLockedForStudents)}
-                        title={navLockedForStudents ? 'Students are following you — click to let them browse freely' : 'Students can browse freely — click to lock them to your screen'}
-                        style={{
-                            flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5,
-                            padding: '4px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700,
-                            background: navLockedForStudents ? 'rgba(99,102,241,0.25)' : 'rgba(34,197,94,0.18)',
-                            color: navLockedForStudents ? '#a5b4fc' : '#22c55e',
-                        }}
-                    >
-                        <span>{navLockedForStudents ? '🔒' : '🔓'}</span>
-                        <span>{navLockedForStudents ? 'Following' : 'Free Nav'}</span>
-                    </button>
-                )}
-
-                {/* Student: locked indicator */}
-                {!isTeacher && navLocked && (
-                    <span style={{
-                        flexShrink: 0, fontSize: 10, fontWeight: 700, color: '#818cf8',
-                        background: 'rgba(99,102,241,0.15)', borderRadius: 6, padding: '3px 8px',
-                    }}>
-                        🔒 Following teacher
-                    </span>
-                )}
-            </div>
 
             {/* Body: collapsible sidebar + lesson content */}
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
