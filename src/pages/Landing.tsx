@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import RichEditor, { isRichEmpty } from '../components/RichEditor';
+import RichEditor, { isRichEmpty, RichContent } from '../components/RichEditor';
 import { io } from 'socket.io-client';
 import { useUser } from '../lib/AuthContext';
 import { insforge } from '../lib/insforge';
@@ -171,6 +171,11 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [sessionTitle, setSessionTitle] = useState('');
     const [sessionDesc, setSessionDesc] = useState('');
     const [sessionDateTime, setSessionDateTime] = useState('');
+    const [sessionWhatIWillLearn, setSessionWhatIWillLearn] = useState('');
+    const [sessionQuizIds, setSessionQuizIds] = useState<string[]>([]);
+    const [sessionCourseIds, setSessionCourseIds] = useState<string[]>([]);
+    const [availableQuizzes, setAvailableQuizzes] = useState<{ id: string; title: string }[]>([]);
+    const [availableCourses, setAvailableCourses] = useState<{ id: string; title: string }[]>([]);
     const [targetStudentIds, setTargetStudentIds] = useState<string[]>([]);
     const [scheduleSessionType, setScheduleSessionType] = useState<'guest' | 'students'>('guest');
     const [allStudents, setAllStudents] = useState<{ user_id: string; name: string; email: string }[]>([]);
@@ -201,6 +206,9 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [editSessionTitle, setEditSessionTitle] = useState('');
     const [editSessionDesc, setEditSessionDesc] = useState('');
     const [editSessionDateTime, setEditSessionDateTime] = useState('');
+    const [editWhatIWillLearn, setEditWhatIWillLearn] = useState('');
+    const [editSessionQuizIds, setEditSessionQuizIds] = useState<string[]>([]);
+    const [editSessionCourseIds, setEditSessionCourseIds] = useState<string[]>([]);
     const [editTargetStudentIds, setEditTargetStudentIds] = useState<string[]>([]);
     const [editSessionType, setEditSessionType] = useState<'guest' | 'students'>('guest');
     const [updatingSession, setUpdatingSession] = useState(false);
@@ -579,6 +587,33 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
 
     const dismissResume = () => { localStorage.removeItem('classmeet_last_room'); setResumeSession(null); };
 
+    // Fetch published quizzes + courses when schedule modal opens
+    useEffect(() => {
+        if (!scheduleMode || !user?.id) return;
+        fetch(`${SERVER_URL}/api/quizzes?createdBy=${user.id}`)
+            .then(r => r.json())
+            .then((data: any[]) => setAvailableQuizzes(Array.isArray(data) ? data.filter((q: any) => q.status === 'published') : []))
+            .catch(() => {});
+        fetch(`${SERVER_URL}/api/courses?createdBy=${user.id}`)
+            .then(r => r.json())
+            .then((data: any[]) => setAvailableCourses(Array.isArray(data) ? data : []))
+            .catch(() => {});
+    }, [scheduleMode, user?.id]);
+
+    const toggleSessionQuiz = (id: string) =>
+        setSessionQuizIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    const moveSessionQuizUp = (i: number) =>
+        setSessionQuizIds(prev => { const a = [...prev]; [a[i - 1], a[i]] = [a[i], a[i - 1]]; return a; });
+    const moveSessionQuizDown = (i: number) =>
+        setSessionQuizIds(prev => { const a = [...prev]; [a[i], a[i + 1]] = [a[i + 1], a[i]]; return a; });
+
+    const toggleEditSessionQuiz = (id: string) =>
+        setEditSessionQuizIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    const moveEditSessionQuizUp = (i: number) =>
+        setEditSessionQuizIds(prev => { const a = [...prev]; [a[i - 1], a[i]] = [a[i], a[i - 1]]; return a; });
+    const moveEditSessionQuizDown = (i: number) =>
+        setEditSessionQuizIds(prev => { const a = [...prev]; [a[i], a[i + 1]] = [a[i + 1], a[i]]; return a; });
+
     const handleScheduleSession = async () => {
         if (isRichEmpty(sessionTitle) || !sessionDateTime || !user?.id) return;
         setScheduling(true); setScheduleError('');
@@ -594,12 +629,16 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     targetStudentIds: userRole === 'teacher' ? targetStudentIds : (scheduleSessionType === 'guest' ? [] : targetStudentIds),
                     createdBy: user.id,
                     sessionImageUrl: user?.profile?.avatar_url || null,
+                    whatIWillLearn: sessionWhatIWillLearn,
+                    sessionQuizIds,
+                    sessionCourseIds,
                 }),
             });
             const data = await res.json();
             if (!res.ok) { setScheduleError(data.error || 'Failed to schedule session'); setScheduling(false); return; }
             setScheduleMode(false);
             setSessionTitle(''); setSessionDesc(''); setSessionDateTime(''); setTargetStudentIds([]);
+            setSessionWhatIWillLearn(''); setSessionQuizIds([]); setSessionCourseIds([]);
             fetchTeacherSessions();
             fetchMemberSessions();
         } catch { setScheduleError('Server unreachable'); }
@@ -623,6 +662,20 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         setEditingSession(session);
         setEditSessionTitle(session.title);
         setEditSessionDesc(session.description || '');
+        setEditWhatIWillLearn(session.what_i_will_learn || '');
+        setEditSessionQuizIds(session.session_quiz_ids || []);
+        setEditSessionCourseIds(session.session_course_ids || []);
+        // Fetch quizzes/courses for picker if not yet loaded
+        if (user?.id) {
+            fetch(`${SERVER_URL}/api/quizzes?createdBy=${user.id}`)
+                .then(r => r.json())
+                .then((data: any[]) => setAvailableQuizzes(Array.isArray(data) ? data.filter((q: any) => q.status === 'published') : []))
+                .catch(() => {});
+            fetch(`${SERVER_URL}/api/courses?createdBy=${user.id}`)
+                .then(r => r.json())
+                .then((data: any[]) => setAvailableCourses(Array.isArray(data) ? data : []))
+                .catch(() => {});
+        }
         
         // Format datetime for datetime-local input (keep local timezone)
         const date = new Date(session.scheduled_at);
@@ -668,6 +721,9 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     sessionImageUrl: user?.profile?.avatar_url || editingSession?.session_image_url || null,
                     scheduledAt: new Date(editSessionDateTime).toISOString(),
                     targetStudentIds: userRole === 'teacher' ? editTargetStudentIds : (editSessionType === 'guest' ? [] : editTargetStudentIds),
+                    whatIWillLearn: editWhatIWillLearn,
+                    sessionQuizIds: editSessionQuizIds,
+                    sessionCourseIds: editSessionCourseIds,
                 }),
             });
             const data = await res.json();
@@ -1433,6 +1489,57 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     minHeight={100}
                                 />
                             </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                    What I Will Learn
+                                </label>
+                                <RichEditor
+                                    value={sessionWhatIWillLearn}
+                                    onChange={setSessionWhatIWillLearn}
+                                    placeholder="e.g. Solve quadratic equations, understand parabolas…"
+                                    minHeight={80}
+                                />
+                            </div>
+                            {availableQuizzes.length > 0 && (
+                                <div>
+                                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                        Quizzes to Present {sessionQuizIds.length > 0 && <span style={{ color: '#818cf8' }}>({sessionQuizIds.length} selected)</span>}
+                                    </label>
+                                    <div style={{ border: '1px solid rgba(99,102,241,0.3)', borderRadius: 10, background: 'rgba(99,102,241,0.05)', overflow: 'hidden' }}>
+                                        {availableQuizzes.map(q => {
+                                            const pos = sessionQuizIds.indexOf(q.id);
+                                            return (
+                                                <label key={q.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(99,102,241,0.1)', background: pos !== -1 ? 'rgba(99,102,241,0.12)' : 'transparent' }}>
+                                                    <input type="checkbox" checked={pos !== -1} onChange={() => toggleSessionQuiz(q.id)} style={{ accentColor: '#6366f1', flexShrink: 0 }} />
+                                                    {pos !== -1 && <span style={{ fontSize: 11, color: '#818cf8', fontWeight: 700, minWidth: 18 }}>{pos + 1}.</span>}
+                                                    <span style={{ flex: 1, fontSize: 13 }}><RichContent html={q.title} /></span>
+                                                    {pos !== -1 && (
+                                                        <span style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                                                            <button type="button" onClick={e => { e.preventDefault(); moveSessionQuizUp(pos); }} disabled={pos === 0} style={{ padding: '1px 6px', fontSize: 12, background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 4, color: '#a5b4fc', cursor: pos === 0 ? 'default' : 'pointer', opacity: pos === 0 ? 0.4 : 1 }}>↑</button>
+                                                            <button type="button" onClick={e => { e.preventDefault(); moveSessionQuizDown(pos); }} disabled={pos === sessionQuizIds.length - 1} style={{ padding: '1px 6px', fontSize: 12, background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 4, color: '#a5b4fc', cursor: pos === sessionQuizIds.length - 1 ? 'default' : 'pointer', opacity: pos === sessionQuizIds.length - 1 ? 0.4 : 1 }}>↓</button>
+                                                        </span>
+                                                    )}
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                            {availableCourses.length > 0 && (
+                                <div>
+                                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                        Courses to Share {sessionCourseIds.length > 0 && <span style={{ color: '#818cf8' }}>({sessionCourseIds.length} selected)</span>}
+                                    </label>
+                                    <div style={{ border: '1px solid rgba(99,102,241,0.3)', borderRadius: 10, background: 'rgba(99,102,241,0.05)', overflow: 'hidden' }}>
+                                        {availableCourses.map(c => (
+                                            <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(99,102,241,0.1)', background: sessionCourseIds.includes(c.id) ? 'rgba(99,102,241,0.12)' : 'transparent' }}>
+                                                <input type="checkbox" checked={sessionCourseIds.includes(c.id)} onChange={() => setSessionCourseIds(prev => prev.includes(c.id) ? prev.filter(x => x !== c.id) : [...prev, c.id])} style={{ accentColor: '#6366f1', flexShrink: 0 }} />
+                                                <span style={{ flex: 1, fontSize: 13 }}><RichContent html={c.title} /></span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                             {(userRole === 'teacher' || userRole === 'member') && (
                                 <>
                                     {userRole === 'member' && (
@@ -1573,6 +1680,57 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     minHeight={100}
                                 />
                             </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                    What I Will Learn
+                                </label>
+                                <RichEditor
+                                    value={editWhatIWillLearn}
+                                    onChange={setEditWhatIWillLearn}
+                                    placeholder="e.g. Solve quadratic equations, understand parabolas…"
+                                    minHeight={80}
+                                />
+                            </div>
+                            {availableQuizzes.length > 0 && (
+                                <div>
+                                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                        Quizzes to Present {editSessionQuizIds.length > 0 && <span style={{ color: '#818cf8' }}>({editSessionQuizIds.length} selected)</span>}
+                                    </label>
+                                    <div style={{ border: '1px solid rgba(99,102,241,0.3)', borderRadius: 10, background: 'rgba(99,102,241,0.05)', overflow: 'hidden' }}>
+                                        {availableQuizzes.map(q => {
+                                            const pos = editSessionQuizIds.indexOf(q.id);
+                                            return (
+                                                <label key={q.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(99,102,241,0.1)', background: pos !== -1 ? 'rgba(99,102,241,0.12)' : 'transparent' }}>
+                                                    <input type="checkbox" checked={pos !== -1} onChange={() => toggleEditSessionQuiz(q.id)} style={{ accentColor: '#6366f1', flexShrink: 0 }} />
+                                                    {pos !== -1 && <span style={{ fontSize: 11, color: '#818cf8', fontWeight: 700, minWidth: 18 }}>{pos + 1}.</span>}
+                                                    <span style={{ flex: 1, fontSize: 13 }}><RichContent html={q.title} /></span>
+                                                    {pos !== -1 && (
+                                                        <span style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                                                            <button type="button" onClick={e => { e.preventDefault(); moveEditSessionQuizUp(pos); }} disabled={pos === 0} style={{ padding: '1px 6px', fontSize: 12, background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 4, color: '#a5b4fc', cursor: pos === 0 ? 'default' : 'pointer', opacity: pos === 0 ? 0.4 : 1 }}>↑</button>
+                                                            <button type="button" onClick={e => { e.preventDefault(); moveEditSessionQuizDown(pos); }} disabled={pos === editSessionQuizIds.length - 1} style={{ padding: '1px 6px', fontSize: 12, background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 4, color: '#a5b4fc', cursor: pos === editSessionQuizIds.length - 1 ? 'default' : 'pointer', opacity: pos === editSessionQuizIds.length - 1 ? 0.4 : 1 }}>↓</button>
+                                                        </span>
+                                                    )}
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                            {availableCourses.length > 0 && (
+                                <div>
+                                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                        Courses to Share {editSessionCourseIds.length > 0 && <span style={{ color: '#818cf8' }}>({editSessionCourseIds.length} selected)</span>}
+                                    </label>
+                                    <div style={{ border: '1px solid rgba(99,102,241,0.3)', borderRadius: 10, background: 'rgba(99,102,241,0.05)', overflow: 'hidden' }}>
+                                        {availableCourses.map(c => (
+                                            <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(99,102,241,0.1)', background: editSessionCourseIds.includes(c.id) ? 'rgba(99,102,241,0.12)' : 'transparent' }}>
+                                                <input type="checkbox" checked={editSessionCourseIds.includes(c.id)} onChange={() => setEditSessionCourseIds(prev => prev.includes(c.id) ? prev.filter(x => x !== c.id) : [...prev, c.id])} style={{ accentColor: '#6366f1', flexShrink: 0 }} />
+                                                <span style={{ flex: 1, fontSize: 13 }}><RichContent html={c.title} /></span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                             {(userRole === 'teacher' || userRole === 'member') && (
                                 <>
                                     {userRole === 'member' && (

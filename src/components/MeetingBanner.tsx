@@ -13,6 +13,9 @@ export interface AdminMeeting {
     max_participants: number;
     is_active: boolean;
     session_image_url?: string;
+    what_i_will_learn?: string;
+    session_quiz_ids?: string[];
+    session_course_ids?: string[];
 }
 
 interface TimeLeft {
@@ -82,7 +85,7 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
     const gradientBg   = isTeacher
         ? 'linear-gradient(135deg, #1e1b4b 0%, #1e3a5f 50%, #1d2e5e 100%)'
         : 'linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4c1d95 100%)';
-    const badgeLabel   = isTeacher ? '📚 Teacher Class' : '🏛️ Admin Meeting';
+    const badgeLabel   = isTeacher ? '📚 Class Teacher' : '🏛️ Admin Meeting';
 
     const handleJoinClick = () => {
         if (!canJoin) {
@@ -99,10 +102,6 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
         : timeLeft.hours > 0
         ? `Starts in ${timeLeft.hours}h ${pad(timeLeft.minutes)}m`
         : `Starts in ${pad(timeLeft.minutes)}m ${pad(timeLeft.seconds)}s`;
-
-    const descBullets = meeting.description
-        ? meeting.description.split('\n').map(l => l.replace(/^[-•*]\s*/, '').trim()).filter(Boolean)
-        : [];
 
     return (
         <div style={{
@@ -127,9 +126,10 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
 
             <div style={{ position: 'relative' }}>
 
-                {/* ── Header: Badge only (title moved to right column) ── */}
-                <div style={{ marginBottom: 10 }}>
+                {/* ── Header: Badge + Title side by side ── */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
                     <span style={{
+                        flexShrink: 0,
                         display: 'inline-flex', alignItems: 'center', gap: 4,
                         background: accentBg, border: `1px solid ${accentBorder}`,
                         borderRadius: 100, padding: '2px 9px', fontSize: 9, fontWeight: 700,
@@ -138,6 +138,10 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                         <span style={{ width: 4, height: 4, borderRadius: '50%', background: accentColor, flexShrink: 0 }} />
                         {badgeLabel}
                     </span>
+                    <h3 style={{
+                        margin: 0, fontSize: 15, fontWeight: 700, color: '#f1f5f9', flex: 1, minWidth: 0,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(meeting.title, { ADD_ATTR: ['style'] }) }} />
                 </div>
 
                 {/* ── Body: Image | Countdown+Join | divider | Title+Bullets ── */}
@@ -244,24 +248,20 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                     {/* Vertical divider */}
                     <div style={{ width: 1, background: 'rgba(255,255,255,0.08)', alignSelf: 'stretch', flexShrink: 0 }} />
 
-                    {/* Title + Bullets column */}
-                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: 10 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                            <span style={{
-                                flexShrink: 0, width: 28, height: 28, borderRadius: 8,
-                                background: accentBg, border: `1px solid ${accentBorder}`,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: 15, color: accentColor, fontWeight: 900,
-                            }}>▸</span>
-                            <h3 style={{
-                                margin: 0, fontSize: 17, fontWeight: 800,
-                                color: '#f1f5f9', letterSpacing: '-0.02em', lineHeight: 1.3,
-                            }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(meeting.title, { ADD_ATTR: ['style'] }) }} />
+                    {/* What I Will Learn column */}
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: 6 }}>
+                        <div style={{
+                            fontSize: 10, fontWeight: 700, color: accentColor,
+                            textTransform: 'uppercase', letterSpacing: '0.08em',
+                        }}>
+                            What I Will Learn
                         </div>
-                        {meeting.description ? (
+                        {meeting.what_i_will_learn ? (
+                            <RichContent html={meeting.what_i_will_learn} style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.7 }} />
+                        ) : meeting.description ? (
                             <RichContent html={meeting.description} style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.7 }} />
                         ) : (
-                            <p style={{ margin: 0, fontSize: 12, color: '#475569', fontStyle: 'italic' }}>No description added.</p>
+                            <p style={{ margin: 0, fontSize: 12, color: '#475569', fontStyle: 'italic' }}>No learning objectives added.</p>
                         )}
                     </div>
                 </div>

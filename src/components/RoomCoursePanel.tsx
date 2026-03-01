@@ -1,0 +1,188 @@
+import { useState, useEffect } from 'react';
+import { RichContent } from './RichEditor';
+
+interface Lesson {
+    id: string;
+    title: string;
+    content: string;
+    lesson_type: string;
+    video_url?: string | null;
+    order_index: number;
+}
+
+interface CourseData {
+    id: string;
+    title: string;
+    lessons: Lesson[];
+}
+
+interface Props {
+    courseIds: string[];
+    serverUrl: string;
+    role: string;
+}
+
+export default function RoomCoursePanel({ courseIds, serverUrl, role }: Props) {
+    const [courses, setCourses] = useState<CourseData[]>([]);
+    const [activeCourseIdx, setActiveCourseIdx] = useState(0);
+    const [activeLessonIdx, setActiveLessonIdx] = useState(0);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!courseIds.length) { setLoading(false); return; }
+        setLoading(true);
+        Promise.all(
+            courseIds.map(id =>
+                Promise.all([
+                    fetch(`${serverUrl}/api/courses/${id}`).then(r => r.ok ? r.json() : { id, title: '' }),
+                    fetch(`${serverUrl}/api/courses/${id}/lessons`).then(r => r.ok ? r.json() : []),
+                ]).then(([course, lessons]) => ({
+                    id,
+                    title: (course as any).title || '',
+                    lessons: Array.isArray(lessons) ? (lessons as Lesson[]).sort((a, b) => a.order_index - b.order_index) : [],
+                }))
+            )
+        ).then(results => {
+            setCourses(results);
+            setActiveCourseIdx(0);
+            setActiveLessonIdx(0);
+        }).finally(() => setLoading(false));
+    }, [courseIds, serverUrl]);
+
+    if (loading) {
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>
+                Loading course…
+            </div>
+        );
+    }
+
+    if (!courses.length) {
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>
+                No courses loaded.
+            </div>
+        );
+    }
+
+    const course = courses[activeCourseIdx];
+    const lesson = course.lessons[activeLessonIdx] || null;
+    const totalLessons = course.lessons.length;
+
+    return (
+        <div style={{
+            display: 'flex', flexDirection: 'column', height: '100%',
+            background: 'var(--surface-2)', borderRadius: 12, overflow: 'hidden',
+        }}>
+            {/* Course tabs (if multiple) */}
+            {courses.length > 1 && (
+                <div style={{ display: 'flex', gap: 2, padding: '8px 12px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                    {courses.map((c, i) => (
+                        <button
+                            key={c.id}
+                            onClick={() => { setActiveCourseIdx(i); setActiveLessonIdx(0); }}
+                            style={{
+                                padding: '4px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13,
+                                background: activeCourseIdx === i ? 'rgba(99,102,241,0.3)' : 'var(--surface-3)',
+                                color: activeCourseIdx === i ? '#a5b4fc' : 'var(--text-muted)',
+                                fontWeight: activeCourseIdx === i ? 700 : 400,
+                            }}
+                        >
+                            <RichContent html={c.title} style={{ display: 'inline' }} />
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {/* Header */}
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 18 }}>📖</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Course</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <RichContent html={course.title} style={{ display: 'inline' }} />
+                    </div>
+                </div>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>{totalLessons} lesson{totalLessons !== 1 ? 's' : ''}</span>
+            </div>
+
+            {/* Body: sidebar + content */}
+            <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+                {/* Lesson list sidebar */}
+                <div style={{ width: 200, flexShrink: 0, borderRight: '1px solid var(--border)', overflowY: 'auto' }}>
+                    {course.lessons.map((l, i) => (
+                        <button
+                            key={l.id}
+                            onClick={() => setActiveLessonIdx(i)}
+                            style={{
+                                display: 'flex', alignItems: 'flex-start', gap: 8, width: '100%',
+                                padding: '10px 12px', border: 'none', cursor: 'pointer', textAlign: 'left',
+                                background: activeLessonIdx === i ? 'rgba(99,102,241,0.18)' : 'transparent',
+                                borderLeft: activeLessonIdx === i ? '3px solid #6366f1' : '3px solid transparent',
+                                borderBottom: '1px solid var(--border)',
+                            }}
+                        >
+                            <span style={{ fontSize: 11, color: activeLessonIdx === i ? '#818cf8' : 'var(--text-muted)', fontWeight: 700, minWidth: 18, marginTop: 2 }}>{i + 1}.</span>
+                            <span style={{ fontSize: 12, color: activeLessonIdx === i ? '#e2e8f0' : 'var(--text-muted)', lineHeight: 1.4, wordBreak: 'break-word' }}>{l.title}</span>
+                        </button>
+                    ))}
+                    {course.lessons.length === 0 && (
+                        <div style={{ padding: 16, fontSize: 13, color: 'var(--text-muted)' }}>No lessons yet.</div>
+                    )}
+                </div>
+
+                {/* Lesson content */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
+                    {lesson ? (
+                        <>
+                            <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{lesson.title}</h3>
+                            {lesson.lesson_type === 'video' && lesson.video_url ? (
+                                <video src={lesson.video_url} controls style={{ width: '100%', borderRadius: 10, marginBottom: 16, background: '#000' }} />
+                            ) : null}
+                            {lesson.content ? (
+                                <RichContent html={lesson.content} style={{ fontSize: 14, lineHeight: 1.7, color: 'var(--text-muted)' }} />
+                            ) : (
+                                <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No content for this lesson.</p>
+                            )}
+                        </>
+                    ) : (
+                        <p style={{ color: 'var(--text-muted)' }}>Select a lesson to view its content.</p>
+                    )}
+                </div>
+            </div>
+
+            {/* Navigation footer (all users can click; teacher-guided navigation via in-room chat or verbal) */}
+            <div style={{
+                padding: '10px 16px', borderTop: '1px solid var(--border)',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+            }}>
+                <button
+                    onClick={() => setActiveLessonIdx(p => Math.max(0, p - 1))}
+                    disabled={activeLessonIdx === 0}
+                    style={{
+                        padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)',
+                        background: 'transparent', color: activeLessonIdx === 0 ? 'var(--text-muted)' : 'var(--text)',
+                        cursor: activeLessonIdx === 0 ? 'default' : 'pointer', fontSize: 13, fontWeight: 600,
+                    }}
+                >
+                    ← Prev
+                </button>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                    Lesson {activeLessonIdx + 1} of {totalLessons || 1}
+                </span>
+                <button
+                    onClick={() => setActiveLessonIdx(p => Math.min(totalLessons - 1, p + 1))}
+                    disabled={activeLessonIdx >= totalLessons - 1}
+                    style={{
+                        padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)',
+                        background: activeLessonIdx >= totalLessons - 1 ? 'transparent' : 'rgba(99,102,241,0.2)',
+                        color: activeLessonIdx >= totalLessons - 1 ? 'var(--text-muted)' : '#a5b4fc',
+                        cursor: activeLessonIdx >= totalLessons - 1 ? 'default' : 'pointer', fontSize: 13, fontWeight: 600,
+                    }}
+                >
+                    Next →
+                </button>
+            </div>
+        </div>
+    );
+}

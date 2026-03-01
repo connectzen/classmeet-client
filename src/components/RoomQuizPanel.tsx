@@ -722,44 +722,86 @@ export function RoomQuizHost({
 }: RoomQuizHostProps) {
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [localScores, setLocalScores] = useState<Record<string, number | null>>({});
+    const [queueIndex, setQueueIndex] = useState(0);
 
     useEffect(() => { injectStyles(); }, []);
+    // Reset queue when quiz list changes (new session / toggle off-on)
+    useEffect(() => { setQueueIndex(0); }, [quizzes]);
 
-    const hasRoomQuizzes = quizzes.length > 0;
+    const handleStopAndAdvance = () => {
+        onStopQuiz();
+        setQueueIndex(prev => Math.min(prev + 1, quizzes.length));
+    };
 
     if (!activeQuiz) {
         return (
-            <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16, height: '100%', minHeight: 200, background: 'var(--surface-2)', borderRadius: 12, justifyContent: 'center' }}>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Select a quiz to start</h3>
+            <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16, height: '100%', minHeight: 200, background: 'var(--surface-2)', borderRadius: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
+                        Quiz Queue
+                        {quizzes.length > 0 && <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 400, marginLeft: 8 }}>{quizzes.length} quiz{quizzes.length !== 1 ? 'zes' : ''}</span>}
+                    </h3>
+                    {queueIndex > 0 && queueIndex < quizzes.length && (
+                        <span style={{ fontSize: 12, color: '#22c55e', fontWeight: 600 }}>{queueIndex} done</span>
+                    )}
+                </div>
                 {loadingQuizzes ? (
-                    <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Loading quizzes...</p>
-                ) : !hasRoomQuizzes ? (
-                    <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>No quizzes for this room. Create one from the Quizzes panel and assign it to this room.</p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Loading quizzes…</p>
+                ) : quizzes.length === 0 ? (
+                    <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>No quizzes attached to this session. Add quizzes when scheduling the class.</p>
                 ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {quizzes.map((q) => (
-                            <button
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {quizzes.map((q, i) => (
+                            <div
                                 key={q.id}
-                                onClick={() => onStartQuiz(q.id)}
                                 style={{
-                                    padding: '12px 16px', borderRadius: 10, border: '1px solid var(--border)',
-                                    background: 'var(--surface-3)', color: 'var(--text)', textAlign: 'left',
-                                    cursor: 'pointer', fontWeight: 500, fontSize: 14,
+                                    padding: '10px 14px', borderRadius: 10,
+                                    background: i < queueIndex ? 'rgba(34,197,94,0.08)' : i === queueIndex ? 'rgba(99,102,241,0.18)' : 'var(--surface-3)',
+                                    border: i === queueIndex ? '1px solid rgba(99,102,241,0.5)' : '1px solid var(--border)',
+                                    opacity: i < queueIndex ? 0.55 : 1,
+                                    display: 'flex', alignItems: 'center', gap: 10,
                                 }}
                             >
-                                {q.title} {q.question_count ? `(${q.question_count} Q)` : ''}
-                            </button>
+                                <span style={{ fontSize: 14, minWidth: 20, flexShrink: 0 }}>
+                                    {i < queueIndex ? '✓' : i === queueIndex ? '▶' : `${i + 1}.`}
+                                </span>
+                                <span style={{ flex: 1, fontSize: 13, fontWeight: i === queueIndex ? 600 : 400 }}>
+                                    <RichContent html={q.title} style={{ display: 'inline' }} />
+                                </span>
+                                {q.question_count != null && (
+                                    <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{q.question_count} Q</span>
+                                )}
+                            </div>
                         ))}
                     </div>
+                )}
+                {quizzes.length > 0 && (
+                    queueIndex < quizzes.length ? (
+                        <button
+                            onClick={() => onStartQuiz(quizzes[queueIndex].id)}
+                            style={{
+                                padding: '10px 18px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                                color: '#fff', fontWeight: 700, fontSize: 14,
+                            }}
+                        >
+                            {queueIndex === 0 ? 'Start First Quiz' : `Start Quiz ${queueIndex + 1} of ${quizzes.length}`}
+                        </button>
+                    ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)' }}>
+                            <span style={{ fontSize: 18 }}>🎉</span>
+                            <span style={{ fontSize: 14, color: '#22c55e', fontWeight: 600 }}>All quizzes complete!</span>
+                        </div>
+                    )
                 )}
                 <button
                     onClick={onStopQuiz}
                     style={{
-                        padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)',
-                        background: 'transparent', color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer', alignSelf: 'flex-start',
+                        padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)',
+                        background: 'transparent', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer', alignSelf: 'flex-start',
                     }}
                 >
-                    Cancel
+                    Close
                 </button>
             </div>
         );
@@ -774,7 +816,7 @@ export function RoomQuizHost({
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 200, background: 'var(--surface-2)', borderRadius: 12, overflow: 'hidden' }}>
             {/* Header */}
             <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                <span style={{ fontWeight: 600, fontSize: 15 }}>{quiz.title}</span>
+                <span style={{ fontWeight: 600, fontSize: 15 }}><RichContent html={quiz.title} style={{ display: 'inline' }} /></span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{
                         fontSize: 12, color: '#fff', background: '#6366f1', borderRadius: 12,
@@ -783,7 +825,7 @@ export function RoomQuizHost({
                         {submissions.length} submitted
                     </span>
                     <button
-                        onClick={onStopQuiz}
+                        onClick={handleStopAndAdvance}
                         style={{
                             padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)',
                             background: 'transparent', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer',

@@ -4,6 +4,7 @@ import ChatPanel, { ChatMsg } from '../components/ChatPanel';
 import DevicePicker from '../components/DevicePicker';
 import RescheduleSessionModal from '../components/RescheduleSessionModal';
 import { RoomQuizParticipant, RoomQuizHost, PostSubmitWaiting, InlineResultCard } from '../components/RoomQuizPanel';
+import RoomCoursePanel from '../components/RoomCoursePanel';
 import DOMPurify from 'dompurify';
 import { useSocket, Participant } from '../hooks/useSocket';
 import { useWebRTC } from '../hooks/useWebRTC';
@@ -54,6 +55,9 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [showRescheduleModal, setShowRescheduleModal] = useState(false);
     const [hasScheduledSession, setHasScheduledSession] = useState<boolean | null>(null);
     const [quizToggleOn, setQuizToggleOn] = useState(false);
+    const [courseToggleOn, setCourseToggleOn] = useState(false);
+    const [sessionQuizIds, setSessionQuizIds] = useState<string[]>([]);
+    const [sessionCourseIds, setSessionCourseIds] = useState<string[]>([]);
     const [roomQuizzes, setRoomQuizzes] = useState<{ id: string; title: string; question_count?: number; room_id?: string }[]>([]);
     const [loadingRoomQuizzes, setLoadingRoomQuizzes] = useState(false);
     const [roomQuizSubmitted, setRoomQuizSubmitted] = useState(false);
@@ -272,18 +276,39 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         setSpotlightId(currentSpotlight === socketId ? '__local__' : currentSpotlight);
     }, [socketId, currentSpotlight]);
 
-    // Fetch quizzes for this room when teacher toggles quiz ON
+    // Fetch session data to get attached quiz/course IDs
+    useEffect(() => {
+        if (!roomCode) return;
+        fetch(`${SERVER_URL}/api/session-by-code/${roomCode.toUpperCase()}`)
+            .then(r => r.ok ? r.json() : null)
+            .then((data: any) => {
+                if (data) {
+                    setSessionQuizIds(Array.isArray(data.session_quiz_ids) ? data.session_quiz_ids : []);
+                    setSessionCourseIds(Array.isArray(data.session_course_ids) ? data.session_course_ids : []);
+                }
+            }).catch(() => {});
+    }, [roomCode]);
+
+    // Fetch quizzes for this session when teacher toggles quiz ON
     useEffect(() => {
         if (!quizToggleOn || role !== 'teacher') return;
+        if (sessionQuizIds.length === 0) { setRoomQuizzes([]); setLoadingRoomQuizzes(false); return; }
         setLoadingRoomQuizzes(true);
-        fetch(`${SERVER_URL}/api/quizzes?roomIds=${encodeURIComponent(roomId)}`)
-            .then(r => r.json())
-            .then((data: { id: string; title: string; question_count?: number; room_id?: string }[]) => {
-                setRoomQuizzes(Array.isArray(data) ? data : []);
-            })
-            .catch(() => setRoomQuizzes([]))
-            .finally(() => setLoadingRoomQuizzes(false));
-    }, [quizToggleOn, role, roomId]);
+        Promise.all(
+            sessionQuizIds.map((id: string) =>
+                fetch(`${SERVER_URL}/api/quizzes/${id}?role=teacher`)
+                    .then(r => r.ok ? r.json() : null)
+            )
+        ).then(results => {
+            setRoomQuizzes(
+                (results.filter(Boolean) as any[]).map(q => ({
+                    id: q.id, title: q.title,
+                    question_count: Array.isArray(q.questions) ? q.questions.length : q.question_count,
+                }))
+            );
+        }).catch(() => setRoomQuizzes([]))
+          .finally(() => setLoadingRoomQuizzes(false));
+    }, [quizToggleOn, role, sessionQuizIds]);
 
     useEffect(() => {
         if (!roomQuiz) setRoomQuizSubmitted(false);
@@ -711,9 +736,15 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                         ))}
                     </div>
 
-                    {/* Spotlight or Quiz (when toggle ON) */}
+                    {/* Spotlight or Quiz/Course (when toggle ON) */}
                     <div className="spotlight-area">
-                        {quizToggleOn && role === 'teacher' ? (
+                        {courseToggleOn ? (
+                            <RoomCoursePanel
+                                courseIds={sessionCourseIds}
+                                serverUrl={SERVER_URL}
+                                role={role}
+                            />
+                        ) : quizToggleOn && role === 'teacher' ? (
                             <RoomQuizHost
                                 roomId={roomId}
                                 quizzes={roomQuizzes}
@@ -760,15 +791,17 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                         )}
                     </div>
 
-                    {/* Quiz Toggle (teacher only) */}
+                    {/* Quiz + Course Toggles (teacher only) */}
                     {role === 'teacher' && (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, padding: '12px 16px', borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                            {/* Quiz toggle */}
                             <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>Quiz</span>
                             <button
                                 onClick={() => {
+                                    const next = !quizToggleOn;
                                     if (quizToggleOn && roomQuiz) stopRoomQuiz();
-                                    setQuizToggleOn(prev => !prev);
-                                    if (!quizToggleOn) setRoomQuizSubmitted(false);
+                                    setQuizToggleOn(next);
+                                    if (next) { setCourseToggleOn(false); setRoomQuizSubmitted(false); }
                                 }}
                                 style={{
                                     width: 52, height: 28, borderRadius: 14, border: 'none', cursor: 'pointer',
@@ -783,6 +816,33 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 }} />
                             </button>
                             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{quizToggleOn ? 'ON' : 'OFF'}</span>
+
+                            {/* Course toggle — only shown if session has courses attached */}
+                            {sessionCourseIds.length > 0 && (
+                                <>
+                                    <span style={{ width: 1, height: 20, background: 'var(--border)' }} />
+                                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>Course</span>
+                                    <button
+                                        onClick={() => {
+                                            const next = !courseToggleOn;
+                                            setCourseToggleOn(next);
+                                            if (next) { if (quizToggleOn && roomQuiz) stopRoomQuiz(); setQuizToggleOn(false); }
+                                        }}
+                                        style={{
+                                            width: 52, height: 28, borderRadius: 14, border: 'none', cursor: 'pointer',
+                                            background: courseToggleOn ? '#22c55e' : 'var(--surface-3)',
+                                            position: 'relative', transition: 'background 0.2s',
+                                        }}
+                                    >
+                                        <span style={{
+                                            position: 'absolute', top: 4, left: courseToggleOn ? 28 : 4,
+                                            width: 20, height: 20, borderRadius: '50%', background: '#fff',
+                                            transition: 'left 0.2s',
+                                        }} />
+                                    </button>
+                                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{courseToggleOn ? 'ON' : 'OFF'}</span>
+                                </>
+                            )}
                         </div>
                     )}
 
