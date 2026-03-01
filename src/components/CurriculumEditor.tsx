@@ -72,7 +72,7 @@ const FONTS = [
     { label: 'Courier New',      value: "'Courier New', monospace" },
 ];
 
-const SIZES = ['11', '12', '14', '16', '18', '20', '24', '28', '32'];
+const SIZES = ['11', '12', '14', '16', '18', '20', '24', '28', '32', '36', '42', '48', '60', '72'];
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -118,6 +118,8 @@ function TBtn({ label, active, onClick, title, extraStyle }: {
 // ─── Font size dropdown with live hover preview ───────────────────────────────
 function SizeDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
     const [open, setOpen] = useState(false);
+    const [pos, setPos] = useState({ top: 0, left: 0 });
+    const btnRef = useRef<HTMLButtonElement>(null);
     const origRef = useRef<string | undefined>(undefined);
     const currentPx = (editor?.getAttributes('textStyle') as { fontSize?: string }).fontSize || '';
     const current = currentPx.replace('px', '');
@@ -139,30 +141,32 @@ function SizeDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
         editor?.chain().focus().run();
         setOpen(false);
     }
-
-    const btnStyle: React.CSSProperties = {
-        padding: '3px 8px', borderRadius: 5, border: 'none',
-        background: open ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)',
-        color: current ? '#a5b4fc' : '#94a3b8',
-        fontSize: 12, fontWeight: 600, cursor: 'pointer',
-        display: 'flex', alignItems: 'center', gap: 3,
-    };
+    function handleToggle(e: React.MouseEvent) {
+        e.preventDefault();
+        if (!open && btnRef.current) {
+            const r = btnRef.current.getBoundingClientRect();
+            setPos({ top: r.bottom + 4, left: r.left });
+        }
+        setOpen(o => !o);
+    }
 
     return (
         <div style={{ position: 'relative' }}>
             {open && <div style={{ position: 'fixed', inset: 0, zIndex: 9000 }} onMouseDown={e => e.preventDefault()} onClick={() => { onLeave(); setOpen(false); }} />}
-            <button type="button" onMouseDown={e => { e.preventDefault(); setOpen(o => !o); }} style={btnStyle}>
+            <button ref={btnRef} type="button" onMouseDown={handleToggle}
+                style={{ padding: '3px 8px', borderRadius: 5, border: 'none', background: open ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)', color: current ? '#a5b4fc' : '#94a3b8', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
                 {current || 'Size'} <span style={{ fontSize: 9, opacity: 0.6 }}>▾</span>
             </button>
             {open && (
-                <div onMouseLeave={onLeave} style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 9001, background: '#13131a', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', minWidth: 68, padding: '4px 0', maxHeight: 220, overflowY: 'auto' }}>
+                <div onMouseLeave={onLeave} onWheel={e => e.stopPropagation()}
+                    style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9001, background: '#13131a', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', minWidth: 72, padding: '4px 0', maxHeight: 280, overflowY: 'auto' }}>
                     <div onMouseDown={e => e.preventDefault()} onMouseEnter={() => onHover('')} onClick={() => onSelect('')}
-                        style={{ padding: '5px 14px', cursor: 'pointer', fontSize: 12, color: !current ? '#a5b4fc' : '#64748b', fontWeight: !current ? 600 : 400 }}>
+                        style={{ padding: '5px 16px', cursor: 'pointer', fontSize: 12, color: !current ? '#a5b4fc' : '#64748b', fontWeight: !current ? 600 : 400 }}>
                         Default
                     </div>
                     {SIZES.map(size => (
                         <div key={size} onMouseDown={e => e.preventDefault()} onMouseEnter={() => onHover(size)} onClick={() => onSelect(size)}
-                            style={{ padding: '5px 14px', cursor: 'pointer', fontSize: 12, color: current === size ? '#a5b4fc' : '#94a3b8', fontWeight: current === size ? 700 : 400, background: current === size ? 'rgba(99,102,241,0.12)' : 'transparent' }}>
+                            style={{ padding: '5px 16px', cursor: 'pointer', fontSize: 12, color: current === size ? '#a5b4fc' : '#94a3b8', fontWeight: current === size ? 700 : 400, background: current === size ? 'rgba(99,102,241,0.12)' : 'transparent' }}>
                             {size}
                         </div>
                     ))}
@@ -175,6 +179,8 @@ function SizeDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
 // ─── Font family dropdown with live hover preview ─────────────────────────────
 function FontDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
     const [open, setOpen] = useState(false);
+    const [pos, setPos] = useState({ top: 0, left: 0 });
+    const btnRef = useRef<HTMLButtonElement>(null);
     const origRef = useRef<string | undefined>(undefined);
     const currentFont = (editor?.getAttributes('textStyle') as { fontFamily?: string }).fontFamily || '';
     const currentLabel = FONTS.find(f => f.value === currentFont)?.label || 'Font';
@@ -196,28 +202,29 @@ function FontDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
         editor?.chain().focus().run();
         setOpen(false);
     }
-
-    const btnStyle: React.CSSProperties = {
-        padding: '3px 8px', borderRadius: 5, border: 'none',
-        background: open ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)',
-        color: currentFont ? '#a5b4fc' : '#94a3b8',
-        fontSize: 12, fontWeight: 600, cursor: 'pointer',
-        display: 'flex', alignItems: 'center', gap: 3,
-        maxWidth: 110, overflow: 'hidden',
-    };
+    function handleToggle(e: React.MouseEvent) {
+        e.preventDefault();
+        if (!open && btnRef.current) {
+            const r = btnRef.current.getBoundingClientRect();
+            setPos({ top: r.bottom + 4, left: r.left });
+        }
+        setOpen(o => !o);
+    }
 
     return (
         <div style={{ position: 'relative' }}>
             {open && <div style={{ position: 'fixed', inset: 0, zIndex: 9000 }} onMouseDown={e => e.preventDefault()} onClick={() => { onLeave(); setOpen(false); }} />}
-            <button type="button" onMouseDown={e => { e.preventDefault(); setOpen(o => !o); }} style={btnStyle}>
+            <button ref={btnRef} type="button" onMouseDown={handleToggle}
+                style={{ padding: '3px 8px', borderRadius: 5, border: 'none', background: open ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)', color: currentFont ? '#a5b4fc' : '#94a3b8', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3, maxWidth: 110 }}>
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentLabel}</span>
                 <span style={{ fontSize: 9, opacity: 0.6, flexShrink: 0 }}>▾</span>
             </button>
             {open && (
-                <div onMouseLeave={onLeave} style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 9001, background: '#13131a', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', minWidth: 180, padding: '4px 0' }}>
+                <div onMouseLeave={onLeave} onWheel={e => e.stopPropagation()}
+                    style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9001, background: '#13131a', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', minWidth: 190, padding: '4px 0', maxHeight: 300, overflowY: 'auto' }}>
                     {FONTS.map(font => (
                         <div key={font.value} onMouseDown={e => e.preventDefault()} onMouseEnter={() => onHover(font.value)} onClick={() => onSelect(font.value)}
-                            style={{ padding: '7px 14px', cursor: 'pointer', fontFamily: font.value || 'inherit', fontSize: 13, color: currentFont === font.value ? '#a5b4fc' : '#e2e8f0', background: currentFont === font.value ? 'rgba(99,102,241,0.12)' : 'transparent', fontWeight: currentFont === font.value ? 600 : 400 }}>
+                            style={{ padding: '8px 16px', cursor: 'pointer', fontFamily: font.value || 'inherit', fontSize: 13, color: currentFont === font.value ? '#a5b4fc' : '#e2e8f0', background: currentFont === font.value ? 'rgba(99,102,241,0.12)' : 'transparent', fontWeight: currentFont === font.value ? 600 : 400 }}>
                             {font.label}
                         </div>
                     ))}
