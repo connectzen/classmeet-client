@@ -4,6 +4,7 @@ import ChatPanel, { ChatMsg } from '../components/ChatPanel';
 import DevicePicker from '../components/DevicePicker';
 import RescheduleSessionModal from '../components/RescheduleSessionModal';
 import { RoomQuizParticipant, RoomQuizHost, PostSubmitWaiting, InlineResultCard } from '../components/RoomQuizPanel';
+import DOMPurify from 'dompurify';
 import { useSocket, Participant } from '../hooks/useSocket';
 import { useWebRTC } from '../hooks/useWebRTC';
 
@@ -613,7 +614,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                 <div className="room-header-left">
                     <span className="room-logo">ClassMeet</span>
                     <span className="room-divider">|</span>
-                    <span className="room-name">{roomName || roomCode}</span>
+                    <span className="room-name" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(roomName || roomCode, { ADD_ATTR: ['style'] }) }} />
                     <span className={`connection-dot ${connected ? 'dot-connected' : 'dot-disconnected'}`} />
                 </div>
                 <div className="room-header-right">

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import RichEditor, { RichContent, isRichEmpty } from './RichEditor';
+import { RichContent } from './RichEditor';
 
 export interface ChatMsg {
     socketId: string;
@@ -23,10 +23,9 @@ export default function ChatPanel({ messages, mySocketId, onSend, hideHeader }: 
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    const handleSend = (html?: string) => {
-        const content = html ?? text;
-        if (isRichEmpty(content)) return;
-        onSend(content);
+    const handleSend = () => {
+        if (!text.trim()) return;
+        onSend(text.trim());
         setText('');
     };
 
@@ -65,20 +64,18 @@ export default function ChatPanel({ messages, mySocketId, onSend, hideHeader }: 
             </div>
 
             <div className="chat-input-row">
-                <div style={{ flex: 1 }}>
-                    <RichEditor
-                        value={text}
-                        onChange={setText}
-                        onSubmit={handleSend}
-                        placeholder="Type a message…"
-                        minHeight={40}
-                        maxHeight={130}
-                        compact
-                        chatMode
-                        style={{ borderRadius: 10, border: '1px solid rgba(99,102,241,0.25)' }}
-                    />
-                </div>
-                <button className="chat-send-btn" onClick={() => handleSend()} disabled={isRichEmpty(text)}>
+                <textarea
+                    className="chat-textarea"
+                    value={text}
+                    onChange={e => setText(e.target.value)}
+                    onKeyDown={e => {
+                        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+                    }}
+                    placeholder="Type a message…"
+                    rows={1}
+                    style={{ flex: 1, resize: 'none', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 10, padding: '10px 12px', color: 'var(--text)', fontSize: 14, lineHeight: 1.5, outline: 'none', fontFamily: 'inherit', maxHeight: 130, overflowY: 'auto' }}
+                />
+                <button className="chat-send-btn" onClick={handleSend} disabled={!text.trim()}>
                     <svg className="send-icon" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
                     </svg>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import RichEditor from '../components/RichEditor';
+import RichEditor, { isRichEmpty } from '../components/RichEditor';
 import { io } from 'socket.io-client';
 import { useUser } from '../lib/AuthContext';
 import { insforge } from '../lib/insforge';
@@ -81,6 +81,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [joinError, setJoinError] = useState('');
     const [lastRefreshed, setLastRefreshed] = useState(0);
     const joinInputRef = useRef<HTMLInputElement>(null);
+    const dateTimeRef = useRef<HTMLInputElement>(null);
 
     const displayName = user?.profile?.name || user?.email?.split('@')[0] || '';
 
@@ -579,15 +580,15 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const dismissResume = () => { localStorage.removeItem('classmeet_last_room'); setResumeSession(null); };
 
     const handleScheduleSession = async () => {
-        if (!sessionTitle.trim() || !sessionDateTime || !user?.id) return;
+        if (isRichEmpty(sessionTitle) || !sessionDateTime || !user?.id) return;
         setScheduling(true); setScheduleError('');
         try {
             const res = await fetch(`${SERVER_URL}/api/teacher/sessions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    title: sessionTitle.trim(),
-                    description: sessionDesc.trim(),
+                    title: sessionTitle,
+                    description: sessionDesc,
                     scheduledAt: new Date(sessionDateTime).toISOString(),
                     maxParticipants: 30,
                     targetStudentIds: userRole === 'teacher' ? targetStudentIds : (scheduleSessionType === 'guest' ? [] : targetStudentIds),
@@ -654,7 +655,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     };
 
     const handleUpdateSession = async () => {
-        if (!editSessionTitle.trim() || !editSessionDateTime || !user?.id || !editingSession) return;
+        if (isRichEmpty(editSessionTitle) || !editSessionDateTime || !user?.id || !editingSession) return;
         setUpdatingSession(true); setUpdateSessionError('');
         try {
             const res = await fetch(`${SERVER_URL}/api/teacher/sessions/${editingSession.id}`, {
@@ -662,7 +663,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     teacherId: user.id,
-                    title: editSessionTitle.trim(),
+                    title: editSessionTitle,
                     description: editSessionDesc.trim(),
                     sessionImageUrl: user?.profile?.avatar_url || editingSession?.session_image_url || null,
                     scheduledAt: new Date(editSessionDateTime).toISOString(),
@@ -1402,23 +1403,23 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                             <div>
                                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Class Title *</label>
-                                <input
-                                    className="form-input"
-                                    type="text"
-                                    placeholder="e.g. Math 101 — Chapter 5"
+                                <RichEditor
                                     value={sessionTitle}
-                                    onChange={e => setSessionTitle(e.target.value)}
-                                    style={{ width: '100%', boxSizing: 'border-box' }}
+                                    onChange={setSessionTitle}
+                                    placeholder="e.g. Math 101 — Chapter 5"
+                                    minHeight={44}
                                 />
                             </div>
                             <div>
                                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Date & Time *</label>
                                 <input
+                                    ref={dateTimeRef}
                                     className="form-input"
                                     type="datetime-local"
                                     value={sessionDateTime}
                                     onChange={e => setSessionDateTime(e.target.value)}
-                                    style={{ width: '100%', boxSizing: 'border-box', colorScheme: 'dark' }}
+                                    onClick={() => dateTimeRef.current?.showPicker?.()}
+                                    style={{ width: '100%', boxSizing: 'border-box', colorScheme: 'dark', cursor: 'pointer' }}
                                 />
                             </div>
                             <div>
@@ -1430,7 +1431,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     onChange={setSessionDesc}
                                     placeholder="Introduction to the topic&#10;Key concepts and definitions&#10;Practice exercises"
                                     minHeight={100}
-                                    compact
                                 />
                             </div>
                             {(userRole === 'teacher' || userRole === 'member') && (
@@ -1508,7 +1508,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             <button
                                 className="btn btn-primary"
                                 onClick={handleScheduleSession}
-                                disabled={scheduling || !sessionTitle.trim() || !sessionDateTime}
+                                disabled={scheduling || isRichEmpty(sessionTitle) || !sessionDateTime}
                             >
                                 {scheduling ? 'Scheduling…' : userRole === 'member' ? 'Schedule session' : 'Schedule Class'}
                             </button>
@@ -1544,13 +1544,11 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                             <div>
                                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Class Title *</label>
-                                <input
-                                    className="form-input"
-                                    type="text"
-                                    placeholder="e.g. Math 101 — Chapter 5"
+                                <RichEditor
                                     value={editSessionTitle}
-                                    onChange={e => setEditSessionTitle(e.target.value)}
-                                    style={{ width: '100%', boxSizing: 'border-box' }}
+                                    onChange={setEditSessionTitle}
+                                    placeholder="e.g. Math 101 — Chapter 5"
+                                    minHeight={44}
                                 />
                             </div>
                             <div>
@@ -1560,7 +1558,8 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     type="datetime-local"
                                     value={editSessionDateTime}
                                     onChange={e => setEditSessionDateTime(e.target.value)}
-                                    style={{ width: '100%', boxSizing: 'border-box', colorScheme: 'dark' }}
+                                    onClick={e => (e.currentTarget as HTMLInputElement).showPicker?.()}
+                                    style={{ width: '100%', boxSizing: 'border-box', colorScheme: 'dark', cursor: 'pointer' }}
                                 />
                             </div>
                             <div>
@@ -1572,7 +1571,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     onChange={setEditSessionDesc}
                                     placeholder="Introduction to the topic&#10;Key concepts and definitions&#10;Practice exercises"
                                     minHeight={100}
-                                    compact
                                 />
                             </div>
                             {(userRole === 'teacher' || userRole === 'member') && (
@@ -1650,7 +1648,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             <button
                                 className="btn btn-primary"
                                 onClick={handleUpdateSession}
-                                disabled={updatingSession || !editSessionTitle.trim() || !editSessionDateTime}
+                                disabled={updatingSession || isRichEmpty(editSessionTitle) || !editSessionDateTime}
                             >
                                 {updatingSession ? 'Updating…' : 'Update session'}
                             </button>

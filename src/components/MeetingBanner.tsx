@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import DOMPurify from 'dompurify';
 
 export interface AdminMeeting {
     id: string;
@@ -254,9 +255,7 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                             <h3 style={{
                                 margin: 0, fontSize: 17, fontWeight: 800,
                                 color: '#f1f5f9', letterSpacing: '-0.02em', lineHeight: 1.3,
-                            }}>
-                                {meeting.title}
-                            </h3>
+                            }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(meeting.title, { ADD_ATTR: ['style'] }) }} />
                         </div>
                         {descBullets.length > 0 ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
