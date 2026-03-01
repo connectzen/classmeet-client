@@ -244,12 +244,20 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
 
                     {/* Title + Bullets column */}
                     <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 10 }}>
-                        <h3 style={{
-                            margin: 0, fontSize: 17, fontWeight: 800,
-                            color: '#f1f5f9', letterSpacing: '-0.02em', lineHeight: 1.3,
-                        }}>
-                            {meeting.title}
-                        </h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                            <span style={{
+                                flexShrink: 0, width: 28, height: 28, borderRadius: 8,
+                                background: accentBg, border: `1px solid ${accentBorder}`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: 15, color: accentColor, fontWeight: 900,
+                            }}>▸</span>
+                            <h3 style={{
+                                margin: 0, fontSize: 17, fontWeight: 800,
+                                color: '#f1f5f9', letterSpacing: '-0.02em', lineHeight: 1.3,
+                            }}>
+                                {meeting.title}
+                            </h3>
+                        </div>
                         {descBullets.length > 0 ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                                 {descBullets.map((line, i) => (
