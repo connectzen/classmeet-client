@@ -379,12 +379,6 @@ button:active:not(:disabled),
   align-items: stretch;
 }
 
-@media (min-width: 1024px) {
-  .session-grid.session-grid-multi {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
 /* Button that toggles to the inline create/join form */
 .btn-dashboard-create {
   display: inline-flex;

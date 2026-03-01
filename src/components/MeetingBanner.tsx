@@ -98,6 +98,10 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
         ? `Starts in ${timeLeft.hours}h ${pad(timeLeft.minutes)}m`
         : `Starts in ${pad(timeLeft.minutes)}m ${pad(timeLeft.seconds)}s`;
 
+    const descBullets = meeting.description
+        ? meeting.description.split('\n').map(l => l.replace(/^[-•*]\s*/, '').trim()).filter(Boolean)
+        : [];
+
     return (
         <div style={{
             position: 'relative',
@@ -121,129 +125,85 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
 
             <div style={{ position: 'relative' }}>
 
-                {/* ── Header: Title + Badge — right-padded for Edit/Delete overlay ── */}
-                <div style={{
-                    display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 7,
-                    marginBottom: 10,
-                    paddingRight: isCreator ? 148 : 8,
-                }}>
-                    <h3 style={{
-                        margin: 0,
-                        fontSize: 15,
-                        fontWeight: 800,
-                        color: '#f1f5f9',
-                        letterSpacing: '-0.02em',
-                        lineHeight: 1.25,
-                        flexShrink: 0,
-                    }}>
-                        {meeting.title}
-                    </h3>
+                {/* ── Header: Badge only (title moved to right column) ── */}
+                <div style={{ marginBottom: 10 }}>
                     <span style={{
                         display: 'inline-flex', alignItems: 'center', gap: 4,
                         background: accentBg, border: `1px solid ${accentBorder}`,
                         borderRadius: 100, padding: '2px 9px', fontSize: 9, fontWeight: 700,
                         color: accentColor, letterSpacing: '0.06em', textTransform: 'uppercase',
-                        flexShrink: 0,
                     }}>
                         <span style={{ width: 4, height: 4, borderRadius: '50%', background: accentColor, flexShrink: 0 }} />
                         {badgeLabel}
                     </span>
                 </div>
 
-                {/* ── Horizontal body: Image LEFT + Content RIGHT ── */}
-                <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                {/* ── Body: Image | Countdown+Join | divider | Title+Bullets ── */}
+                <div style={{ display: 'flex', gap: 14, alignItems: 'stretch' }}>
 
-                    {/* ── Image column ── */}
+                    {/* Image column */}
                     <div style={{ flexShrink: 0, textAlign: 'center' }}>
                         {meeting.session_image_url ? (
                             <img
                                 src={meeting.session_image_url}
                                 alt={teacherName || meeting.title}
                                 style={{
-                                    width: 110,
-                                    height: 110,
-                                    borderRadius: 14,
-                                    objectFit: 'cover',
-                                    objectPosition: 'center center',
+                                    width: 110, height: 110, borderRadius: 14,
+                                    objectFit: 'cover', objectPosition: 'center center',
                                     border: '2px solid rgba(99,102,241,0.45)',
-                                    boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
-                                    display: 'block',
+                                    boxShadow: '0 4px 16px rgba(0,0,0,0.4)', display: 'block',
                                 }}
                             />
                         ) : (
                             <div style={{
-                                width: 110,
-                                height: 110,
-                                borderRadius: 14,
+                                width: 110, height: 110, borderRadius: 14,
                                 background: 'linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(139,92,246,0.25) 100%)',
                                 border: '2px solid rgba(99,102,241,0.35)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
                             }}>
                                 <div style={{ fontSize: 40, opacity: 0.6 }}>📚</div>
                             </div>
                         )}
-                        {/* Teacher name below image */}
                         {teacherName && (
                             <div style={{
-                                marginTop: 7,
-                                fontSize: 11,
-                                fontWeight: 700,
-                                color: '#e2e8f0',
-                                letterSpacing: '0.01em',
-                                textAlign: 'center',
-                                maxWidth: 110,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
+                                marginTop: 7, fontSize: 11, fontWeight: 700, color: '#e2e8f0',
+                                textAlign: 'center', maxWidth: 110,
+                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                             }}>
                                 {teacherName}
                             </div>
                         )}
                     </div>
 
-                    {/* ── Content column ── */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                        {/* Description */}
-                        {meeting.description && (
-                            <p style={{ margin: '0 0 10px 0', fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
-                                {meeting.description}
-                            </p>
+                    {/* Countdown + Join column */}
+                    <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 12 }}>
+                        {timeLeft.isLive ? (
+                            <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 7,
+                                background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.45)',
+                                borderRadius: 100, padding: '6px 14px', fontSize: 13, fontWeight: 700,
+                                color: '#fca5a5', letterSpacing: '0.06em',
+                                animation: 'meeting-pulse 1.8s ease-in-out infinite',
+                            }}>
+                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px #ef4444' }} />
+                                LIVE NOW
+                            </span>
+                        ) : (
+                            <div>
+                                <div style={{ fontSize: 9, color: '#60a5fa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
+                                    Starts in
+                                </div>
+                                <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                                    {timeLeft.days > 0 && <HeroUnit value={timeLeft.days} label="days" />}
+                                    <HeroUnit value={timeLeft.hours} label="hours" />
+                                    <HeroSep />
+                                    <HeroUnit value={timeLeft.minutes} label="min" />
+                                    <HeroSep />
+                                    <HeroUnit value={timeLeft.seconds} label="sec" />
+                                </div>
+                            </div>
                         )}
-
-                        {/* Countdown */}
-                        <div style={{ marginBottom: 12 }}>
-                            {timeLeft.isLive ? (
-                                <span style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: 7,
-                                    background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.45)',
-                                    borderRadius: 100, padding: '6px 14px', fontSize: 13, fontWeight: 700,
-                                    color: '#fca5a5', letterSpacing: '0.06em',
-                                    animation: 'meeting-pulse 1.8s ease-in-out infinite',
-                                }}>
-                                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px #ef4444' }} />
-                                    LIVE NOW
-                                </span>
-                            ) : (
-                                <>
-                                    <div style={{ fontSize: 9, color: '#60a5fa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
-                                        Starts in
-                                    </div>
-                                    <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                                        {timeLeft.days > 0 && <HeroUnit value={timeLeft.days} label="days" />}
-                                        <HeroUnit value={timeLeft.hours} label="hours" />
-                                        <HeroSep />
-                                        <HeroUnit value={timeLeft.minutes} label="min" />
-                                        <HeroSep />
-                                        <HeroUnit value={timeLeft.seconds} label="sec" />
-                                    </div>
-                                </>
-                            )}
-                        </div>
-
-                        {/* Join button */}
                         <button
                             onClick={handleJoinClick}
                             title={!canJoin ? lockedLabel : undefined}
@@ -259,40 +219,43 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                                 padding: '8px 18px', fontSize: 12, fontWeight: 700,
                                 cursor: canJoin ? 'pointer' : 'not-allowed',
                                 letterSpacing: '0.02em', whiteSpace: 'nowrap',
-                                boxShadow: canJoin
-                                    ? timeLeft.isLive
-                                        ? '0 4px 16px rgba(239,68,68,0.4)'
-                                        : '0 4px 16px rgba(99,102,241,0.4)'
-                                    : 'none',
+                                boxShadow: canJoin ? (timeLeft.isLive ? '0 4px 16px rgba(239,68,68,0.4)' : '0 4px 16px rgba(99,102,241,0.4)') : 'none',
                                 transition: 'filter 0.15s, transform 0.1s, background 0.2s',
                             }}
-                            onMouseEnter={e => {
-                                if (!canJoin) return;
-                                (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.12)';
-                                (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)';
-                            }}
-                            onMouseLeave={e => {
-                                (e.currentTarget as HTMLButtonElement).style.filter = 'none';
-                                (e.currentTarget as HTMLButtonElement).style.transform = 'none';
-                            }}
+                            onMouseEnter={e => { if (!canJoin) return; (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.12)'; (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'none'; (e.currentTarget as HTMLButtonElement).style.transform = 'none'; }}
                         >
-                            {!canJoin
-                                ? `🔒 ${lockedLabel}`
-                                : timeLeft.isLive
-                                ? '▶ Join Now'
-                                : isCreator
-                                ? '🚀 Enter Early (You\'re the host)'
-                                : '🚀 Join'}
+                            {!canJoin ? `🔒 ${lockedLabel}` : timeLeft.isLive ? '▶ Join Now' : isCreator ? '🚀 Enter Early (You\'re the host)' : '🚀 Join'}
                         </button>
                         {lockedWarning && (
                             <div style={{
-                                marginTop: 6, fontSize: 11, color: '#f59e0b', fontWeight: 600,
+                                fontSize: 11, color: '#f59e0b', fontWeight: 600,
                                 background: 'rgba(234,179,8,0.12)', border: '1px solid rgba(234,179,8,0.3)',
                                 borderRadius: 8, padding: '4px 12px',
                                 animation: 'meeting-pulse 0.3s ease-in-out',
                             }}>
                                 ⚠️ This session hasn't started yet. {lockedLabel}.
                             </div>
+                        )}
+                    </div>
+
+                    {/* Vertical divider */}
+                    <div style={{ width: 1, background: 'rgba(255,255,255,0.08)', alignSelf: 'stretch', flexShrink: 0 }} />
+
+                    {/* Title + Bullets column */}
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 10 }}>
+                        <h3 style={{
+                            margin: 0, fontSize: 17, fontWeight: 800,
+                            color: '#f1f5f9', letterSpacing: '-0.02em', lineHeight: 1.3,
+                        }}>
+                            {meeting.title}
+                        </h3>
+                        {descBullets.length > 0 ? (
+                            <ul style={{ margin: 0, paddingLeft: 16, color: '#94a3b8', fontSize: 12, lineHeight: 1.8 }}>
+                                {descBullets.map((line, i) => <li key={i}>{line}</li>)}
+                            </ul>
+                        ) : (
+                            <p style={{ margin: 0, fontSize: 12, color: '#475569', fontStyle: 'italic' }}>No description added.</p>
                         )}
                     </div>
                 </div>
