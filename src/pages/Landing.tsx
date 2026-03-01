@@ -926,7 +926,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                         <div style={{ width: 7, height: 7, borderRadius: '50%', background: onlineUserIds.has(teacherId) ? '#22c55e' : 'var(--text-muted)', flexShrink: 0 }} />
                                                         <div style={{ minWidth: 0 }}>
                                                             <div style={{ fontWeight: 600, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{teacherProfiles[teacherId]?.name || teacherName}</div>
-                                                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{onlineUserIds.has(teacherId) ? 'Online' : (lastSeenByUserId[teacherId] ? formatLastSeen(lastSeenByUserId[teacherId]) : 'Offline')}</div>
+                                                            <div style={{ fontSize: 11, color: onlineUserIds.has(teacherId) ? '#4ade80' : 'var(--text-muted)', fontWeight: onlineUserIds.has(teacherId) ? 600 : 400 }}>{onlineUserIds.has(teacherId) ? 'Online' : (lastSeenByUserId[teacherId] ? formatLastSeen(lastSeenByUserId[teacherId]) : 'Offline')}</div>
                                                         </div>
                                                     </div>
                                                     {students.length > 0 && (
