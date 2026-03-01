@@ -1495,6 +1495,19 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     style={{ width: '100%', boxSizing: 'border-box', colorScheme: 'dark' }}
                                 />
                             </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                    What will you cover? <span style={{ color: '#475569', fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>(one topic per line → shown as bullets)</span>
+                                </label>
+                                <textarea
+                                    className="form-input"
+                                    placeholder={"Introduction to the topic\nKey concepts and definitions\nPractice exercises"}
+                                    value={editSessionDesc}
+                                    onChange={e => setEditSessionDesc(e.target.value)}
+                                    rows={4}
+                                    style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}
+                                />
+                            </div>
                             {(userRole === 'teacher' || userRole === 'member') && (
                                 <>
                                     {userRole === 'member' && (
