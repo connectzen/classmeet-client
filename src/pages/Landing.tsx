@@ -1155,76 +1155,84 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
 
                             {/* ── MAIN PANEL ── */}
                             <div className="dashboard-panel enter-up">
-                                <div className="dashboard-panel-header">
-                                    <div className="dashboard-panel-title-group">
-                                        <span className="role-badge badge-teacher">🎓 Teacher Dashboard</span>
-                                        <h2 className="dashboard-panel-title">Your Classes</h2>
-                                    </div>
 
-                                    {/* Schedule Class button */}
-                                    <button
-                                        className="btn-dashboard-create"
-                                        onClick={() => {
-                                            setScheduleMode(true);
-                                            setScheduleError('');
-                                            setSessionTitle('');
-                                            setSessionDesc('');
-                                            setSessionDateTime('');
-                                            setTargetStudentIds([]);
-                                            setScheduleSessionType('students');
-                                            fetchAllStudents();
-                                        }}
-                                    >
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                                            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-                                        </svg>
-                                        Schedule Class
-                                    </button>
+                                {/* ── Pinned header: badge, title, schedule btn, sessions label ── */}
+                                <div className="dashboard-panel-sticky">
+                                    <div className="dashboard-panel-header">
+                                        <div className="dashboard-panel-title-group">
+                                            <span className="role-badge badge-teacher">🎓 Teacher Dashboard</span>
+                                            <h2 className="dashboard-panel-title">Your Classes</h2>
+                                        </div>
+
+                                        {/* Schedule Class button */}
+                                        <button
+                                            className="btn-dashboard-create"
+                                            onClick={() => {
+                                                setScheduleMode(true);
+                                                setScheduleError('');
+                                                setSessionTitle('');
+                                                setSessionDesc('');
+                                                setSessionDateTime('');
+                                                setTargetStudentIds([]);
+                                                setScheduleSessionType('students');
+                                                fetchAllStudents();
+                                            }}
+                                        >
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                                            </svg>
+                                            Schedule Class
+                                        </button>
+                                    </div>
+                                    {teacherSessions.length > 0 && (
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Scheduled Sessions</div>
+                                    )}
                                 </div>
 
-                                {/* Teacher-owned session banners */}
-                                {teacherSessions.length > 0 && (
-                                    <div style={{ marginBottom: 8 }}>
-                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Scheduled Sessions</div>
-                                        <div className={`session-grid stagger ${teacherSessions.length > 1 ? 'session-grid-multi' : ''}`}>
-                                        {teacherSessions.map(s => (
-                                            <div key={s.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%' }}>
-                                                <MeetingBanner
-                                                    key={s.id}
-                                                    meeting={{ ...s, session_image_url: teacherProfiles[s.created_by]?.avatar_url || s.session_image_url }}
-                                                    displayName={displayName}
-                                                    userRole="teacher"
-                                                    isCreator={true}
-                                                    sessionType="teacher"
-                                                    teacherName={teacherProfiles[s.created_by]?.name || displayName}
-                                                    onJoin={(code, id, name, role, title) => onJoinRoom(code, id, name, role, title)}
-                                                />
-                                                <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 6, zIndex: 10 }}>
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handleEditSession(s); }}
-                                                        title="Edit session"
-                                                        style={{
-                                                            background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.35)',
-                                                            borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 600,
-                                                            color: '#a5b4fc', cursor: 'pointer',
-                                                        }}
-                                                    >Edit</button>
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handleDeleteSession(s); }}
-                                                        title="Delete session"
-                                                        style={{
-                                                            background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)',
-                                                            borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 600,
-                                                            color: '#fca5a5', cursor: 'pointer',
-                                                        }}
-                                                    >Delete</button>
+                                {/* ── Scrollable content: session cards + courses ── */}
+                                <div className="dashboard-panel-scroll-body">
+                                    {teacherSessions.length > 0 && (
+                                        <div style={{ marginBottom: 8 }}>
+                                            <div className={`session-grid stagger ${teacherSessions.length > 1 ? 'session-grid-multi' : ''}`}>
+                                            {teacherSessions.map(s => (
+                                                <div key={s.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%' }}>
+                                                    <MeetingBanner
+                                                        key={s.id}
+                                                        meeting={{ ...s, session_image_url: teacherProfiles[s.created_by]?.avatar_url || s.session_image_url }}
+                                                        displayName={displayName}
+                                                        userRole="teacher"
+                                                        isCreator={true}
+                                                        sessionType="teacher"
+                                                        teacherName={teacherProfiles[s.created_by]?.name || displayName}
+                                                        onJoin={(code, id, name, role, title) => onJoinRoom(code, id, name, role, title)}
+                                                    />
+                                                    <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 6, zIndex: 10 }}>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleEditSession(s); }}
+                                                            title="Edit session"
+                                                            style={{
+                                                                background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.35)',
+                                                                borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 600,
+                                                                color: '#a5b4fc', cursor: 'pointer',
+                                                            }}
+                                                        >Edit</button>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleDeleteSession(s); }}
+                                                            title="Delete session"
+                                                            style={{
+                                                                background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)',
+                                                                borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 600,
+                                                                color: '#fca5a5', cursor: 'pointer',
+                                                            }}
+                                                        >Delete</button>
+                                                    </div>
                                                 </div>
+                                            ))}
                                             </div>
-                                        ))}
                                         </div>
-                                    </div>
-                                )}
-                                <MemberCoursesSection userId={user!.id} onCoursesChange={fetchTeacherCoursesCount} />
+                                    )}
+                                    <MemberCoursesSection userId={user!.id} onCoursesChange={fetchTeacherCoursesCount} />
+                                </div>
                             </div>
                         </div>
                     )}
