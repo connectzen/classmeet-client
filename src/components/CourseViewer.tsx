@@ -88,7 +88,7 @@ export default function CourseViewer({ course, onClose }: Props) {
                 onClick={e => e.stopPropagation()}
             >
                 <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-                    <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>{course.title}</h2>
+                    <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text)' }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(course.title) }} />
                     <button
                         type="button"
                         onClick={onClose}

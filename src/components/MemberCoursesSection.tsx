@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import CourseEditor from './CourseEditor';
 import CourseViewer from './CourseViewer';
 import ConfirmModal from './ConfirmModal';
+import { RichContent } from './RichEditor';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -83,10 +84,10 @@ export default function MemberCoursesSection({ userId, onCoursesChange }: { user
                         >
                             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--text)' }}>{c.title}</div>
+                                    <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--text)' }}><RichContent html={c.title} /></div>
                                     {c.description && (
                                         <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                            {c.description}
+                                            <RichContent html={c.description} />
                                         </div>
                                     )}
                                 </div>

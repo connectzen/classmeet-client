@@ -77,6 +77,10 @@ export function isRichEmpty(html: string) {
     return stripped.length === 0;
 }
 
+export function stripHtml(html: string): string {
+    return html.replace(/<[^>]*>/g, '').trim();
+}
+
 // ── Toolbar button ────────────────────────────────────────────────────────────
 function TBtn({ label, active, onClick, title, extraStyle }: {
     label: string; active?: boolean; onClick: () => void; title?: string; extraStyle?: React.CSSProperties;
@@ -394,7 +398,7 @@ export default function RichEditor({
                 <div ref={colorPickerRef} style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
                     <button
                         title="Text color"
-                        onClick={() => setShowColorPicker(v => !v)}
+                        onMouseDown={e => { e.preventDefault(); setShowColorPicker(v => !v); }}
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 7px', borderRadius: 5, background: showColorPicker ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.07)', cursor: 'pointer', border: 'none', userSelect: 'none' }}
                     >
                         <span style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8', borderBottom: `3px solid ${currentColor}`, paddingBottom: 1, lineHeight: 1 }}>A</span>
@@ -407,7 +411,7 @@ export default function RichEditor({
                                     <button
                                         key={color}
                                         title={color}
-                                        onClick={() => { editor?.chain().focus().setColor(color).run(); setShowColorPicker(false); }}
+                                        onMouseDown={e => { e.preventDefault(); editor?.chain().focus().setColor(color).run(); setShowColorPicker(false); }}
                                         style={{ width: 22, height: 22, borderRadius: 5, background: color, border: currentColor === color ? '2px solid #fff' : '2px solid rgba(255,255,255,0.15)', cursor: 'pointer', padding: 0, transition: 'transform 0.1s', flexShrink: 0 }}
                                         onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.2)')}
                                         onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}

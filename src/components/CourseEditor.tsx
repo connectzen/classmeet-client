@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import RichEditor from './RichEditor';
+import RichEditor, { isRichEmpty } from './RichEditor';
 import {
     DndContext,
     closestCenter,
@@ -251,7 +251,7 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
     );
 
     async function handleCreateCourse() {
-        if (!title.trim() || saving) return;
+        if (isRichEmpty(title) || saving) return;
         setSaving(true);
         try {
             const r = await fetch(`${SERVER}/api/courses`, {
@@ -270,7 +270,7 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
     }
 
     async function handleUpdateCourse() {
-        if (!courseId || !title.trim() || saving) return;
+        if (!courseId || isRichEmpty(title) || saving) return;
         setSaving(true);
         try {
             const r = await fetch(`${SERVER}/api/courses/${courseId}`, {
@@ -392,16 +392,11 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div>
                                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>Course title</label>
-                                <input
-                                    type="text"
+                                <RichEditor
                                     value={title}
-                                    onChange={e => setTitle(e.target.value)}
+                                    onChange={setTitle}
                                     placeholder="e.g. Introduction to Algebra"
-                                    style={{
-                                        width: '100%', padding: '10px 14px', borderRadius: 10,
-                                        border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(0,0,0,0.2)',
-                                        color: 'var(--text)', fontSize: 14, boxSizing: 'border-box',
-                                    }}
+                                    minHeight={44}
                                 />
                             </div>
                             <div>
@@ -411,12 +406,11 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
                                     onChange={setDescription}
                                     placeholder="Brief overview of the course…"
                                     minHeight={90}
-                                    compact
                                 />
                             </div>
                             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                                 <button type="button" onClick={onClose} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: 'var(--text-muted)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
-                                <button type="button" onClick={handleCreateCourse} disabled={saving || !title.trim()} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: title.trim() && !saving ? '#6366f1' : 'rgba(99,102,241,0.4)', color: '#fff', fontSize: 14, fontWeight: 600, cursor: title.trim() && !saving ? 'pointer' : 'not-allowed' }}>{saving ? 'Creating…' : 'Create & Add Lessons'}</button>
+                                <button type="button" onClick={handleCreateCourse} disabled={saving || isRichEmpty(title)} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: !isRichEmpty(title) && !saving ? '#6366f1' : 'rgba(99,102,241,0.4)', color: '#fff', fontSize: 14, fontWeight: 600, cursor: !isRichEmpty(title) && !saving ? 'pointer' : 'not-allowed' }}>{saving ? 'Creating…' : 'Create & Add Lessons'}</button>
                             </div>
                         </div>
                     )}
@@ -425,18 +419,16 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                             {/* Course title / description quick edit */}
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', paddingBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                                <input
-                                    type="text"
-                                    value={title}
-                                    onChange={e => setTitle(e.target.value)}
-                                    onBlur={() => { if (isEdit) handleUpdateCourse(); }}
-                                    placeholder="Course title"
-                                    style={{
-                                        flex: 1, minWidth: 160, padding: '8px 12px', borderRadius: 8,
-                                        border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(0,0,0,0.2)',
-                                        color: 'var(--text)', fontSize: 14,
-                                    }}
-                                />
+                                <div style={{ flex: 1, minWidth: 160 }}>
+                                    <RichEditor
+                                        value={title}
+                                        onChange={setTitle}
+                                        onBlur={() => { if (isEdit) handleUpdateCourse(); }}
+                                        placeholder="Course title"
+                                        minHeight={44}
+                                        compact
+                                    />
+                                </div>
                                 <div style={{ flex: 1, minWidth: 160 }}>
                                     <RichEditor
                                         value={description}

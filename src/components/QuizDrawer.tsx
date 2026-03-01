@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { toPng } from 'html-to-image';
 import ConfirmModal from './ConfirmModal';
 import AlertModal from './AlertModal';
-import RichEditor, { RichContent, isRichEmpty } from './RichEditor';
+import RichEditor, { RichContent, isRichEmpty, stripHtml } from './RichEditor';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -600,7 +600,7 @@ function CreateQuizForm({ userId, rooms, courses, onCreated, onCancel }: {
                     <label className="quiz-label" style={{ marginTop: 18 }}>Course (optional)</label>
                     <select className="quiz-input" value={courseId} onChange={e => setCourseId(e.target.value)}>
                         <option value="">— No course —</option>
-                        {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                        {courses.map(c => <option key={c.id} value={c.id}>{stripHtml(c.title)}</option>)}
                     </select>
                 </>
             )}
@@ -765,7 +765,7 @@ function EditQuizForm({ quiz, userId, rooms, courses, onSaved, onCancel }: {
                     <label className="quiz-label" style={{ marginTop: 18 }}>Course (optional)</label>
                     <select className="quiz-input" value={courseId} onChange={e => setCourseId(e.target.value)}>
                         <option value="">— No course —</option>
-                        {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                        {courses.map(c => <option key={c.id} value={c.id}>{stripHtml(c.title)}</option>)}
                     </select>
                 </>
             )}
