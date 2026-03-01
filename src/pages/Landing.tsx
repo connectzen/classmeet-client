@@ -1126,7 +1126,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                         >
                                             <div className="teacher-sidebar-section-header" style={{ margin: 0, flex: 1, alignItems: 'center' }}>
                                                 <span style={{ whiteSpace: 'nowrap' }}>Student Groups</span>
-                                                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, height: 18, borderRadius: 100, padding: '0 6px', fontSize: 11, fontWeight: 700, background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.35)', color: '#4ade80' }}>{teacherGroups.length}</span>
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, height: 18, borderRadius: 100, padding: '0 6px', fontSize: 11, fontWeight: 700, background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.35)', color: '#93c5fd' }}>{teacherGroups.length}</span>
                                             </div>
                                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginLeft: 6, transition: 'transform 0.2s', transform: groupsCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}><polyline points="6 9 12 15 18 9"/></svg>
                                         </button>
