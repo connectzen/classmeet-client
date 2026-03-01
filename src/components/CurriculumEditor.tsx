@@ -369,7 +369,7 @@ function SortableTopicCard({
                 {/* Topic header — click anywhere to expand/collapse */}
                 <div
                     onClick={!editingTitle ? onToggleExpand : undefined}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 14px', background: 'rgba(99,102,241,0.07)', borderBottom: expanded ? '1px solid rgba(255,255,255,0.05)' : 'none', cursor: editingTitle ? 'default' : 'pointer', userSelect: 'none' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 14px', background: 'rgba(99,102,241,0.07)', borderBottom: '1px solid rgba(255,255,255,0.05)', cursor: editingTitle ? 'default' : 'pointer', userSelect: 'none' }}
                 >
                     <div {...attributes} {...listeners} onClick={e => e.stopPropagation()} style={{ cursor: 'grab', color: '#475569', fontSize: 16, touchAction: 'none', padding: '2px 3px', flexShrink: 0 }} title="Drag topic">⠿</div>
                     {editingTitle ? (
@@ -398,9 +398,14 @@ function SortableTopicCard({
                     <span style={{ color: '#64748b', fontSize: 13, padding: '3px 5px', flexShrink: 0, transition: 'transform 0.2s', transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)', display: 'inline-block' }}>▼</span>
                 </div>
 
-                {/* Topic content */}
-                {expanded && (
-                    <div style={{ padding: 14 }}>
+                {/* Topic content — smooth grid slide animation */}
+                <div style={{
+                    display: 'grid',
+                    gridTemplateRows: expanded ? '1fr' : '0fr',
+                    transition: 'grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                }}>
+                    <div style={{ overflow: 'hidden' }}>
+                        <div style={{ padding: 14, opacity: expanded ? 1 : 0, transition: 'opacity 0.22s ease' }}>
                         {/* Sortable lessons */}
                         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleLessonDragEnd}>
                             <SortableContext items={topic.lessons.map(l => l.id)} strategy={verticalListSortingStrategy}>
@@ -487,8 +492,9 @@ function SortableTopicCard({
                                 </div>
                             </div>
                         )}
+                        </div>
                     </div>
-                )}
+                </div>
             </div>
 
             {/* Quiz picker modal */}
