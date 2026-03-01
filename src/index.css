@@ -258,6 +258,10 @@ button:active:not(:disabled),
 }
 
 /* Teacher fixed dashboard — no page scroll, fill viewport */
+.teacher-fixed-root {
+  height: 100vh;
+  max-height: 100vh;
+}
 .landing-scroll-body.teacher-fixed-view {
   overflow: hidden;
   padding-top: 72px;
@@ -265,6 +269,7 @@ button:active:not(:disabled),
   gap: 0;
 }
 .teacher-fixed-view .landing-hero { display: none; }
+.teacher-fixed-view .landing-footer { display: none; }
 
 .teacher-fixed-view .teacher-dashboard-layout {
   flex: 1;

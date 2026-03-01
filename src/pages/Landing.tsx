@@ -684,7 +684,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     };
 
     return (
-        <div className="landing-container">
+        <div className={`landing-container${userRole === 'teacher' ? ' teacher-fixed-root' : ''}`}>
             <div className="landing-bg-orb orb-1" />
             <div className="landing-bg-orb orb-2" />
             <div className="landing-bg-orb orb-3" />
