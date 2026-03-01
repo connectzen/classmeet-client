@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import RichEditor, { isRichEmpty } from './RichEditor';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -24,6 +25,7 @@ export default function RescheduleSessionModal({ roomCode, userId, onSaved, onCa
     const [description, setDescription] = useState('');
     const [dateTime, setDateTime] = useState('');
     const [updating, setUpdating] = useState(false);
+    const dateTimeRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const code = roomCode.toUpperCase();
@@ -51,7 +53,7 @@ export default function RescheduleSessionModal({ roomCode, userId, onSaved, onCa
     }, [roomCode]);
 
     const handleSave = async () => {
-        if (!session || !title.trim() || !dateTime || !userId) return;
+        if (!session || isRichEmpty(title) || !dateTime || !userId) return;
         setUpdating(true);
         setError('');
         try {
@@ -60,8 +62,8 @@ export default function RescheduleSessionModal({ roomCode, userId, onSaved, onCa
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     teacherId: userId,
-                    title: title.trim(),
-                    description: description.trim(),
+                    title: title,
+                    description: description,
                     scheduledAt: new Date(dateTime).toISOString(),
                 }),
             });
@@ -135,22 +137,23 @@ export default function RescheduleSessionModal({ roomCode, userId, onSaved, onCa
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <div>
                         <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6 }}>Class Title *</label>
-                        <input
-                            className="form-input"
-                            type="text"
+                        <RichEditor
                             value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            style={{ width: '100%', boxSizing: 'border-box' }}
+                            onChange={setTitle}
+                            placeholder="e.g. Math 101 — Chapter 5"
+                            minHeight={44}
                         />
                     </div>
                     <div>
                         <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6 }}>Date & Time *</label>
                         <input
+                            ref={dateTimeRef}
                             className="form-input"
                             type="datetime-local"
                             value={dateTime}
                             onChange={(e) => setDateTime(e.target.value)}
-                            style={{ width: '100%', boxSizing: 'border-box', colorScheme: 'dark' }}
+                            onClick={() => dateTimeRef.current?.showPicker?.()}
+                            style={{ width: '100%', boxSizing: 'border-box', colorScheme: 'dark', cursor: 'pointer' }}
                         />
                     </div>
                 </div>
@@ -158,7 +161,7 @@ export default function RescheduleSessionModal({ roomCode, userId, onSaved, onCa
                     <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel} disabled={updating}>
                         Cancel
                     </button>
-                    <button type="button" className="btn btn-primary" onClick={handleSave} disabled={updating || !title.trim() || !dateTime}>
+                    <button type="button" className="btn btn-primary" onClick={handleSave} disabled={updating || isRichEmpty(title) || !dateTime}>
                         {updating ? 'Rescheduling…' : 'Reschedule'}
                     </button>
                 </div>
