@@ -251,9 +251,14 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                             {meeting.title}
                         </h3>
                         {descBullets.length > 0 ? (
-                            <ul style={{ margin: 0, paddingLeft: 16, color: '#94a3b8', fontSize: 12, lineHeight: 1.8 }}>
-                                {descBullets.map((line, i) => <li key={i}>{line}</li>)}
-                            </ul>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                {descBullets.map((line, i) => (
+                                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 7 }}>
+                                        <span style={{ color: accentColor, flexShrink: 0, fontSize: 13, lineHeight: 1.7, fontWeight: 700 }}>›</span>
+                                        <span style={{ color: '#94a3b8', fontSize: 12, lineHeight: 1.7 }}>{line}</span>
+                                    </div>
+                                ))}
+                            </div>
                         ) : (
                             <p style={{ margin: 0, fontSize: 12, color: '#475569', fontStyle: 'italic' }}>No description added.</p>
                         )}
