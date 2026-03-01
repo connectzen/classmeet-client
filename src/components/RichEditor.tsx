@@ -357,13 +357,13 @@ export default function RichEditor({
                 .rich-editor-content ul li::marker { color: #a5b4fc; font-size: 1.1em; }
                 .rich-editor-content ol li::marker { color: #a5b4fc; font-weight: 700; }
                 .rich-editor-content blockquote { border-left: 3px solid #6366f1; padding-left: 12px; color: #94a3b8; margin: 0 0 6px; font-style: italic; }
-                .rich-editor-content strong { color: #f1f5f9; }
-                .rich-editor-content em { color: #cbd5e1; }
+                .rich-editor-content strong { color: inherit; }
+                .rich-editor-content em { color: inherit; }
                 .rich-editor-content u { text-decoration: underline; }
                 .rich-editor-content a { color: #818cf8; text-decoration: underline; }
-                .rich-editor-content h1 { font-size: 1.6em; font-weight: 800; margin: 0 0 10px; color: #f1f5f9; line-height: 1.3; }
-                .rich-editor-content h2 { font-size: 1.3em; font-weight: 700; margin: 0 0 8px; color: #f1f5f9; line-height: 1.3; }
-                .rich-editor-content h3 { font-size: 1.1em; font-weight: 600; margin: 0 0 6px; color: #e2e8f0; line-height: 1.3; }
+                .rich-editor-content h1 { font-size: 1.6em; font-weight: 800; margin: 0 0 10px; color: inherit; line-height: 1.3; }
+                .rich-editor-content h2 { font-size: 1.3em; font-weight: 700; margin: 0 0 8px; color: inherit; line-height: 1.3; }
+                .rich-editor-content h3 { font-size: 1.1em; font-weight: 600; margin: 0 0 6px; color: inherit; line-height: 1.3; }
                 .rich-editor-content img { max-width: 100%; border-radius: 6px; margin: 4px 0; }
                 .rich-editor-content code { background: rgba(99,102,241,0.15); padding: 1px 6px; border-radius: 4px; font-size: 0.88em; }
                 .rich-editor-content pre { background: rgba(0,0,0,0.35); padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
@@ -452,7 +452,7 @@ export function RichContent({ html, className, style }: { html: string; classNam
         <div
             className={`rich-render${className ? ' ' + className : ''}`}
             style={style}
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html, { USE_PROFILES: { html: true } }) }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html, { USE_PROFILES: { html: true }, ADD_ATTR: ['style'] }) }}
         />
     );
 }
