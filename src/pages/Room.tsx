@@ -73,6 +73,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [dismissedRevealed, setDismissedRevealed] = useState(false);
     // Draw/annotation overlay state
     const [externalDrawSeg, setExternalDrawSeg] = useState<DrawSeg | null>(null);
+    const [externalDrawPreview, setExternalDrawPreview] = useState<DrawSeg | null>(null);
+    const [externalCursor, setExternalCursor] = useState<{ x: number; y: number } | null>(null);
     const [drawClearSignal, setDrawClearSignal] = useState(0);
     const [snapshotRequest, setSnapshotRequest] = useState(0);
     const [externalDrawSnapshot, setExternalDrawSnapshot] = useState<string | null>(null);
@@ -285,7 +287,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         sendSignal, sendMessage, endRoom, muteParticipant, camParticipant, broadcastSelfCam, changeSpotlight,
         startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
         emitCourseToggle, emitCourseNavigate, emitCourseScroll, emitCourseSidebar,
-        emitDrawSegment, emitDrawClear, emitDrawSnapshot,
+        emitDrawSegment, emitDrawPreview, emitDrawCursor, emitDrawClear, emitDrawSnapshot,
     } = useSocket({
             roomCode, roomId, roomName, name, role, isGuestRoomHost,
             onParticipantJoined: handleParticipantJoined,
@@ -319,6 +321,12 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
             },
             onDrawSegment: (seg) => {
                 if (role !== 'teacher') setExternalDrawSeg(seg);
+            },
+            onDrawPreview: (seg) => {
+                if (role !== 'teacher') setExternalDrawPreview(seg);
+            },
+            onDrawCursor: (x, y) => {
+                if (role !== 'teacher') setExternalCursor({ x, y });
             },
             onDrawClear: () => {
                 if (role !== 'teacher') setDrawClearSignal(prev => prev + 1);
@@ -424,6 +432,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
             setExternalCourseScroll(null);
             // Clear draw state
             setExternalDrawSeg(null);
+            setExternalDrawPreview(null);
+            setExternalCursor(null);
             setDrawClearSignal(0);
             setSnapshotRequest(0);
             setExternalDrawSnapshot(null);
@@ -868,6 +878,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                     emitCourseSidebar(next);
                                 }}
                                 onDrawSegment={emitDrawSegment}
+                                onDrawPreview={emitDrawPreview}
+                                onDrawCursor={emitDrawCursor}
                                 onDrawClear={() => { emitDrawClear(); setDrawClearSignal(prev => prev + 1); }}
                                 snapshotRequest={snapshotRequest}
                                 onSnapshot={emitDrawSnapshot}
@@ -884,6 +896,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 externalScroll={externalCourseScroll}
                                 sidebarOpen={courseSidebarOpen}
                                 externalDrawSeg={externalDrawSeg}
+                                externalDrawPreview={externalDrawPreview}
+                                externalCursor={externalCursor}
                                 drawClearSignal={drawClearSignal}
                                 snapshotDataUrl={externalDrawSnapshot}
                             />

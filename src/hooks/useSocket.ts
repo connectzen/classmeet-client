@@ -42,6 +42,8 @@ interface UseSocketOptions {
     onCourseScroll?: (ratio: number) => void;
     onCourseSidebar?: (open: boolean) => void;
     onDrawSegment?: (seg: DrawSeg) => void;
+    onDrawPreview?: (seg: DrawSeg) => void;
+    onDrawCursor?: (x: number, y: number) => void;
     onDrawClear?: () => void;
     onDrawSnapshot?: (dataUrl: string) => void;
 }
@@ -53,7 +55,7 @@ export function useSocket(options: UseSocketOptions) {
         onSignal, onChatMessage, onRoomEnded,
         onForceMute, onForceCam, onParticipantMuteChanged, onParticipantCamChanged, onTeacherDisconnected,
         onSpotlightChanged, onTeacherJoined, onAdminRefresh, onCourseToggle, onCourseNavigate, onCourseScroll, onCourseSidebar,
-        onDrawSegment, onDrawClear, onDrawSnapshot,
+        onDrawSegment, onDrawPreview, onDrawCursor, onDrawClear, onDrawSnapshot,
     } = options;
 
     // Keep refs so the single registered socket listeners always call the latest callbacks
@@ -75,6 +77,8 @@ export function useSocket(options: UseSocketOptions) {
     const onCourseScrollRef = useRef(onCourseScroll);
     const onCourseSidebarRef = useRef(onCourseSidebar);
     const onDrawSegmentRef = useRef(onDrawSegment);
+    const onDrawPreviewRef = useRef(onDrawPreview);
+    const onDrawCursorRef  = useRef(onDrawCursor);
     const onDrawClearRef = useRef(onDrawClear);
     const onDrawSnapshotRef = useRef(onDrawSnapshot);
 
@@ -96,6 +100,8 @@ export function useSocket(options: UseSocketOptions) {
     onCourseScrollRef.current = onCourseScroll;
     onCourseSidebarRef.current = onCourseSidebar;
     onDrawSegmentRef.current = onDrawSegment;
+    onDrawPreviewRef.current = onDrawPreview;
+    onDrawCursorRef.current  = onDrawCursor;
     onDrawClearRef.current = onDrawClear;
     onDrawSnapshotRef.current = onDrawSnapshot;
 
@@ -190,6 +196,12 @@ export function useSocket(options: UseSocketOptions) {
         socket.on('course:draw-segment', (seg: DrawSeg) => {
             onDrawSegmentRef.current?.(seg);
         });
+        socket.on('course:draw-preview', (seg: DrawSeg) => {
+            onDrawPreviewRef.current?.(seg);
+        });
+        socket.on('course:draw-cursor', ({ x, y }: { x: number; y: number }) => {
+            onDrawCursorRef.current?.(x, y);
+        });
         socket.on('course:draw-clear', () => {
             onDrawClearRef.current?.();
         });
@@ -268,6 +280,14 @@ export function useSocket(options: UseSocketOptions) {
         socketRef.current?.emit('course-draw-segment', { roomCode, ...seg });
     }, [roomCode]);
 
+    const emitDrawPreview = useCallback((seg: DrawSeg) => {
+        socketRef.current?.emit('course-draw-preview', { roomCode, ...seg });
+    }, [roomCode]);
+
+    const emitDrawCursor = useCallback((x: number, y: number) => {
+        socketRef.current?.emit('course-draw-cursor', { roomCode, x, y });
+    }, [roomCode]);
+
     const emitDrawClear = useCallback(() => {
         socketRef.current?.emit('course-draw-clear', { roomCode });
     }, [roomCode]);
@@ -282,6 +302,6 @@ export function useSocket(options: UseSocketOptions) {
         sendSignal, sendMessage, endRoom, muteParticipant, camParticipant, broadcastSelfCam, changeSpotlight,
         startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
         emitCourseToggle, emitCourseNavigate, emitCourseScroll, emitCourseSidebar,
-        emitDrawSegment, emitDrawClear, emitDrawSnapshot,
+        emitDrawSegment, emitDrawPreview, emitDrawCursor, emitDrawClear, emitDrawSnapshot,
     };
 }

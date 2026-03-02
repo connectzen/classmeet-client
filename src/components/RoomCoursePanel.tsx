@@ -36,8 +36,12 @@ interface Props {
     sidebarOpen: boolean;
     onSidebarToggle?: () => void;
     onDrawSegment?: (seg: DrawSeg) => void;
+    onDrawPreview?: (seg: DrawSeg) => void;   // live shape/text preview
+    onDrawCursor?: (x: number, y: number) => void; // live cursor pos
     onDrawClear?: () => void;
     externalDrawSeg?: DrawSeg | null;
+    externalDrawPreview?: DrawSeg | null;     // student receives live preview
+    externalCursor?: { x: number; y: number } | null; // student sees teacher cursor
     drawClearSignal?: number;
     onSnapshot?: (dataUrl: string) => void;
     snapshotRequest?: number;
@@ -108,8 +112,8 @@ export default function RoomCoursePanel({
     activeLessonIdx, activeCourseIdx, onNav, onCoursesLoaded,
     onScrollSync, externalScroll,
     sidebarOpen, onSidebarToggle,
-    onDrawSegment, onDrawClear,
-    externalDrawSeg, drawClearSignal,
+    onDrawSegment, onDrawPreview, onDrawCursor, onDrawClear,
+    externalDrawSeg, externalDrawPreview, externalCursor, drawClearSignal,
     onSnapshot, snapshotRequest,
     snapshotDataUrl,
 }: Props) {
@@ -121,6 +125,8 @@ export default function RoomCoursePanel({
     const [drawSizeKey, setDrawSizeKey] = useState<'S' | 'M' | 'L'>('M');
     const [textInput, setTextInput] = useState<{ vx: number; vy: number; cx: number; cy: number } | null>(null);
     const [toolbarPos, setToolbarPos] = useState<{ x: number; y: number } | null>(null);
+    // Teacher cursor rendered on the student's canvas
+    const [teacherCursor, setTeacherCursor] = useState<{ x: number; y: number } | null>(null);
 
     // ── Refs ─────────────────────────────────────────────────────────────────
     const contentRef      = useRef<HTMLDivElement>(null);    // scrollable area
@@ -140,12 +146,17 @@ export default function RoomCoursePanel({
     const toolbarRef  = useRef<HTMLDivElement>(null);
     const isDraggingBar = useRef(false);
     const barDragOffset = useRef({ x: 0, y: 0 });
+    const cursorThrottle = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Always-fresh refs so document-level handlers never have stale closures
     const drawState   = useRef({ drawTool, drawColor, drawSizeKey });
     drawState.current = { drawTool, drawColor, drawSizeKey };
-    const onDrawSegCb = useRef(onDrawSegment);
-    onDrawSegCb.current = onDrawSegment;
+    const onDrawSegCb    = useRef(onDrawSegment);
+    onDrawSegCb.current  = onDrawSegment;
+    const onDrawPrevCb   = useRef(onDrawPreview);
+    onDrawPrevCb.current = onDrawPreview;
+    const onDrawCursorCb  = useRef(onDrawCursor);
+    onDrawCursorCb.current = onDrawCursor;
 
     const isTeacher  = role === 'teacher';
     const drawActive = isTeacher && drawTool !== null;
@@ -210,6 +221,7 @@ export default function RoomCoursePanel({
         if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
         const p = previewRef.current;
         if (p) p.getContext('2d')?.clearRect(0, 0, p.width, p.height);
+        setTeacherCursor(null);
     }, [activeLessonIdx, activeCourseIdx]);
 
     // ── Canvas sizing ─────────────────────────────────────────────────────────
@@ -264,6 +276,8 @@ export default function RoomCoursePanel({
     // canvas. drawState ref ensures no stale closures.
     // Wheel events are forwarded to the scrollable div so the user can still
     // scroll even when a draw tool is active.
+    // LIVE STREAMING: every shape drag step emits a preview segment to students
+    // via onDrawPreview, and the cursor position is emitted on every mousemove.
     useEffect(() => {
         if (!isTeacher) return;
         const canvas  = canvasRef.current;
@@ -291,6 +305,19 @@ export default function RoomCoursePanel({
         };
 
         const onMove = (e: MouseEvent) => {
+            // Always emit cursor position (throttled to ~30 fps)
+            if (canvas.contains(e.target as Node) || isDrawing.current) {
+                const r = canvas.getBoundingClientRect();
+                const cx = (e.clientX - r.left) / canvas.width;
+                const cy = (e.clientY - r.top)  / canvas.height;
+                if (!cursorThrottle.current) {
+                    cursorThrottle.current = setTimeout(() => {
+                        cursorThrottle.current = null;
+                        onDrawCursorCb.current?.(cx, cy);
+                    }, 33);
+                }
+            }
+
             if (!isDrawing.current) return;
             const { drawTool, drawColor, drawSizeKey } = drawState.current;
             if (!drawTool || drawTool === 'text') return;
@@ -303,6 +330,8 @@ export default function RoomCoursePanel({
                         ctx.clearRect(0, 0, prev.width, prev.height);
                         drawOnCanvas(ctx, { x1: s.x, y1: s.y, x2: p.x, y2: p.y, color: drawColor, size: TOOL_SIZES[drawSizeKey], mode: drawTool as DrawSeg['mode'] }, prev.width, prev.height);
                     }
+                    // Stream the shape preview to students in real time
+                    onDrawPrevCb.current?.({ x1: s.x, y1: s.y, x2: p.x, y2: p.y, color: drawColor, size: TOOL_SIZES[drawSizeKey], mode: drawTool as DrawSeg['mode'] });
                 }
             } else {
                 const prev = lastPt.current;
@@ -329,6 +358,8 @@ export default function RoomCoursePanel({
                 const ctx = canvas.getContext('2d');
                 if (ctx) drawOnCanvas(ctx, seg, canvas.width, canvas.height);
                 onDrawSegCb.current?.(seg);
+                // Clear students' preview canvas now that the final segment is committed
+                onDrawPrevCb.current?.({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
                 shapeStart.current = null;
             }
             lastPt.current = null;
@@ -358,6 +389,25 @@ export default function RoomCoursePanel({
         const c = canvasRef.current;
         if (c) { const ctx = c.getContext('2d'); if (ctx) drawOnCanvas(ctx, externalDrawSeg, c.width, c.height); }
     }, [externalDrawSeg]);
+
+    // ── Receive live preview from teacher (student) ───────────────────────────
+    useEffect(() => {
+        if (!externalDrawPreview) return;
+        const p = previewRef.current;
+        if (!p) return;
+        const ctx = p.getContext('2d');
+        if (!ctx) return;
+        ctx.clearRect(0, 0, p.width, p.height);
+        // Special sentinel: teacher committed shape, clear preview
+        if ((externalDrawPreview as DrawSeg & { text?: string }).text === '__clear_preview__') return;
+        drawOnCanvas(ctx, externalDrawPreview, p.width, p.height);
+    }, [externalDrawPreview]);
+
+    // ── Receive teacher cursor position (student) ─────────────────────────────
+    useEffect(() => {
+        if (!externalCursor) { setTeacherCursor(null); return; }
+        setTeacherCursor(externalCursor);
+    }, [externalCursor]);
 
     // ── Clear signal ──────────────────────────────────────────────────────────
     useEffect(() => {
@@ -521,6 +571,22 @@ export default function RoomCoursePanel({
                             style={{ position: 'absolute', top: 0, left: 0, pointerEvents: drawActive ? 'auto' : 'none', cursor: drawActive ? cursor : 'default', zIndex: 5 }} />
                         <canvas ref={previewRef}
                             style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 6 }} />
+
+                        {/* Teacher cursor dot — visible to students in real time */}
+                        {!isTeacher && teacherCursor && (
+                            <div style={{
+                                position: 'absolute',
+                                left: teacherCursor.x * CANVAS_W - 8,
+                                top: teacherCursor.y * (canvasRef.current?.height ?? 0) - 8,
+                                width: 16, height: 16, borderRadius: '50%',
+                                background: 'rgba(99,102,241,0.9)',
+                                border: '2px solid #fff',
+                                boxShadow: '0 0 8px rgba(99,102,241,0.8)',
+                                pointerEvents: 'none',
+                                zIndex: 10,
+                                transition: 'left 0.05s linear, top 0.05s linear',
+                            }} />
+                        )}
                     </div>
 
                     {/* Prev / Next arrows */}
@@ -578,6 +644,12 @@ export default function RoomCoursePanel({
                     </div>
                     <textarea autoFocus rows={3} placeholder="Type your annotation…"
                     style={{ display: 'block', width: '100%', background: 'transparent', color: drawColor, border: 'none', padding: '10px 12px', fontSize: Math.round(14 * TOOL_SIZES[drawSizeKey]), fontFamily: 'sans-serif', fontWeight: 700, outline: 'none', resize: 'none', boxSizing: 'border-box', lineHeight: 1.5, caretColor: drawColor }}
+                    onChange={e => {
+                        // Stream typed text to students in real time
+                        const { drawSizeKey: sk, drawColor: dc } = drawState.current;
+                        const seg: DrawSeg = { x1: textInput.cx, y1: textInput.cy, x2: textInput.cx, y2: textInput.cy, color: dc, size: TOOL_SIZES[sk], mode: 'text', text: e.target.value || ' ' };
+                        onDrawPrevCb.current?.(seg);
+                    }}
                     onKeyDown={e => {
                         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitText(e.currentTarget.value, textInput.cx, textInput.cy); }
                         if (e.key === 'Escape') setTextInput(null);
