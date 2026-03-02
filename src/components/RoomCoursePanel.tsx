@@ -422,19 +422,17 @@ export default function RoomCoursePanel({
 
             {/* ── Header: sidebar toggle + course tabs + lesson badge ── */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0, flexWrap: 'wrap' }}>
-                {isTeacher && (
-                    <button
-                        onClick={onSidebarToggle}
-                        title={sidebarOpen ? 'Hide lessons' : 'Show lessons'}
-                        style={{
-                            width: 28, height: 28, borderRadius: 7, flexShrink: 0, border: '1px solid var(--border)',
-                            background: sidebarOpen ? 'rgba(99,102,241,0.2)' : 'var(--surface-3)',
-                            color: sidebarOpen ? '#a5b4fc' : 'var(--text-muted)',
-                            cursor: 'pointer', fontSize: 14, fontWeight: 700,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}
-                    >{sidebarOpen ? '‹' : '☰'}</button>
-                )}
+                <button
+                    onClick={onSidebarToggle}
+                    title={sidebarOpen ? 'Hide lessons' : 'Show lessons'}
+                    style={{
+                        width: 28, height: 28, borderRadius: 7, flexShrink: 0, border: '1px solid var(--border)',
+                        background: sidebarOpen ? 'rgba(99,102,241,0.2)' : 'var(--surface-3)',
+                        color: sidebarOpen ? '#a5b4fc' : 'var(--text-muted)',
+                        cursor: 'pointer', fontSize: 14, fontWeight: 700,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                >{sidebarOpen ? '‹' : '☰'}</button>
                 {courses.length > 1 && courses.map((c, i) => (
                     <button key={c.id} onClick={() => isTeacher ? onNav(i, 0) : undefined} disabled={!isTeacher}
                         style={{
