@@ -7,6 +7,7 @@ import TiptapImage from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import { TextStyle } from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
+import TextAlign from '@tiptap/extension-text-align';
 import DOMPurify from 'dompurify';
 
 // ── Google Fonts (loaded once globally) ──────────────────────────────────────
@@ -74,7 +75,7 @@ const SIZES = ['11', '12', '14', '16', '18', '20', '24', '28', '32', '36', '42',
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
 // ── Resizable image node view ───────────────────────────────────────────────────────
-function ResizableImageView({ node, updateAttributes, selected }: NodeViewProps) {
+function ResizableImageView({ node, updateAttributes, selected, deleteNode }: NodeViewProps) {
     const imgRef = useRef<HTMLImageElement>(null);
     const isResizing = useRef(false);
     const startX = useRef(0);
@@ -104,8 +105,28 @@ function ResizableImageView({ node, updateAttributes, selected }: NodeViewProps)
         document.addEventListener('mouseup', onUp);
     };
 
+    const handleDelete = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const src = node.attrs.src as string;
+        if (src && src.includes('/api/storage/')) {
+            try {
+                await fetch(`${SERVER}/api/upload-file`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: src }),
+                });
+            } catch { /* ignore */ }
+        }
+        deleteNode();
+    };
+
     return (
-        <NodeViewWrapper style={{ display: 'inline-block', position: 'relative', lineHeight: 0 }}>
+        <NodeViewWrapper
+            draggable
+            data-drag-handle
+            style={{ display: 'inline-block', position: 'relative', lineHeight: 0, cursor: selected ? 'grab' : 'default' }}
+        >
             <img
                 ref={imgRef}
                 src={node.attrs.src}
@@ -122,6 +143,24 @@ function ResizableImageView({ node, updateAttributes, selected }: NodeViewProps)
                     userSelect: 'none',
                 }}
             />
+            {/* Delete button — top-right when selected */}
+            {selected && (
+                <button
+                    title="Delete image"
+                    onMouseDown={handleDelete}
+                    style={{
+                        position: 'absolute', top: 6, right: 20,
+                        background: '#ef4444', border: 'none',
+                        borderRadius: 5, color: '#fff',
+                        cursor: 'pointer', fontSize: 11,
+                        fontWeight: 700, padding: '2px 8px',
+                        zIndex: 20, lineHeight: 1.6,
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                    }}
+                >
+                    🗑 Delete
+                </button>
+            )}
             {/* Resize handle — bottom-right corner */}
             <div
                 title="Drag to resize"
@@ -144,6 +183,7 @@ function ResizableImageView({ node, updateAttributes, selected }: NodeViewProps)
 
 // Extend TiptapImage to accept a width attribute and use the resizable view
 const ResizableImage = TiptapImage.extend({
+    draggable: true,
     addAttributes() {
         return {
             ...this.parent?.(),
@@ -376,6 +416,7 @@ export default function RichEditor({
             Color,
             FontSizeExtension,
             FontFamilyExtension,
+            TextAlign.configure({ types: ['heading', 'paragraph', 'image'] }),
         ],
         content: value || '',
         autofocus: autoFocus,
@@ -460,7 +501,7 @@ export default function RichEditor({
 
             {/* Toolbar — hidden in chatMode; chat inputs are plain text only */}
             {!chatMode && (
-                <div style={{ display: 'flex', gap: 3, padding: '6px 8px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexWrap: 'wrap', alignItems: 'center', background: 'rgba(255,255,255,0.02)' }}>
+                <div style={{ display: 'flex', gap: 3, padding: '6px 8px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexWrap: 'nowrap', overflowX: 'auto', alignItems: 'center', background: 'rgba(255,255,255,0.02)' }}>
                     {/* Heading */}
                     <select value={headingLevel}
                         onChange={e => {
@@ -518,6 +559,10 @@ export default function RichEditor({
                             </div>
                         )}
                     </div>
+                    {divider}
+                    <TBtn label="←" title="Align left" active={editor?.isActive({ textAlign: 'left' })} onClick={() => editor?.chain().focus().setTextAlign('left').run()} />
+                    <TBtn label="≡" title="Align center" active={editor?.isActive({ textAlign: 'center' })} onClick={() => editor?.chain().focus().setTextAlign('center').run()} />
+                    <TBtn label="→" title="Align right" active={editor?.isActive({ textAlign: 'right' })} onClick={() => editor?.chain().focus().setTextAlign('right').run()} />
                     {divider}
                     <TBtn label="≡ Bullets" title="Bullet list" active={editor?.isActive('bulletList')} onClick={handleBulletList} />
                     <TBtn label="1. List" title="Ordered list" active={editor?.isActive('orderedList')} onClick={handleOrderedList} />
