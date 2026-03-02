@@ -46,8 +46,9 @@ interface UseSocketOptions {
     onDrawCursor?: (x: number, y: number) => void;
     onDrawClear?: () => void;
     onDrawSnapshot?: (dataUrl: string) => void;
-    // Quiz screen monitoring
-    onQuizScreenUpdate?: (data: { socketId: string; name: string; dataUrl: string }) => void;
+    // Quiz monitoring — teacher notified when students start/finish the quiz;
+    // actual live video comes from the already-established WebRTC stream
+    onQuizStudentStarted?: (data: { socketId: string; name: string }) => void;
     onQuizStudentInactive?: (socketId: string) => void;
 }
 
@@ -108,9 +109,9 @@ export function useSocket(options: UseSocketOptions) {
     onDrawClearRef.current = onDrawClear;
     onDrawSnapshotRef.current = onDrawSnapshot;
 
-    const onQuizScreenUpdateRef = useRef(options.onQuizScreenUpdate);
+    const onQuizStudentStartedRef = useRef(options.onQuizStudentStarted);
     const onQuizStudentInactiveRef = useRef(options.onQuizStudentInactive);
-    onQuizScreenUpdateRef.current = options.onQuizScreenUpdate;
+    onQuizStudentStartedRef.current = options.onQuizStudentStarted;
     onQuizStudentInactiveRef.current = options.onQuizStudentInactive;
 
     const socketRef = useRef<Socket | null>(null);
@@ -216,8 +217,8 @@ export function useSocket(options: UseSocketOptions) {
         socket.on('course:draw-snapshot', ({ dataUrl }: { dataUrl: string }) => {
             onDrawSnapshotRef.current?.(dataUrl);
         });
-        socket.on('quiz:screen-update', (data: { socketId: string; name: string; dataUrl: string }) => {
-            onQuizScreenUpdateRef.current?.(data);
+        socket.on('quiz:student-started', (data: { socketId: string; name: string }) => {
+            onQuizStudentStartedRef.current?.(data);
         });
         socket.on('quiz:student-inactive', ({ socketId: sid }: { socketId: string }) => {
             onQuizStudentInactiveRef.current?.(sid);
@@ -310,11 +311,12 @@ export function useSocket(options: UseSocketOptions) {
         socketRef.current?.emit('course-draw-snapshot', { roomCode, dataUrl });
     }, [roomCode]);
 
-    const emitQuizScreen = useCallback((dataUrl: string) => {
-        socketRef.current?.emit('quiz:screen-update', { roomCode, dataUrl });
+    // Student notifies teacher they started the quiz (teacher monitors via WebRTC video)
+    const emitQuizStarted = useCallback(() => {
+        socketRef.current?.emit('quiz:student-started', { roomCode });
     }, [roomCode]);
 
-    const emitQuizScreenStop = useCallback(() => {
+    const emitQuizStopped = useCallback(() => {
         socketRef.current?.emit('quiz:student-inactive', { roomCode });
     }, [roomCode]);
 
@@ -325,6 +327,6 @@ export function useSocket(options: UseSocketOptions) {
         startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
         emitCourseToggle, emitCourseNavigate, emitCourseScroll, emitCourseSidebar,
         emitDrawSegment, emitDrawPreview, emitDrawCursor, emitDrawClear, emitDrawSnapshot,
-        emitQuizScreen, emitQuizScreenStop,
+        emitQuizStarted, emitQuizStopped,
     };
 }
