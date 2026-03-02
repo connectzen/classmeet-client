@@ -183,6 +183,7 @@ export function useSocket(options: UseSocketOptions) {
         });
         socket.on('room:quiz-inactive', () => {
             setRoomQuiz(null);
+            setRoomQuizRevealed(null);
             // Keep submissions so teacher can grade after stopping the quiz
         });
         socket.on('room:quiz-submission', ({ submissions }: { submissions: { submissionId: string; studentId: string; studentName: string; score: number | null }[] }) => {

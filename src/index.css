@@ -1599,6 +1599,9 @@ button:active:not(:disabled),
   border-radius: 999px;
   margin-bottom: 10px;
   letter-spacing: 0.03em;
+  white-space: nowrap;
+  width: fit-content;
+  align-self: flex-start;
 }
 
 .badge-teacher {

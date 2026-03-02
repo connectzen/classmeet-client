@@ -446,6 +446,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     useEffect(() => {
         if (!roomQuiz) {
             setRoomQuizSubmitted(false);
+            setStudentQuizStarted(false);
+            setDismissedRevealed(true);
         } else {
             // New quiz arrived — student needs to click "Start Quiz" first
             setStudentQuizStarted(false);
