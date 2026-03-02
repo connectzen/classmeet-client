@@ -78,9 +78,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [drawClearSignal, setDrawClearSignal] = useState(0);
     const [snapshotRequest, setSnapshotRequest] = useState(0);
     const [externalDrawSnapshot, setExternalDrawSnapshot] = useState<string | null>(null);
-    // Quiz student monitoring (teacher side) — live quiz state sync
+    // Quiz student monitoring (teacher side) — keyed by socketId
     const [quizStudentProgress, setQuizStudentProgress] = useState<Map<string, { name: string; currentIdx: number; totalQ: number; answers: Record<string, { questionId: string; answerText?: string; selectedOptions?: string[] }> }>>(new Map());
-    const [quizActiveStudents, setQuizActiveStudents] = useState<Map<string, string>>(new Map()); // socketId → name
     const [quizFocusedStudent, setQuizFocusedStudent] = useState<string | null>(null);
     const [quizMonitorMode, setQuizMonitorMode] = useState(false);
     const socketIdRef = useRef<string>('');
@@ -218,7 +217,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         setParticipants((prev) => { const next = new Map(prev); next.delete(sid); return next; });
         removePeer(sid);
         setSpotlightId((prev) => prev === sid ? '__local__' : prev);
-        setQuizActiveStudents(prev => { const n = new Map(prev); n.delete(sid); return n; });
+        // Clean quiz progress so disconnected students don't ghost in the monitor
+        setQuizStudentProgress(prev => { const n = new Map(prev); n.delete(sid); return n; });
         setQuizFocusedStudent(prev => (prev === sid ? null : prev));
     }, []);
 
@@ -344,18 +344,18 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
             },
             onQuizStudentStarted: (data) => {
                 if (role === 'teacher') {
-                    setQuizActiveStudents(prev => new Map(prev).set(data.socketId, data.name));
-                    // seed progress entry so tile appears immediately
+                    // Seed entry immediately so tile appears before any progress update arrives
                     setQuizStudentProgress(prev => {
-                        if (prev.has(data.socketId)) return prev;
                         const n = new Map(prev);
-                        n.set(data.socketId, { name: data.name, currentIdx: 0, totalQ: 0, answers: {} });
+                        // Only seed — don't overwrite if progress already exists for this socket
+                        if (!n.has(data.socketId)) {
+                            n.set(data.socketId, { name: data.name, currentIdx: 0, totalQ: 0, answers: {} });
+                        }
                         return n;
                     });
                 }
             },
             onQuizStudentInactive: (socketId) => {
-                setQuizActiveStudents(prev => { const n = new Map(prev); n.delete(socketId); return n; });
                 setQuizStudentProgress(prev => { const n = new Map(prev); n.delete(socketId); return n; });
                 setQuizFocusedStudent(prev => (prev === socketId ? null : prev));
             },
@@ -364,7 +364,13 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                     setQuizStudentProgress(prev => {
                         const n = new Map(prev);
                         const existing = prev.get(data.socketId);
-                        n.set(data.socketId, { name: existing?.name || data.socketId, currentIdx: data.currentIdx, totalQ: data.totalQ, answers: data.answers });
+                        // Prefer existing name (from student-started); fall back to server-relayed name
+                        n.set(data.socketId, {
+                            name: existing?.name || (data as typeof data & { name?: string }).name || data.socketId,
+                            currentIdx: data.currentIdx,
+                            totalQ: data.totalQ,
+                            answers: data.answers,
+                        });
                         return n;
                     });
                 }
@@ -458,7 +464,6 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     // ── Quiz monitor: clear on quiz end ───────────────────────────────────
     useEffect(() => {
         if (!roomQuiz) {
-            setQuizActiveStudents(new Map());
             setQuizStudentProgress(new Map());
             setQuizFocusedStudent(null);
             setQuizMonitorMode(false);
@@ -1215,7 +1220,12 @@ type StudentProgressEntry = {
     answers: Record<string, { questionId: string; answerText?: string; selectedOptions?: string[] }>;
 };
 
-function quizAnswerPreview(entry: StudentProgressEntry, questions: { id: string; prompt?: string; type?: string }[]): string {
+// Strip HTML tags from rich question text for plain-text preview
+function stripHtmlTags(html: string): string {
+    return html.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
+}
+
+function quizAnswerPreview(entry: StudentProgressEntry, questions: MonitorQuestion[]): string {
     const q = questions[entry.currentIdx];
     if (!q) return '';
     const a = entry.answers[q.id];
@@ -1225,16 +1235,17 @@ function quizAnswerPreview(entry: StudentProgressEntry, questions: { id: string;
     return '';
 }
 
+type MonitorQuestion = { id: string; question_text?: string; type?: string; options?: string[] };
+
 function QuizProgressTile({ entry, questions, onClick }: {
     entry: StudentProgressEntry;
-    questions: { id: string; prompt?: string; type?: string }[];
+    questions: MonitorQuestion[];
     onClick: () => void;
 }) {
     const pct = entry.totalQ > 0 ? Math.round(((entry.currentIdx + 1) / entry.totalQ) * 100) : 0;
+    const answeredCount = Object.keys(entry.answers).length;
     const currentQ = questions[entry.currentIdx];
-    const promptText = (currentQ as { prompt?: string; content?: string } | undefined)?.prompt
-        || (currentQ as { content?: string } | undefined)?.content
-        || `Question ${entry.currentIdx + 1}`;
+    const promptText = currentQ?.question_text ? stripHtmlTags(currentQ.question_text) : `Question ${entry.currentIdx + 1}`;
     const answer = quizAnswerPreview(entry, questions);
 
     return (
@@ -1244,12 +1255,12 @@ function QuizProgressTile({ entry, questions, onClick }: {
             onMouseEnter={e => { e.currentTarget.style.borderColor = '#6366f1'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.15)'; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
         >
-            {/* Name + live dot */}
+            {/* Name + live dot + progress counter */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                 <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 5px #22c55e', flexShrink: 0 }} />
                 <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{entry.name}</span>
                 {entry.totalQ > 0 && (
-                    <span style={{ fontSize: 11, color: '#6366f1', fontWeight: 600, flexShrink: 0 }}>Q{entry.currentIdx + 1}/{entry.totalQ}</span>
+                    <span style={{ fontSize: 11, color: '#6366f1', fontWeight: 600, flexShrink: 0 }}>{answeredCount}/{entry.totalQ} answered</span>
                 )}
             </div>
             {/* Progress bar */}
@@ -1276,13 +1287,11 @@ function QuizProgressTile({ entry, questions, onClick }: {
 
 function QuizProgressFull({ entry, questions, onClose }: {
     entry: StudentProgressEntry;
-    questions: { id: string; prompt?: string; type?: string; options?: string[] }[];
+    questions: MonitorQuestion[];
     onClose: () => void;
 }) {
-    const pct = entry.totalQ > 0 ? Math.round(((entry.currentIdx + 1) / entry.totalQ) * 100) : 0;
-    const currentQ = questions[entry.currentIdx] as { id: string; prompt?: string; content?: string; type?: string; options?: string[] } | undefined;
-    const promptText = currentQ?.prompt || currentQ?.content || `Question ${entry.currentIdx + 1}`;
-    const a = currentQ ? entry.answers[currentQ.id] : null;
+    const answeredCount = Object.keys(entry.answers).length;
+    const pct = entry.totalQ > 0 ? Math.round((answeredCount / entry.totalQ) * 100) : 0;
 
     return (
         <div style={{ width: '100%', height: '100%', background: 'var(--surface-2)', borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -1291,8 +1300,8 @@ function QuizProgressFull({ entry, questions, onClose }: {
                 <button onClick={onClose} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>← Back</button>
                 <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 5px #22c55e' }} />
                 <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{entry.name}</span>
-                {entry.totalQ > 0 && <span style={{ fontSize: 12, color: '#6366f1', fontWeight: 600 }}>Q{entry.currentIdx + 1} / {entry.totalQ}</span>}
-                <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)' }}>Press Esc to exit</span>
+                {entry.totalQ > 0 && <span style={{ fontSize: 12, color: '#6366f1', fontWeight: 600 }}>{answeredCount} / {entry.totalQ} answered</span>}
+                <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)' }}>Esc to exit</span>
                 <button onClick={onClose} style={{ width: 26, height: 26, borderRadius: 6, border: 'none', background: 'rgba(255,255,255,0.06)', color: 'var(--text-muted)', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
             </div>
             {/* Progress bar */}
@@ -1301,38 +1310,31 @@ function QuizProgressFull({ entry, questions, onClose }: {
                     <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg,#6366f1,#8b5cf6)', transition: 'width 0.4s' }} />
                 </div>
             )}
-            {/* Body */}
-            <div style={{ flex: 1, overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {/* Question */}
-                <div style={{ background: 'var(--surface)', borderRadius: 10, padding: '14px 16px', border: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>Current Question</div>
-                    <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6 }}>{typeof promptText === 'string' ? promptText : `Question ${entry.currentIdx + 1}`}</div>
-                </div>
-                {/* Answer */}
-                <div style={{ background: 'var(--surface)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(99,102,241,0.3)' }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: '#6366f1', textTransform: 'uppercase', marginBottom: 8 }}>Student's Answer</div>
-                    {a?.selectedOptions?.length ? (
-                        <div style={{ fontSize: 14, color: '#a5b4fc' }}>{a.selectedOptions.join(', ')}</div>
-                    ) : a?.answerText ? (
-                        <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{a.answerText}</div>
-                    ) : (
-                        <div style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>No answer yet</div>
-                    )}
-                </div>
-                {/* All questions summary */}
-                {entry.totalQ > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                        {questions.slice(0, entry.totalQ).map((q, i) => {
-                            const answered = !!entry.answers[(q as { id: string }).id];
-                            const isCurrent = i === entry.currentIdx;
-                            return (
-                                <div key={(q as { id: string }).id || i} style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: isCurrent ? '#6366f1' : answered ? 'rgba(34,197,94,0.2)' : 'var(--border)', color: isCurrent ? '#fff' : answered ? '#22c55e' : 'var(--text-muted)', border: isCurrent ? 'none' : `1px solid ${answered ? '#22c55e' : 'var(--border)'}` }}>
-                                    {i + 1}
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
+            {/* All questions — one card each, live-updating */}
+            <div style={{ flex: 1, overflow: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {questions.slice(0, Math.max(entry.totalQ, questions.length)).map((q, i) => {
+                    const isCurrent = i === entry.currentIdx;
+                    const a = entry.answers[q.id];
+                    const answered = !!a;
+                    const qText = q.question_text ? stripHtmlTags(q.question_text) : `Question ${i + 1}`;
+                    let answerDisplay: string | null = null;
+                    if (a?.selectedOptions?.length) answerDisplay = a.selectedOptions.join(', ');
+                    else if (a?.answerText) answerDisplay = a.answerText;
+                    return (
+                        <div key={q.id || i} style={{ borderRadius: 8, border: `2px solid ${isCurrent ? '#6366f1' : answered ? 'rgba(34,197,94,0.4)' : 'var(--border)'}`, background: isCurrent ? 'rgba(99,102,241,0.08)' : 'var(--surface)', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ width: 22, height: 22, borderRadius: 5, background: isCurrent ? '#6366f1' : answered ? 'rgba(34,197,94,0.2)' : 'var(--border)', color: isCurrent ? '#fff' : answered ? '#22c55e' : 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
+                                <span style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.4, flex: 1 }}>{qText}</span>
+                                {isCurrent && <span style={{ fontSize: 10, fontWeight: 700, color: '#6366f1', flexShrink: 0 }}>CURRENT</span>}
+                            </div>
+                            {answerDisplay ? (
+                                <div style={{ fontSize: 12, color: answered ? '#a5b4fc' : 'var(--text-muted)', background: answered ? 'rgba(99,102,241,0.12)' : 'transparent', borderRadius: 5, padding: '3px 8px', marginLeft: 30, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{answerDisplay}</div>
+                            ) : (
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', marginLeft: 30 }}>No answer yet</div>
+                            )}
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );
@@ -1352,7 +1354,7 @@ function QuizStudentMonitor({
     onBack: () => void;
 }) {
     const entries = Array.from(progress.entries()); // [socketId, StudentProgressEntry]
-    const questions = (quiz?.questions || []) as { id: string; prompt?: string; content?: string; type?: string; options?: string[] }[];
+    const questions = (quiz?.questions || []) as MonitorQuestion[];
     const cols = entries.length <= 1 ? 1 : entries.length <= 4 ? 2 : 3;
 
     // ── Fullscreen focus view ────────────────────────────────────────────
