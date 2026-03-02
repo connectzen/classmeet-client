@@ -369,10 +369,10 @@ export default function RichEditor({
                 .rich-editor-content pre { background: rgba(0,0,0,0.35); padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
             `}</style>
 
-            {/* Toolbar */}
-            <div style={{ display: 'flex', gap: 3, padding: '6px 8px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexWrap: 'wrap', alignItems: 'center', background: 'rgba(255,255,255,0.02)' }}>
-                {/* Heading — hide in chatMode */}
-                {!chatMode && (
+            {/* Toolbar — hidden in chatMode; chat inputs are plain text only */}
+            {!chatMode && (
+                <div style={{ display: 'flex', gap: 3, padding: '6px 8px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexWrap: 'wrap', alignItems: 'center', background: 'rgba(255,255,255,0.02)' }}>
+                    {/* Heading */}
                     <select value={headingLevel}
                         onChange={e => {
                             const v = e.target.value;
@@ -385,57 +385,62 @@ export default function RichEditor({
                         <option value="2">H2</option>
                         <option value="3">H3</option>
                     </select>
-                )}
-                {/* Font + Size — hide in compact/chatMode */}
-                {!compact && !chatMode && <FontDropdown editor={editor} />}
-                {!compact && !chatMode && <SizeDropdown editor={editor} />}
-                {(!compact && !chatMode) && divider}
+                    {/* Font + Size — hide in compact mode */}
+                    {!compact && <FontDropdown editor={editor} />}
+                    {!compact && <SizeDropdown editor={editor} />}
+                    {!compact && divider}
 
-                <TBtn label="B" title="Bold" active={editor?.isActive('bold')} onClick={() => editor?.chain().focus().toggleBold().run()} extraStyle={{ fontWeight: 900 }} />
-                <TBtn label="I" title="Italic" active={editor?.isActive('italic')} onClick={() => editor?.chain().focus().toggleItalic().run()} extraStyle={{ fontStyle: 'italic' }} />
-                <TBtn label="U" title="Underline" active={editor?.isActive('underline')} onClick={() => editor?.chain().focus().toggleUnderline().run()} extraStyle={{ textDecoration: 'underline' }} />
-                {/* Color picker */}
-                <div ref={colorPickerRef} style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
-                    <button
-                        title="Text color"
-                        onMouseDown={e => { e.preventDefault(); setShowColorPicker(v => !v); }}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 7px', borderRadius: 5, background: showColorPicker ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.07)', cursor: 'pointer', border: 'none', userSelect: 'none' }}
-                    >
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8', borderBottom: `3px solid ${currentColor}`, paddingBottom: 1, lineHeight: 1 }}>A</span>
-                        <span style={{ fontSize: 11, color: '#64748b' }}>▾</span>
-                    </button>
-                    {showColorPicker && (
-                        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 200, background: '#1a1a2e', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 10, padding: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', minWidth: 158, maxHeight: 260, overflowY: 'auto' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 5, marginBottom: 8 }}>
-                                {COLOR_PRESETS.map(color => (
-                                    <button
-                                        key={color}
-                                        title={color}
-                                        onMouseDown={e => { e.preventDefault(); editor?.chain().focus().setColor(color).run(); setShowColorPicker(false); }}
-                                        style={{ width: 22, height: 22, borderRadius: 5, background: color, border: currentColor === color ? '2px solid #fff' : '2px solid rgba(255,255,255,0.15)', cursor: 'pointer', padding: 0, transition: 'transform 0.1s', flexShrink: 0 }}
-                                        onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.2)')}
-                                        onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                    <TBtn label="B" title="Bold" active={editor?.isActive('bold')} onClick={() => editor?.chain().focus().toggleBold().run()} extraStyle={{ fontWeight: 900 }} />
+                    <TBtn label="I" title="Italic" active={editor?.isActive('italic')} onClick={() => editor?.chain().focus().toggleItalic().run()} extraStyle={{ fontStyle: 'italic' }} />
+                    <TBtn label="U" title="Underline" active={editor?.isActive('underline')} onClick={() => editor?.chain().focus().toggleUnderline().run()} extraStyle={{ textDecoration: 'underline' }} />
+                    {/* Color picker */}
+                    <div ref={colorPickerRef} style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+                        <button
+                            title="Text color"
+                            onMouseDown={e => { e.preventDefault(); setShowColorPicker(v => !v); }}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 7px', borderRadius: 5, background: showColorPicker ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.07)', cursor: 'pointer', border: 'none', userSelect: 'none' }}
+                        >
+                            <span style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8', borderBottom: `3px solid ${currentColor}`, paddingBottom: 1, lineHeight: 1 }}>A</span>
+                            <span style={{ fontSize: 11, color: '#64748b' }}>▾</span>
+                        </button>
+                        {showColorPicker && (
+                            <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 200, background: '#1a1a2e', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 10, padding: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', minWidth: 158, maxHeight: 260, overflowY: 'auto' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 5, marginBottom: 8 }}>
+                                    {COLOR_PRESETS.map(color => (
+                                        <button
+                                            key={color}
+                                            title={color}
+                                            onMouseDown={e => { e.preventDefault(); editor?.chain().focus().setColor(color).run(); setShowColorPicker(false); }}
+                                            style={{ width: 22, height: 22, borderRadius: 5, background: color, border: currentColor === color ? '2px solid #fff' : '2px solid rgba(255,255,255,0.15)', cursor: 'pointer', padding: 0, transition: 'transform 0.1s', flexShrink: 0 }}
+                                            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.2)')}
+                                            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                                        />
+                                    ))}
+                                </div>
+                                <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <span style={{ fontSize: 11, color: '#64748b' }}>Custom</span>
+                                    <input
+                                        type="color"
+                                        value={currentColor}
+                                        onChange={e => editor?.chain().focus().setColor(e.target.value).run()}
+                                        style={{ width: 32, height: 22, padding: 0, border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, cursor: 'pointer', background: 'none' }}
                                     />
-                                ))}
+                                </div>
                             </div>
-                            <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span style={{ fontSize: 11, color: '#64748b' }}>Custom</span>
-                                <input
-                                    type="color"
-                                    value={currentColor}
-                                    onChange={e => editor?.chain().focus().setColor(e.target.value).run()}
-                                    style={{ width: 32, height: 22, padding: 0, border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, cursor: 'pointer', background: 'none' }}
-                                />
-                            </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
+                    {divider}
+                    <TBtn label="≡ Bullets" title="Bullet list" active={editor?.isActive('bulletList')} onClick={handleBulletList} />
+                    <TBtn label="1. List" title="Ordered list" active={editor?.isActive('orderedList')} onClick={handleOrderedList} />
+                    <TBtn label="❝ Quote" title="Blockquote" active={editor?.isActive('blockquote')} onClick={handleBlockquote} />
                 </div>
-                {divider}
-                <TBtn label="≡ Bullets" title="Bullet list" active={editor?.isActive('bulletList')} onClick={handleBulletList} />
-                <TBtn label="1. List" title="Ordered list" active={editor?.isActive('orderedList')} onClick={handleOrderedList} />
-                <TBtn label="❝ Quote" title="Blockquote" active={editor?.isActive('blockquote')} onClick={handleBlockquote} />
-                {chatMode && <span style={{ marginLeft: 'auto', fontSize: 10, color: '#475569', whiteSpace: 'nowrap', paddingRight: 4 }}>Enter to send · Shift+Enter for newline</span>}
-            </div>
+            )}
+            {/* Chat hint bar — replaces toolbar in chatMode */}
+            {chatMode && (
+                <div style={{ padding: '3px 10px', fontSize: 10, color: '#475569', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.01)' }}>
+                    Enter to send · Shift+Enter for newline
+                </div>
+            )}
 
             {/* Editor area */}
             <div onKeyDown={handleKeyDown} style={editorStyle}>
