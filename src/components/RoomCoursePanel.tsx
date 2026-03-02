@@ -123,10 +123,15 @@ export default function RoomCoursePanel({
     const [toolbarPos, setToolbarPos] = useState<{ x: number; y: number } | null>(null);
 
     // ── Refs ─────────────────────────────────────────────────────────────────
-    const contentRef  = useRef<HTMLDivElement>(null);   // scrollable area
-    const canvasRef   = useRef<HTMLCanvasElement>(null); // annotation layer — INSIDE scrollable div
-    const previewRef  = useRef<HTMLCanvasElement>(null); // shape preview
-    const wrapperRef  = useRef<HTMLDivElement>(null);   // outer non-scrolling wrapper
+    const contentRef      = useRef<HTMLDivElement>(null);    // scrollable area
+    const innerContentRef = useRef<HTMLDivElement>(null);    // fixed-640px inner div
+    const canvasRef       = useRef<HTMLCanvasElement>(null); // annotation layer — INSIDE scrollable div
+    const previewRef      = useRef<HTMLCanvasElement>(null); // shape preview
+    const wrapperRef      = useRef<HTMLDivElement>(null);    // outer non-scrolling wrapper
+
+    // Canvas pixel width is always exactly this — must match the inner content
+    // div width so normalized draw coords map to identical positions on every device.
+    const CANVAS_W = 640;
     const scrollThrottle = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastRatio   = useRef(0);
     const isDrawing   = useRef(false);
@@ -208,25 +213,28 @@ export default function RoomCoursePanel({
     }, [activeLessonIdx, activeCourseIdx]);
 
     // ── Canvas sizing ─────────────────────────────────────────────────────────
-    // Canvas lives INSIDE the scrollable div and covers its full scroll area.
-    // The padding wrapper is fixed at 640 px wide so content.scrollWidth is
-    // always 640 on every screen — normalized draw coordinates (0-1) therefore
-    // map to identical pixel positions for both teacher and all students.
-    // Collapsing canvas height before reading scrollHeight breaks the feedback
-    // loop that would otherwise prevent the canvas shrinking on shorter lessons.
+    // Canvas is always CANVAS_W (640) pixels wide — identical to the fixed inner
+    // content div. This means normalized X coords (px / 640) land on the same
+    // word regardless of panel width (big desktop teacher vs narrow mobile student).
+    // Height comes from the inner div's scrollHeight, which is also identical on
+    // both sides because the text wraps the same at 640 px.
+    // We observe the inner div (not the outer scrollable) to catch content changes.
     useEffect(() => {
         const content = contentRef.current;
+        const inner   = innerContentRef.current;
         const canvas  = canvasRef.current;
         const preview = previewRef.current;
-        if (!content || !canvas || !preview) return;
+        if (!content || !inner || !canvas || !preview) return;
 
         const sync = () => {
-            // Collapse canvas so it doesn't inflate scrollHeight measurement
+            // Collapse canvas height so it doesn't inflate inner.scrollHeight
             canvas.style.height  = '0px';
             preview.style.height = '0px';
 
-            const w = content.scrollWidth  || 1;
-            const h = Math.max(content.scrollHeight, content.clientHeight, 1);
+            // Width is always exactly CANVAS_W — never depends on panel/viewport size
+            const w = CANVAS_W;
+            // Height mirrors the inner content div so drawings cover all the text
+            const h = Math.max(inner.scrollHeight, content.clientHeight, 1);
 
             if (canvas.width !== w || canvas.height !== h) {
                 const saved = canvas.toDataURL();
@@ -245,10 +253,11 @@ export default function RoomCoursePanel({
         };
 
         sync();
+        // Observe inner div — reflects text reflow when courses/lessons change
         const ro = new ResizeObserver(sync);
-        ro.observe(content);
+        ro.observe(inner);
         return () => ro.disconnect();
-    }, []);
+    }, [CANVAS_W]);
 
     // ── Drawing: document-level events ────────────────────────────────────────
     // mousemove/mouseup are on document so strokes never stop when cursor leaves
@@ -479,10 +488,11 @@ export default function RoomCoursePanel({
                     <div ref={contentRef} onScroll={isTeacher ? handleScroll : undefined}
                         style={{ width: '100%', height: '100%', overflowY: isTeacher ? 'auto' : 'hidden', overflowX: 'auto', position: 'relative', userSelect: drawActive ? 'none' : 'text' }}>
 
-                        {/* Lesson content.
-                            width:640px is the critical constraint — the canvas sizes to
-                            this exact scrollWidth so every device has identical coordinates. */}
-                        <div style={{ padding: '20px', boxSizing: 'border-box', width: 640, minWidth: 640 }}>
+                        {/* Lesson content — fixed at exactly CANVAS_W (640 px).
+                            Teacher on 1400px panel and student on 360px phone both
+                            render this div at 640px → same line breaks → same
+                            scrollHeight → canvas coords map to the same words. */}
+                        <div ref={innerContentRef} style={{ padding: '20px', boxSizing: 'border-box', width: CANVAS_W, minWidth: CANVAS_W }}>
                             {loading ? (
                                 <div style={{ color: 'var(--text-muted)', padding: 40, textAlign: 'center' }}>Loading course…</div>
                             ) : !course ? (
