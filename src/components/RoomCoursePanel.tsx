@@ -58,7 +58,9 @@ const TOOL_DEFS: { id: DrawTool; icon: string; tip: string; cursor: string }[] =
     { id: 'eraser',    icon: '◻',  tip: 'Eraser – drag to erase',             cursor: 'cell'      },
 ];
 
-// ── Canvas drawing helper (used on both teacher & student sides) ─────────────
+const SHAPE_TOOLS = ['circle', 'rect', 'square'];
+
+// ── Canvas drawing helper ──────────────────────────────────────────────────
 function drawOnCanvas(ctx: CanvasRenderingContext2D, seg: DrawSeg, w: number, h: number) {
     ctx.save();
     ctx.lineCap = 'round';
@@ -147,11 +149,11 @@ export default function RoomCoursePanel({
     const [textInput, setTextInput] = useState<{ vx: number; vy: number; cx: number; cy: number } | null>(null);
     const [toolbarPos, setToolbarPos] = useState<{ x: number; y: number } | null>(null);
 
-    // Refs
-    const contentRef = useRef<HTMLDivElement>(null);          // the scrollable area
-    const canvasRef = useRef<HTMLCanvasElement>(null);        // persistent annotation layer
-    const previewCanvasRef = useRef<HTMLCanvasElement>(null); // shape drag preview
-    const contentWrapperRef = useRef<HTMLDivElement>(null);   // outer non-scrolling wrapper
+    // ── Refs ─────────────────────────────────────────────────────────────────
+    const contentRef = useRef<HTMLDivElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+    const contentWrapperRef = useRef<HTMLDivElement>(null);
     const scrollThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastRatioRef = useRef(0);
     const isDrawingRef = useRef(false);
@@ -161,12 +163,17 @@ export default function RoomCoursePanel({
     const isDraggingToolbarRef = useRef(false);
     const toolbarDragOffsetRef = useRef({ x: 0, y: 0 });
 
+    // Always-fresh refs so document-level handlers never have stale closures
+    const drawStateRef = useRef({ drawTool, drawColor, drawSizeKey });
+    drawStateRef.current = { drawTool, drawColor, drawSizeKey };
+    const onDrawSegCbRef = useRef(onDrawSegment);
+    onDrawSegCbRef.current = onDrawSegment;
+
     const isTeacher = role === 'teacher';
-    const isShapeTool = drawTool === 'circle' || drawTool === 'rect' || drawTool === 'square';
     const drawActive = isTeacher && drawTool !== null;
     const activeCursor = drawTool ? (TOOL_DEFS.find(t => t.id === drawTool)?.cursor ?? 'crosshair') : 'default';
 
-    // ── Data loading ─────────────────────────────────────────────────────────
+    // ── Data loading ──────────────────────────────────────────────────────────
     useEffect(() => {
         if (!courseIds.length) { setLoading(false); return; }
         setLoading(true);
@@ -191,7 +198,7 @@ export default function RoomCoursePanel({
             onCoursesLoaded?.(courses[activeCourseIdx]?.lessons.length ?? 0);
     }, [courses, activeCourseIdx, onCoursesLoaded]);
 
-    // ── Scroll: reset + clear canvas on lesson change ────────────────────────
+    // ── Clear canvas on lesson/course change ──────────────────────────────────
     useEffect(() => {
         if (contentRef.current) contentRef.current.scrollTop = 0;
         lastRatioRef.current = 0;
@@ -201,7 +208,7 @@ export default function RoomCoursePanel({
         if (preview) preview.getContext('2d')?.clearRect(0, 0, preview.width, preview.height);
     }, [activeLessonIdx, activeCourseIdx]);
 
-    // ── Scroll: student locked to teacher ────────────────────────────────────
+    // ── Scroll: student locked to teacher ─────────────────────────────────────
     useEffect(() => {
         if (isTeacher || externalScroll == null) return;
         const el = contentRef.current;
@@ -210,7 +217,7 @@ export default function RoomCoursePanel({
         if (max > 0) el.scrollTop = externalScroll * max;
     }, [externalScroll, isTeacher]);
 
-    // ── Scroll: teacher throttled emit ───────────────────────────────────────
+    // ── Scroll: teacher throttled emit ────────────────────────────────────────
     const handleScroll = useCallback(() => {
         if (!isTeacher || !onScrollSync) return;
         const el = contentRef.current;
@@ -227,8 +234,9 @@ export default function RoomCoursePanel({
         }, 50);
     }, [isTeacher, onScrollSync]);
 
-    // ── Canvas: resize to fill full scrollable content height ────────────────
-    // Canvas sits INSIDE the scrollable div so drawings move with content on scroll.
+    // ── Canvas: resize to fill full scrollable content height ─────────────────
+    // FIX: Collapse canvas CSS height to 0 BEFORE reading scrollHeight so the
+    // canvas itself doesn't inflate the measurement (feedback-loop prevention).
     useEffect(() => {
         const content = contentRef.current;
         const canvas = canvasRef.current;
@@ -236,24 +244,30 @@ export default function RoomCoursePanel({
         if (!content || !canvas || !preview) return;
 
         const syncSize = () => {
+            // Temporarily collapse canvas so it doesn't contribute to scrollHeight
+            canvas.style.height = '0px';
+            preview.style.height = '0px';
+
             const w = content.clientWidth || 1;
             const h = Math.max(content.scrollHeight, content.clientHeight, 1);
-            if (canvas.width === w && canvas.height === h) return;
-            // Preserve existing drawing
-            const saved = canvas.toDataURL();
-            canvas.width = w;
-            canvas.height = h;
-            canvas.style.width = w + 'px';
-            canvas.style.height = h + 'px';
-            preview.width = w;
-            preview.height = h;
-            preview.style.width = w + 'px';
-            preview.style.height = h + 'px';
-            if (saved !== 'data:,') {
-                const img = new Image();
-                img.onload = () => canvas.getContext('2d')?.drawImage(img, 0, 0);
-                img.src = saved;
+
+            if (canvas.width !== w || canvas.height !== h) {
+                const saved = canvas.toDataURL();
+                canvas.width = w;
+                canvas.height = h;
+                preview.width = w;
+                preview.height = h;
+                if (saved !== 'data:,') {
+                    const img = new Image();
+                    img.onload = () => canvas.getContext('2d')?.drawImage(img, 0, 0);
+                    img.src = saved;
+                }
             }
+
+            canvas.style.width = canvas.width + 'px';
+            canvas.style.height = canvas.height + 'px';
+            preview.style.width = preview.width + 'px';
+            preview.style.height = preview.height + 'px';
         };
 
         syncSize();
@@ -262,7 +276,106 @@ export default function RoomCoursePanel({
         return () => ro.disconnect();
     }, []);
 
-    // ── Canvas: receive segment (student) ────────────────────────────────────
+    // ── Drawing: document-level events (prevents "stops" when cursor leaves canvas) ──
+    // All drawing state is read from drawStateRef so there are no stale closures.
+    useEffect(() => {
+        if (!isTeacher) return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        // Normalize a native MouseEvent to canvas coordinates (0–1)
+        const getPoint = (e: MouseEvent) => {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: (e.clientX - rect.left) / canvas.width,
+                y: (e.clientY - rect.top)  / canvas.height,
+            };
+        };
+
+        const isShape = (tool: string) => SHAPE_TOOLS.includes(tool);
+
+        const onDown = (e: MouseEvent) => {
+            const { drawTool } = drawStateRef.current;
+            if (!drawTool || drawTool === 'text') return;
+            if (e.target !== canvas) return;          // only start when clicking the canvas
+            e.preventDefault();
+            isDrawingRef.current = true;
+            const pt = getPoint(e);
+            lastPtRef.current = pt;
+            if (isShape(drawTool)) shapeStartRef.current = pt;
+        };
+
+        const onMove = (e: MouseEvent) => {
+            if (!isDrawingRef.current) return;
+            const { drawTool, drawColor, drawSizeKey } = drawStateRef.current;
+            if (!drawTool || drawTool === 'text') return;
+            const pt = getPoint(e);
+
+            if (isShape(drawTool)) {
+                const start = shapeStartRef.current;
+                const preview = previewCanvasRef.current;
+                if (start && preview) {
+                    const ctx = preview.getContext('2d');
+                    if (ctx) {
+                        ctx.clearRect(0, 0, preview.width, preview.height);
+                        drawOnCanvas(ctx, {
+                            x1: start.x, y1: start.y, x2: pt.x, y2: pt.y,
+                            color: drawColor, size: TOOL_SIZES[drawSizeKey],
+                            mode: drawTool as DrawSeg['mode'],
+                        }, preview.width, preview.height);
+                    }
+                }
+            } else {
+                const prev = lastPtRef.current;
+                if (prev) {
+                    const seg: DrawSeg = {
+                        x1: prev.x, y1: prev.y, x2: pt.x, y2: pt.y,
+                        color: drawColor, size: TOOL_SIZES[drawSizeKey],
+                        mode: drawTool,
+                    };
+                    const ctx = canvas.getContext('2d');
+                    if (ctx) drawOnCanvas(ctx, seg, canvas.width, canvas.height);
+                    onDrawSegCbRef.current?.(seg);
+                    lastPtRef.current = pt;
+                }
+            }
+        };
+
+        const onUp = (e: MouseEvent) => {
+            if (!isDrawingRef.current) return;
+            isDrawingRef.current = false;
+            const { drawTool, drawColor, drawSizeKey } = drawStateRef.current;
+            if (!drawTool) return;
+
+            if (isShape(drawTool) && shapeStartRef.current) {
+                const pt = getPoint(e);
+                const preview = previewCanvasRef.current;
+                if (preview) preview.getContext('2d')?.clearRect(0, 0, preview.width, preview.height);
+                const seg: DrawSeg = {
+                    x1: shapeStartRef.current.x, y1: shapeStartRef.current.y,
+                    x2: pt.x, y2: pt.y,
+                    color: drawColor, size: TOOL_SIZES[drawSizeKey],
+                    mode: drawTool as DrawSeg['mode'],
+                };
+                const ctx = canvas.getContext('2d');
+                if (ctx) drawOnCanvas(ctx, seg, canvas.width, canvas.height);
+                onDrawSegCbRef.current?.(seg);
+                shapeStartRef.current = null;
+            }
+            lastPtRef.current = null;
+        };
+
+        canvas.addEventListener('mousedown', onDown);
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+        return () => {
+            canvas.removeEventListener('mousedown', onDown);
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+        };
+    }, [isTeacher]); // isTeacher never changes after mount
+
+    // ── Canvas: receive segment from teacher (student side) ───────────────────
     useEffect(() => {
         if (!externalDrawSeg) return;
         const canvas = canvasRef.current;
@@ -271,21 +384,21 @@ export default function RoomCoursePanel({
         if (ctx) drawOnCanvas(ctx, externalDrawSeg, canvas.width, canvas.height);
     }, [externalDrawSeg]);
 
-    // ── Canvas: clear signal ─────────────────────────────────────────────────
+    // ── Canvas: clear signal ──────────────────────────────────────────────────
     useEffect(() => {
         if (drawClearSignal == null) return;
         const canvas = canvasRef.current;
         if (canvas) canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
     }, [drawClearSignal]);
 
-    // ── Canvas: teacher captures & sends snapshot ────────────────────────────
+    // ── Canvas: teacher sends snapshot to late joiner ─────────────────────────
     useEffect(() => {
         if (!snapshotRequest || !onSnapshot) return;
         const canvas = canvasRef.current;
         if (canvas) onSnapshot(canvas.toDataURL());
     }, [snapshotRequest, onSnapshot]);
 
-    // ── Canvas: student receives full snapshot from teacher ───────────────────
+    // ── Canvas: student receives snapshot from teacher ────────────────────────
     useEffect(() => {
         if (!snapshotDataUrl) return;
         const canvas = canvasRef.current;
@@ -300,7 +413,7 @@ export default function RoomCoursePanel({
         img.src = snapshotDataUrl;
     }, [snapshotDataUrl]);
 
-    // ── Toolbar drag ─────────────────────────────────────────────────────────
+    // ── Toolbar drag ──────────────────────────────────────────────────────────
     useEffect(() => {
         const onMouseMove = (e: MouseEvent) => {
             if (!isDraggingToolbarRef.current) return;
@@ -335,124 +448,47 @@ export default function RoomCoursePanel({
         };
     };
 
-    // ── Drawing helpers ───────────────────────────────────────────────────────
-    const getCanvasPoint = (e: React.MouseEvent | React.TouchEvent) => {
-        const canvas = canvasRef.current;
-        if (!canvas) return null;
-        // canvas is inside the scrollable div; getBoundingClientRect accounts for scroll
-        const rect = canvas.getBoundingClientRect();
-        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-        return {
-            x: (clientX - rect.left) / canvas.width,
-            y: (clientY - rect.top)  / canvas.height,
-        };
-    };
-
-    const drawShapePreview = (pt: { x: number; y: number }) => {
-        const start = shapeStartRef.current;
-        const preview = previewCanvasRef.current;
-        if (!start || !preview || !drawTool) return;
-        const ctx = preview.getContext('2d');
-        if (!ctx) return;
-        ctx.clearRect(0, 0, preview.width, preview.height);
-        drawOnCanvas(ctx, {
-            x1: start.x, y1: start.y, x2: pt.x, y2: pt.y,
-            color: drawColor, size: TOOL_SIZES[drawSizeKey],
-            mode: drawTool as DrawSeg['mode'],
-        }, preview.width, preview.height);
-    };
-
-    const emitFinalSeg = useCallback((seg: DrawSeg) => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        if (ctx) drawOnCanvas(ctx, seg, canvas.width, canvas.height);
-        onDrawSegment?.(seg);
-    }, [onDrawSegment]);
-
-    const handleDrawStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-        if (!drawTool || drawTool === 'text') return;
-        e.preventDefault();
-        const pt = getCanvasPoint(e);
-        if (!pt) return;
-        isDrawingRef.current = true;
-        lastPtRef.current = pt;
-        if (isShapeTool) shapeStartRef.current = pt;
-    }, [drawTool, isShapeTool]);
-
-    const handleDrawMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-        if (!isDrawingRef.current || !drawTool || drawTool === 'text') return;
-        e.preventDefault();
-        const pt = getCanvasPoint(e);
-        if (!pt) return;
-        if (isShapeTool) {
-            drawShapePreview(pt);
-        } else if (lastPtRef.current) {
-            emitFinalSeg({
-                x1: lastPtRef.current.x, y1: lastPtRef.current.y,
-                x2: pt.x, y2: pt.y,
-                color: drawColor, size: TOOL_SIZES[drawSizeKey], mode: drawTool,
-            });
-            lastPtRef.current = pt;
-        }
-    }, [drawTool, drawColor, drawSizeKey, isShapeTool, emitFinalSeg]);
-
-    const handleDrawEnd = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-        if (!isDrawingRef.current) { isDrawingRef.current = false; return; }
-        isDrawingRef.current = false;
-        if (isShapeTool && shapeStartRef.current) {
-            const pt = getCanvasPoint(e);
-            if (pt) {
-                previewCanvasRef.current?.getContext('2d')?.clearRect(
-                    0, 0, previewCanvasRef.current.width, previewCanvasRef.current.height
-                );
-                emitFinalSeg({
-                    x1: shapeStartRef.current.x, y1: shapeStartRef.current.y,
-                    x2: pt.x, y2: pt.y,
-                    color: drawColor, size: TOOL_SIZES[drawSizeKey],
-                    mode: drawTool as DrawSeg['mode'],
-                });
-            }
-            shapeStartRef.current = null;
-        }
-        lastPtRef.current = null;
-    }, [drawTool, drawColor, drawSizeKey, isShapeTool, emitFinalSeg]);
-
-    const stopDrawing = useCallback(() => {
-        if (isShapeTool) {
-            previewCanvasRef.current?.getContext('2d')?.clearRect(
-                0, 0, previewCanvasRef.current?.width ?? 0, previewCanvasRef.current?.height ?? 0
-            );
-            shapeStartRef.current = null;
-        }
-        isDrawingRef.current = false;
-        lastPtRef.current = null;
-    }, [isShapeTool]);
-
+    // ── Text tool ─────────────────────────────────────────────────────────────
+    // Kept as a React handler (single click, no drag — no stale-closure risk)
     const handleCanvasClick = useCallback((e: React.MouseEvent) => {
         if (drawTool !== 'text') return;
-        const pt = getCanvasPoint(e);
-        if (!pt) return;
-        setTextInput({ vx: e.clientX, vy: e.clientY, cx: pt.x, cy: pt.y });
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        setTextInput({
+            vx: e.clientX,
+            vy: e.clientY,
+            cx: (e.clientX - rect.left) / canvas.width,
+            cy: (e.clientY - rect.top)  / canvas.height,
+        });
     }, [drawTool]);
 
     const commitText = useCallback((text: string, cx: number, cy: number) => {
         setTextInput(null);
         if (!text.trim()) return;
-        emitFinalSeg({ x1: cx, y1: cy, x2: cx, y2: cy, color: drawColor, size: TOOL_SIZES[drawSizeKey], mode: 'text', text });
-    }, [drawColor, drawSizeKey, emitFinalSeg]);
+        const { drawColor, drawSizeKey } = drawStateRef.current;
+        const seg: DrawSeg = {
+            x1: cx, y1: cy, x2: cx, y2: cy,
+            color: drawColor, size: TOOL_SIZES[drawSizeKey],
+            mode: 'text', text,
+        };
+        const canvas = canvasRef.current;
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            if (ctx) drawOnCanvas(ctx, seg, canvas.width, canvas.height);
+        }
+        onDrawSegCbRef.current?.(seg);
+    }, []);
 
     const handleClear = useCallback(() => {
         const canvas = canvasRef.current;
         if (canvas) canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
-        previewCanvasRef.current?.getContext('2d')?.clearRect(
-            0, 0, previewCanvasRef.current.width, previewCanvasRef.current.height
-        );
+        const preview = previewCanvasRef.current;
+        if (preview) preview.getContext('2d')?.clearRect(0, 0, preview.width, preview.height);
         onDrawClear?.();
     }, [onDrawClear]);
 
-    // ── Render ───────────────────────────────────────────────────────────────
+    // ── Render ────────────────────────────────────────────────────────────────
     if (loading) return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>
             Loading course…
@@ -473,29 +509,53 @@ export default function RoomCoursePanel({
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--surface-2)', borderRadius: 12, overflow: 'hidden' }}>
 
-            {/* Course tabs */}
-            {courses.length > 1 && (
-                <div style={{ display: 'flex', gap: 2, padding: '8px 12px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
-                    {courses.map((c, i) => (
-                        <button
-                            key={c.id}
-                            onClick={() => isTeacher ? onNav(i, 0) : undefined}
-                            disabled={!isTeacher}
-                            style={{
-                                padding: '4px 12px', borderRadius: 8, border: 'none', fontSize: 13,
-                                background: activeCourseIdx === i ? 'rgba(99,102,241,0.3)' : 'var(--surface-3)',
-                                color: activeCourseIdx === i ? '#a5b4fc' : 'var(--text-muted)',
-                                fontWeight: activeCourseIdx === i ? 700 : 400,
-                                cursor: isTeacher ? 'pointer' : 'default',
-                            }}
-                        >
-                            <RichContent html={c.title} style={{ display: 'inline' }} />
-                        </button>
-                    ))}
-                </div>
-            )}
+            {/* ── Header: sidebar toggle + course tabs ── */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0, flexWrap: 'wrap' }}>
+                {/* Sidebar toggle always in header — never inside scrollable area */}
+                {isTeacher && (
+                    <button
+                        onClick={onSidebarToggle}
+                        title={sidebarOpen ? 'Hide lesson list' : 'Show lesson list'}
+                        style={{
+                            width: 28, height: 28, borderRadius: 7, flexShrink: 0,
+                            border: '1px solid var(--border)',
+                            background: sidebarOpen ? 'rgba(99,102,241,0.2)' : 'var(--surface-3)',
+                            color: sidebarOpen ? '#a5b4fc' : 'var(--text-muted)',
+                            cursor: 'pointer', fontSize: 14, fontWeight: 700,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}
+                    >
+                        {sidebarOpen ? '‹' : '☰'}
+                    </button>
+                )}
 
-            {/* Body: sidebar + content wrapper */}
+                {/* Course tabs */}
+                {courses.length > 1 && courses.map((c, i) => (
+                    <button
+                        key={c.id}
+                        onClick={() => isTeacher ? onNav(i, 0) : undefined}
+                        disabled={!isTeacher}
+                        style={{
+                            padding: '4px 12px', borderRadius: 8, border: 'none', fontSize: 13,
+                            background: activeCourseIdx === i ? 'rgba(99,102,241,0.3)' : 'var(--surface-3)',
+                            color: activeCourseIdx === i ? '#a5b4fc' : 'var(--text-muted)',
+                            fontWeight: activeCourseIdx === i ? 700 : 400,
+                            cursor: isTeacher ? 'pointer' : 'default',
+                        }}
+                    >
+                        <RichContent html={c.title} style={{ display: 'inline' }} />
+                    </button>
+                ))}
+
+                {/* Lesson position badge */}
+                {totalLessons > 0 && (
+                    <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', paddingRight: 4 }}>
+                        Lesson {activeLessonIdx + 1} / {totalLessons}
+                    </span>
+                )}
+            </div>
+
+            {/* ── Body: sidebar + content wrapper ── */}
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
                 {/* Sidebar */}
@@ -530,10 +590,10 @@ export default function RoomCoursePanel({
                     )}
                 </div>
 
-                {/* Content wrapper — outer, non-scrolling, holds toolbar and arrows */}
+                {/* Content wrapper — holds scrollable area + floating toolbar */}
                 <div ref={contentWrapperRef} style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
 
-                    {/* Scrollable area — canvas lives INSIDE here so drawings scroll with content */}
+                    {/* Scrollable area — canvas lives INSIDE so drawings scroll with content */}
                     <div
                         ref={contentRef}
                         onScroll={isTeacher ? handleScroll : undefined}
@@ -541,32 +601,12 @@ export default function RoomCoursePanel({
                             width: '100%', height: '100%',
                             overflowY: isTeacher ? 'auto' : 'hidden',
                             position: 'relative',
-                            // Prevent accidental browser text selection when a draw tool is active
+                            // Prevent browser text selection while a draw tool is active
                             userSelect: drawActive ? 'none' : 'text',
                         }}
                     >
                         {/* Lesson content */}
                         <div style={{ padding: 20, boxSizing: 'border-box' }}>
-                            {/* Sidebar toggle — teacher only */}
-                            {isTeacher && (
-                                <button
-                                    onClick={onSidebarToggle}
-                                    title={sidebarOpen ? 'Hide lesson list' : 'Show lesson list'}
-                                    style={{
-                                        position: 'sticky', top: 0, left: 0, zIndex: 2,
-                                        width: 28, height: 28, borderRadius: 7,
-                                        border: '1px solid var(--border)',
-                                        background: 'var(--surface-3)',
-                                        color: 'var(--text-muted)',
-                                        cursor: 'pointer', fontSize: 14, fontWeight: 700,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        marginBottom: 8,
-                                    }}
-                                >
-                                    {sidebarOpen ? '‹' : '☰'}
-                                </button>
-                            )}
-
                             {lesson ? (
                                 <div style={{ maxWidth: 720, marginLeft: 'auto', marginRight: 'auto' }}>
                                     <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{lesson.title}</h3>
@@ -578,7 +618,7 @@ export default function RoomCoursePanel({
                                     ) : (
                                         <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No content for this lesson.</p>
                                     )}
-                                    {/* Extra bottom padding so canvas covers the full lesson */}
+                                    {/* Bottom padding so canvas always covers content */}
                                     <div style={{ height: 60 }} />
                                 </div>
                             ) : (
@@ -590,13 +630,6 @@ export default function RoomCoursePanel({
                         <canvas
                             ref={canvasRef}
                             onClick={drawActive ? handleCanvasClick : undefined}
-                            onMouseDown={drawActive && drawTool !== 'text' ? handleDrawStart : undefined}
-                            onMouseMove={drawActive && drawTool !== 'text' ? handleDrawMove : undefined}
-                            onMouseUp={drawActive && drawTool !== 'text' ? handleDrawEnd : undefined}
-                            onMouseLeave={drawActive && drawTool !== 'text' ? stopDrawing : undefined}
-                            onTouchStart={drawActive && drawTool !== 'text' ? handleDrawStart : undefined}
-                            onTouchMove={drawActive && drawTool !== 'text' ? handleDrawMove : undefined}
-                            onTouchEnd={drawActive && drawTool !== 'text' ? handleDrawEnd : undefined}
                             style={{
                                 position: 'absolute', top: 0, left: 0,
                                 pointerEvents: drawActive ? 'auto' : 'none',
@@ -605,7 +638,7 @@ export default function RoomCoursePanel({
                             }}
                         />
 
-                        {/* Preview canvas — shape drag preview (transparent, no pointer events) */}
+                        {/* Preview canvas for shape drag (no pointer events) */}
                         <canvas
                             ref={previewCanvasRef}
                             style={{
@@ -616,11 +649,11 @@ export default function RoomCoursePanel({
                         />
                     </div>
 
-                    {/* Prev / Next edge arrows — teacher only, outside scrollable */}
+                    {/* Prev / Next arrows — teacher only, outside scrollable area */}
                     {isTeacher && (
                         <>
                             <button
-                                onClick={() => canPrev ? onNav(activeCourseIdx, activeLessonIdx - 1) : undefined}
+                                onClick={() => canPrev && onNav(activeCourseIdx, activeLessonIdx - 1)}
                                 disabled={!canPrev}
                                 title="Previous lesson"
                                 style={{
@@ -637,11 +670,11 @@ export default function RoomCoursePanel({
                             >‹</button>
 
                             <button
-                                onClick={() => canNext ? onNav(activeCourseIdx, activeLessonIdx + 1) : undefined}
+                                onClick={() => canNext && onNav(activeCourseIdx, activeLessonIdx + 1)}
                                 disabled={!canNext}
                                 title="Next lesson"
                                 style={{
-                                    position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)',
+                                    position: 'absolute', right: 52, top: '50%', transform: 'translateY(-50%)',
                                     width: 36, height: 48, borderRadius: '8px 0 0 8px',
                                     border: 'none', background: 'transparent',
                                     color: canNext ? '#a5b4fc' : 'rgba(255,255,255,0.18)',
@@ -663,7 +696,7 @@ export default function RoomCoursePanel({
                                 position: 'absolute',
                                 ...(toolbarPos
                                     ? { left: toolbarPos.x, top: toolbarPos.y }
-                                    : { right: 12, top: '50%', transform: 'translateY(-50%)' }),
+                                    : { right: 8, top: '50%', transform: 'translateY(-50%)' }),
                                 zIndex: 20,
                                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
                                 background: 'rgba(10,10,20,0.92)',
@@ -769,7 +802,7 @@ export default function RoomCoursePanel({
                 </div>
             </div>
 
-            {/* Floating text input — shown when teacher clicks with text tool */}
+            {/* Floating text input for text tool */}
             {textInput && (
                 <textarea
                     autoFocus
