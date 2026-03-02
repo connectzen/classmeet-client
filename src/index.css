@@ -1040,10 +1040,12 @@ button:active:not(:disabled),
 /* ── 640 px — phones (single-column, touch-friendly) ─────── */
 @media (max-width: 640px) {
   /* Nav bar */
-  .landing-nav { padding: 10px 14px; gap: 4px; }
-  .landing-nav-actions { gap: 6px; }
+  .landing-nav { padding: 10px 14px; gap: 4px; flex-wrap: nowrap; overflow: hidden; }
+  .landing-nav-logo { flex-shrink: 1; min-width: 0; }
+  .landing-nav-actions { gap: 6px; flex-shrink: 0; }
   .nav-welcome { display: none; }
-  .landing-nav-center { padding: 0 8px; }
+  .landing-nav-center { padding: 0 8px; min-width: 0; }
+  .hero-pill.nav-pill { display: none; }
 
   /* Scroll body — still leave room for fixed nav */
   .landing-scroll-body { padding-top: 80px; }
@@ -1066,6 +1068,21 @@ button:active:not(:disabled),
 
   /* Admin-dashboard bottom-tab padding compensation */
   .admin-mobile-content { padding-bottom: 68px !important; }
+}
+
+/* ── extra-small phones (< 380px) — prevent nav overflow ──── */
+@media (max-width: 380px) {
+  .landing-nav { gap: 2px; padding: 8px 8px; overflow: hidden; }
+  .landing-nav-logo { flex-shrink: 1; min-width: 0; gap: 5px; }
+  .landing-nav-logo svg { width: 22px !important; height: 22px !important; }
+  .landing-nav-brand { font-size: clamp(0.72rem, 3.5vw, 0.95rem); }
+  .landing-nav-center { padding: 0 4px; min-width: 0; }
+  .nav-greeting { font-size: clamp(0.6rem, 2.8vw, 0.8rem); }
+  .nav-greeting-name { font-size: inherit; }
+  .hero-pill.nav-pill { display: none; }
+  .btn-ghost-nav { padding: 5px 8px; font-size: 0.72rem; }
+  .btn-primary-nav { padding: 5px 8px; font-size: 0.72rem; }
+  .landing-nav-actions { gap: 4px; flex-shrink: 0; }
 }
 
 
@@ -1777,6 +1794,19 @@ button:active:not(:disabled),
 .participant-count {
   font-size: 0.82rem;
   color: var(--text-muted);
+}
+
+.room-header-greeting {
+  font-size: clamp(0.72rem, 1.8vw, 0.88rem);
+  color: var(--text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.room-header-greeting strong {
+  color: var(--text);
+  font-weight: 700;
 }
 
 .room-code-copy-btn {

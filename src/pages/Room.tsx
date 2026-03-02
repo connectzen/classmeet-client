@@ -766,15 +766,9 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                     <span className={`connection-dot ${connected ? 'dot-connected' : 'dot-disconnected'}`} />
                 </div>
                 <div className="room-header-right">
-                    <span className="participant-count">👥 {allParticipants.length} / 5</span>
-                    <button
-                        className={`room-code-copy-btn ${codeCopied ? 'code-copied' : ''}`}
-                        onClick={copyRoomCode}
-                        title="Click to copy room code"
-                    >
-                        🔑 <span className="code-text">{roomCode}</span>
-                        <span className="copy-hint">{codeCopied ? '✅ Copied!' : '📋 Copy'}</span>
-                    </button>
+                    <span className="room-header-greeting">
+                        {(() => { const h = new Date().getHours(); return h < 12 ? '🌤️ Good morning' : h < 18 ? '☀️ Good afternoon' : '🌙 Good evening'; })()}, <strong>{name}</strong>!
+                    </span>
                 </div>
             </div>
 
@@ -1089,9 +1083,9 @@ function SpotlightVideo({ stream, name, isLocal, isCamOff }: { stream: MediaStre
     );
 }
 
-function CtrlToggle({ label, on, onChange, color }: { label: string; on: boolean; onChange: () => void; color?: string }) {
-    const trackColor = on ? (color || '#6366f1') : 'rgba(255,255,255,0.1)';
-    const borderColor = on ? (color ? `${color}80` : 'rgba(99,102,241,0.5)') : 'rgba(255,255,255,0.12)';
+function CtrlToggle({ label, on, onChange }: { label: string; on: boolean; onChange: () => void; color?: string }) {
+    const trackColor = on ? '#22c55e' : 'rgba(255,255,255,0.1)';
+    const borderColor = on ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.12)';
     return (
         <button
             onClick={onChange}

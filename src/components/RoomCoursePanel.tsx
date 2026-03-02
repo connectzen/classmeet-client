@@ -125,6 +125,7 @@ export default function RoomCoursePanel({
     const [drawSizeKey, setDrawSizeKey] = useState<'S' | 'M' | 'L'>('M');
     const [textInput, setTextInput] = useState<{ vx: number; vy: number; cx: number; cy: number } | null>(null);
     const [toolbarPos, setToolbarPos] = useState<{ x: number; y: number } | null>(null);
+    const [toolbarExpanded, setToolbarExpanded] = useState(false);
     // Teacher cursor rendered on the student's canvas
     const [teacherCursor, setTeacherCursor] = useState<{ x: number; y: number } | null>(null);
 
@@ -603,10 +604,20 @@ export default function RoomCoursePanel({
                         </>
                     )}
 
-                    {/* Annotation toolbar — teacher only, draggable */}
+                    {/* Annotation toolbar — teacher only, draggable, hover to expand */}
                     {isTeacher && (
-                        <div ref={toolbarRef} style={{ position: 'absolute', ...(toolbarPos ? { left: toolbarPos.x, top: toolbarPos.y } : { right: 6, top: '50%', transform: 'translateY(-50%)' }), zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'rgba(10,10,20,0.92)', backdropFilter: 'blur(10px)', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 14, padding: '7px 5px', boxShadow: '0 6px 24px rgba(0,0,0,0.5)', maxHeight: 'calc(100% - 24px)', overflowY: 'auto', overflowX: 'hidden' }}>
+                        <div
+                            ref={toolbarRef}
+                            onMouseEnter={() => setToolbarExpanded(true)}
+                            onMouseLeave={() => setToolbarExpanded(false)}
+                            style={{ position: 'absolute', ...(toolbarPos ? { left: toolbarPos.x, top: toolbarPos.y } : { right: 6, top: '50%', transform: 'translateY(-50%)' }), zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'rgba(10,10,20,0.92)', backdropFilter: 'blur(10px)', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 14, padding: toolbarExpanded ? '7px 5px' : '5px 5px', boxShadow: '0 6px 24px rgba(0,0,0,0.5)', overflow: 'hidden', transition: 'padding 0.18s' }}>
                             <div onMouseDown={onBarDragStart} title="Drag toolbar" style={{ cursor: 'grab', color: 'rgba(255,255,255,0.3)', fontSize: 13, padding: '2px 4px', userSelect: 'none', lineHeight: 1, letterSpacing: 1 }}>⠿</div>
+                            {/* Collapsed indicator: active color dot */}
+                            {!toolbarExpanded && (
+                                <div style={{ width: 14, height: 14, borderRadius: '50%', background: drawColor, border: '2px solid rgba(255,255,255,0.3)', marginBottom: 2, flexShrink: 0 }} />
+                            )}
+                            {/* Expanded: full toolbar */}
+                            {toolbarExpanded && (<>
                             <div style={{ width: 20, height: 1, background: 'rgba(255,255,255,0.12)' }} />
                             {TOOL_DEFS.map(({ id, icon, tip }) => (
                                 <button key={id} onClick={() => setDrawTool(drawTool === id ? null : id)} title={tip}
@@ -629,6 +640,7 @@ export default function RoomCoursePanel({
                                 style={{ width: 30, height: 30, borderRadius: 7, border: 'none', background: 'transparent', color: '#f87171', fontSize: 14, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s' }}
                                 onMouseEnter={e => { e.currentTarget.style.background = 'rgba(248,113,113,0.18)'; }}
                                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>🗑</button>
+                            </>)}
                         </div>
                     )}
                 </div>

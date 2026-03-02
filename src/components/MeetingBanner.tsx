@@ -79,9 +79,9 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
     const canJoin = timeLeft.isLive || isCreator;
 
     const isTeacher = sessionType === 'teacher';
-    const accentColor  = isTeacher ? '#818cf8' : '#a5b4fc';
-    const accentBg     = isTeacher ? 'rgba(99,102,241,0.2)' : 'rgba(129,140,248,0.2)';
-    const accentBorder = isTeacher ? 'rgba(99,102,241,0.45)' : 'rgba(129,140,248,0.45)';
+    const accentColor  = isTeacher ? '#4ade80' : '#a5b4fc';
+    const accentBg     = isTeacher ? 'rgba(34,197,94,0.18)' : 'rgba(129,140,248,0.2)';
+    const accentBorder = isTeacher ? 'rgba(34,197,94,0.4)' : 'rgba(129,140,248,0.45)';
     const gradientBg   = isTeacher
         ? 'linear-gradient(135deg, #1e1b4b 0%, #1e3a5f 50%, #1d2e5e 100%)'
         : 'linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4c1d95 100%)';
@@ -126,20 +126,10 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
 
             <div style={{ position: 'relative' }}>
 
-                {/* ── Header: Badge + Title side by side ── */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
-                    <span style={{
-                        flexShrink: 0,
-                        display: 'inline-flex', alignItems: 'center', gap: 4,
-                        background: accentBg, border: `1px solid ${accentBorder}`,
-                        borderRadius: 100, padding: '2px 9px', fontSize: 9, fontWeight: 700,
-                        color: accentColor, letterSpacing: '0.06em', textTransform: 'uppercase',
-                    }}>
-                        <span style={{ width: 4, height: 4, borderRadius: '50%', background: accentColor, flexShrink: 0 }} />
-                        {badgeLabel}
-                    </span>
+                {/* ── Header: Title ── */}
+                <div style={{ marginBottom: 10 }}>
                     <h3 style={{
-                        margin: 0, fontSize: 15, fontWeight: 700, color: '#f1f5f9', flex: 1, minWidth: 0,
+                        margin: 0, fontSize: 15, fontWeight: 700, color: '#f1f5f9',
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(meeting.title, { ADD_ATTR: ['style'] }) }} />
                 </div>
@@ -171,9 +161,20 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                                 <div style={{ fontSize: 40, opacity: 0.6 }}>📚</div>
                             </div>
                         )}
+                        {/* Badge — full width matching profile image */}
+                        <div style={{
+                            marginTop: 7, width: 110, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                            background: accentBg, border: `1px solid ${accentBorder}`,
+                            borderRadius: 8, padding: '4px 0', fontSize: 9, fontWeight: 700,
+                            color: accentColor, letterSpacing: '0.06em', textTransform: 'uppercase',
+                            boxSizing: 'border-box',
+                        }}>
+                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: accentColor, flexShrink: 0 }} />
+                            {badgeLabel}
+                        </div>
                         {teacherName && (
                             <div style={{
-                                marginTop: 7, fontSize: 11, fontWeight: 700, color: '#e2e8f0',
+                                marginTop: 5, fontSize: 11, fontWeight: 700, color: '#e2e8f0',
                                 textAlign: 'center', maxWidth: 110,
                                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                             }}>
@@ -257,9 +258,9 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                             What I Will Learn
                         </div>
                         {meeting.what_i_will_learn ? (
-                            <RichContent html={meeting.what_i_will_learn} style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.7 }} />
+                            <RichContent html={meeting.what_i_will_learn} style={{ fontSize: 12, color: '#cbd5e1', lineHeight: 1.7 }} />
                         ) : meeting.description ? (
-                            <RichContent html={meeting.description} style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.7 }} />
+                            <RichContent html={meeting.description} style={{ fontSize: 12, color: '#cbd5e1', lineHeight: 1.7 }} />
                         ) : (
                             <p style={{ margin: 0, fontSize: 12, color: '#475569', fontStyle: 'italic' }}>No learning objectives added.</p>
                         )}
