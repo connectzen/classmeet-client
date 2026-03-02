@@ -1013,7 +1013,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 comment={(roomQuizRevealed.data as { comment?: string })?.comment}
                                 studentName={(roomQuizRevealed.data as { studentName?: string })?.studentName}
                                 isClassReveal={roomQuizRevealed.type === 'class-reveal'}
-                                currentUserId={user?.id}
+                                currentUserId={user?.id || (socketId ? `guest_${socketId}` : undefined)}
                                 revealedStudentId={(roomQuizRevealed.data as { studentId?: string })?.studentId}
                                 onClose={() => setDismissedRevealed(true)}
                             />
@@ -1229,9 +1229,15 @@ function quizAnswerPreview(entry: StudentProgressEntry, questions: MonitorQuesti
     const q = questions[entry.currentIdx];
     if (!q) return '';
     const a = entry.answers[q.id];
-    if (!a) return '';
+    if (!a) {
+        if (q.type === 'recording') return '🎙️ Recording…';
+        if (q.type === 'upload' || q.type === 'video') return '📎 Uploading…';
+        return '';
+    }
     if (a.selectedOptions?.length) return a.selectedOptions.join(', ');
     if (a.answerText) return stripHtmlTags(a.answerText).slice(0, 80);
+    if (q.type === 'recording') return '🎙️ Recorded ✓';
+    if (q.type === 'upload' || q.type === 'video') return '📎 File uploaded ✓';
     return '';
 }
 
@@ -1275,9 +1281,13 @@ function QuizProgressTile({ entry, questions, onClick }: {
             </div>
             {/* Student's current answer */}
             {answer ? (
-                <div style={{ fontSize: 12, color: '#a5b4fc', background: 'rgba(99,102,241,0.1)', borderRadius: 6, padding: '4px 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: 12, color: answer.startsWith('🎙️') || answer.startsWith('📎') ? '#f59e0b' : '#a5b4fc', background: answer.startsWith('🎙️') || answer.startsWith('📎') ? 'rgba(245,158,11,0.1)' : 'rgba(99,102,241,0.1)', borderRadius: 6, padding: '4px 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {answer}
                 </div>
+            ) : currentQ?.type === 'recording' ? (
+                <div style={{ fontSize: 12, color: '#f59e0b', background: 'rgba(245,158,11,0.08)', borderRadius: 6, padding: '4px 8px' }}>🎙️ Recording in progress…</div>
+            ) : currentQ?.type === 'upload' || currentQ?.type === 'video' ? (
+                <div style={{ fontSize: 12, color: '#f59e0b', background: 'rgba(245,158,11,0.08)', borderRadius: 6, padding: '4px 8px' }}>📎 File upload in progress…</div>
             ) : (
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>No answer yet…</div>
             )}
@@ -1320,6 +1330,9 @@ function QuizProgressFull({ entry, questions, onClose }: {
                     let answerDisplay: string | null = null;
                     if (a?.selectedOptions?.length) answerDisplay = a.selectedOptions.join(', ');
                     else if (a?.answerText) answerDisplay = stripHtmlTags(a.answerText);
+                    else if (answered && q.type === 'recording') answerDisplay = '🎙️ Recorded ✓';
+                    else if (answered && (q.type === 'upload' || q.type === 'video')) answerDisplay = '📎 File uploaded ✓';
+                    const isMediaType = q.type === 'recording' || q.type === 'upload' || q.type === 'video';
                     return (
                         <div key={q.id || i} style={{ borderRadius: 8, border: `2px solid ${isCurrent ? '#6366f1' : answered ? 'rgba(34,197,94,0.4)' : 'var(--border)'}`, background: isCurrent ? 'rgba(99,102,241,0.08)' : 'var(--surface)', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1329,6 +1342,10 @@ function QuizProgressFull({ entry, questions, onClose }: {
                             </div>
                             {answerDisplay ? (
                                 <div style={{ fontSize: 12, color: answered ? '#a5b4fc' : 'var(--text-muted)', background: answered ? 'rgba(99,102,241,0.12)' : 'transparent', borderRadius: 5, padding: '3px 8px', marginLeft: 30, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{answerDisplay}</div>
+                            ) : isCurrent && isMediaType ? (
+                                <div style={{ fontSize: 12, color: '#f59e0b', background: 'rgba(245,158,11,0.1)', borderRadius: 5, padding: '3px 8px', marginLeft: 30 }}>
+                                    {q.type === 'recording' ? '🎙️ Recording in progress…' : '📎 Uploading file…'}
+                                </div>
                             ) : (
                                 <div style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', marginLeft: 30 }}>No answer yet</div>
                             )}

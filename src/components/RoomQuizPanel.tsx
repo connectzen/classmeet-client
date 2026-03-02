@@ -214,7 +214,11 @@ export function InlineResultCard({ score, comment, studentName, isClassReveal, c
     const [isCapturing, setIsCapturing] = useState(false);
     const cardRef = useRef<HTMLDivElement>(null);
     const isGood = score != null && score >= 50;
-    const canDownload = !isClassReveal || !revealedStudentId || !currentUserId || currentUserId === revealedStudentId;
+    // Only the student whose result is being shown can download (prevents other students
+    // downloading someone else's result during a class-wide reveal)
+    const canDownload = !isClassReveal
+        ? true  // individual reveal → event sent only to this student's socket
+        : (!!currentUserId && !!revealedStudentId && currentUserId === revealedStudentId);
 
     useEffect(() => { injectStyles(); }, []);
 
@@ -726,6 +730,9 @@ export function RoomQuizHost({
     const [localScores, setLocalScores] = useState<Record<string, number | null>>({});
     const [queueIndex, setQueueIndex] = useState(0);
     const [lastQuizId, setLastQuizId] = useState<string | null>(null);
+    // Competition reveal mode: teacher reveals one student at a time with animation
+    const [compQueue, setCompQueue] = useState<Array<{ submissionId: string; studentId: string; studentName: string; score: number | null }> | null>(null);
+    const [compIdx, setCompIdx] = useState(0);
 
     useEffect(() => { injectStyles(); }, []);
     // Reset queue when quiz list changes (new session / toggle off-on)
@@ -737,6 +744,34 @@ export function RoomQuizHost({
             if (qid) setLastQuizId(qid);
         }
     }, [activeQuiz]);
+
+    // Helper: start competition (reveal all unrevealed one by one)
+    const startCompetition = (subs: typeof submissions) => {
+        const unrevealed = subs
+            .filter(s => !revealedStudentIds.has(s.studentId))
+            .map(s => ({
+                submissionId: s.submissionId, studentId: s.studentId, studentName: s.studentName,
+                score: localScores[s.submissionId] !== undefined ? localScores[s.submissionId] : s.score,
+            }));
+        if (unrevealed.length === 0) return;
+        setCompQueue(unrevealed);
+        setCompIdx(0);
+        onReveal('class-reveal', unrevealed[0].submissionId, {
+            studentId: unrevealed[0].studentId, studentName: unrevealed[0].studentName, score: unrevealed[0].score,
+        });
+    };
+
+    // Helper: advance to next student in competition queue
+    const advanceCompetition = () => {
+        if (!compQueue) return;
+        const nextIdx = compIdx + 1;
+        if (nextIdx >= compQueue.length) { setCompQueue(null); return; }
+        setCompIdx(nextIdx);
+        const next = compQueue[nextIdx];
+        onReveal('class-reveal', next.submissionId, {
+            studentId: next.studentId, studentName: next.studentName, score: next.score,
+        });
+    };
 
     const handleStopAndAdvance = () => {
         onStopQuiz();
@@ -820,6 +855,25 @@ export function RoomQuizHost({
                         <h4 style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>
                             Submissions ({submissions.length}) — click a student to grade, then Reveal to show their result
                         </h4>
+
+                        {/* Competition mode banner */}
+                        {compQueue && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: 'linear-gradient(135deg, rgba(234,179,8,0.15), rgba(245,158,11,0.1))', border: '1px solid rgba(234,179,8,0.35)', marginBottom: 10 }}>
+                                <span style={{ fontSize: 16 }}>🏆</span>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: '#fbbf24', flex: 1 }}>
+                                    Competition — {compIdx + 1} / {compQueue.length} revealed
+                                </span>
+                                {compIdx + 1 < compQueue.length ? (
+                                    <button onClick={advanceCompetition} style={{ padding: '5px 12px', borderRadius: 6, border: 'none', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                                        Next Student ⏭
+                                    </button>
+                                ) : (
+                                    <span style={{ fontSize: 12, color: '#22c55e', fontWeight: 700 }}>All revealed! 🎉</span>
+                                )}
+                                <button onClick={() => setCompQueue(null)} style={{ padding: '4px 8px', borderRadius: 5, border: '1px solid rgba(234,179,8,0.4)', background: 'transparent', color: '#fbbf24', fontSize: 11, cursor: 'pointer' }}>✕ Stop</button>
+                            </div>
+                        )}
+
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                             {submissions.map((s) => {
                                 const isExpanded = expandedId === s.submissionId;
@@ -842,10 +896,18 @@ export function RoomQuizHost({
                                             {isRevealed ? (
                                                 <span style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: 'rgba(34,197,94,0.15)', color: '#22c55e' }}>Revealed</span>
                                             ) : (
-                                                <button onClick={(e) => { e.stopPropagation(); onReveal('class-reveal', s.submissionId, { studentId: s.studentId, studentName: s.studentName, score }); }}
-                                                    style={{ padding: '5px 12px', borderRadius: 6, border: 'none', background: 'linear-gradient(135deg, #6366f1, #818cf8)', color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                                                    Reveal to Class
-                                                </button>
+                                                <div style={{ display: 'flex', gap: 5 }}>
+                                                    <button onClick={(e) => { e.stopPropagation(); onReveal('individual', s.submissionId, { studentId: s.studentId, studentName: s.studentName, score }); }}
+                                                        title="Send result privately to this student only"
+                                                        style={{ padding: '5px 9px', borderRadius: 6, border: '1px solid rgba(99,102,241,0.5)', background: 'transparent', color: '#a5b4fc', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                                        👤 Private
+                                                    </button>
+                                                    <button onClick={(e) => { e.stopPropagation(); onReveal('class-reveal', s.submissionId, { studentId: s.studentId, studentName: s.studentName, score }); }}
+                                                        title="Reveal this student's result to the entire class with animation"
+                                                        style={{ padding: '5px 9px', borderRadius: 6, border: 'none', background: 'linear-gradient(135deg, #6366f1, #818cf8)', color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                                        📢 Class
+                                                    </button>
+                                                </div>
                                             )}
                                             <span style={{ fontSize: 16, color: 'var(--text-muted)', transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▾</span>
                                         </div>
@@ -862,6 +924,16 @@ export function RoomQuizHost({
                                 );
                             })}
                         </div>
+
+                        {/* Competition / Reveal All button */}
+                        {submissions.some(s => !revealedStudentIds.has(s.studentId)) && !compQueue && (
+                            <button
+                                onClick={() => startCompetition(submissions)}
+                                style={{ marginTop: 10, width: '100%', padding: '8px 0', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', fontWeight: 700, fontSize: 13 }}
+                            >
+                                🏆 Reveal All (Competition Mode)
+                            </button>
+                        )}
                     </div>
                 )}
                 <button
@@ -929,6 +1001,25 @@ export function RoomQuizHost({
                     <h4 style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>
                         Submissions — click a student to grade, then Reveal to show their result to the class
                     </h4>
+
+                    {/* Competition mode banner */}
+                    {compQueue && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: 'linear-gradient(135deg, rgba(234,179,8,0.15), rgba(245,158,11,0.1))', border: '1px solid rgba(234,179,8,0.35)', marginBottom: 10 }}>
+                            <span style={{ fontSize: 16 }}>🏆</span>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: '#fbbf24', flex: 1 }}>
+                                Competition — {compIdx + 1} / {compQueue.length} revealed
+                            </span>
+                            {compIdx + 1 < compQueue.length ? (
+                                <button onClick={advanceCompetition} style={{ padding: '5px 12px', borderRadius: 6, border: 'none', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                                    Next Student ⏭
+                                </button>
+                            ) : (
+                                <span style={{ fontSize: 12, color: '#22c55e', fontWeight: 700 }}>All revealed! 🎉</span>
+                            )}
+                            <button onClick={() => setCompQueue(null)} style={{ padding: '4px 8px', borderRadius: 5, border: '1px solid rgba(234,179,8,0.4)', background: 'transparent', color: '#fbbf24', fontSize: 11, cursor: 'pointer' }}>✕ Stop</button>
+                        </div>
+                    )}
+
                     {submissions.length === 0 ? (
                         <div style={{
                             padding: 24, textAlign: 'center', background: 'var(--surface-3)',
@@ -972,7 +1063,7 @@ export function RoomQuizHost({
                                                 </div>
                                             </div>
 
-                                            {/* Reveal button or Revealed badge */}
+                                            {/* Reveal buttons or Revealed badge */}
                                             {isRevealed ? (
                                                 <span style={{
                                                     padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
@@ -981,24 +1072,45 @@ export function RoomQuizHost({
                                                     Revealed
                                                 </span>
                                             ) : (
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        onReveal('class-reveal', s.submissionId, {
-                                                            studentId: s.studentId,
-                                                            studentName: s.studentName,
-                                                            score: getScore(s),
-                                                        });
-                                                    }}
-                                                    style={{
-                                                        padding: '5px 12px', borderRadius: 6, border: 'none',
-                                                        background: 'linear-gradient(135deg, #6366f1, #818cf8)',
-                                                        color: '#fff', fontSize: 11, fontWeight: 600,
-                                                        cursor: 'pointer', boxShadow: '0 2px 6px rgba(99,102,241,0.3)',
-                                                    }}
-                                                >
-                                                    Reveal to Class
-                                                </button>
+                                                <div style={{ display: 'flex', gap: 5 }}>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onReveal('individual', s.submissionId, {
+                                                                studentId: s.studentId,
+                                                                studentName: s.studentName,
+                                                                score: getScore(s),
+                                                            });
+                                                        }}
+                                                        title="Send result privately to this student only"
+                                                        style={{
+                                                            padding: '5px 9px', borderRadius: 6, border: '1px solid rgba(99,102,241,0.5)',
+                                                            background: 'transparent', color: '#a5b4fc', fontSize: 11, fontWeight: 600,
+                                                            cursor: 'pointer',
+                                                        }}
+                                                    >
+                                                        👤 Private
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onReveal('class-reveal', s.submissionId, {
+                                                                studentId: s.studentId,
+                                                                studentName: s.studentName,
+                                                                score: getScore(s),
+                                                            });
+                                                        }}
+                                                        title="Reveal this student's result to the entire class with animation"
+                                                        style={{
+                                                            padding: '5px 9px', borderRadius: 6, border: 'none',
+                                                            background: 'linear-gradient(135deg, #6366f1, #818cf8)',
+                                                            color: '#fff', fontSize: 11, fontWeight: 600,
+                                                            cursor: 'pointer', boxShadow: '0 2px 6px rgba(99,102,241,0.3)',
+                                                        }}
+                                                    >
+                                                        📢 Class
+                                                    </button>
+                                                </div>
                                             )}
 
                                             {/* Expand/collapse chevron */}
@@ -1027,6 +1139,16 @@ export function RoomQuizHost({
                                 );
                             })}
                         </div>
+                    )}
+
+                    {/* Competition / Reveal All button */}
+                    {submissions.some(s => !revealedStudentIds.has(s.studentId)) && !compQueue && submissions.length > 0 && (
+                        <button
+                            onClick={() => startCompetition(submissions)}
+                            style={{ marginTop: 10, width: '100%', padding: '8px 0', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', fontWeight: 700, fontSize: 13 }}
+                        >
+                            🏆 Reveal All (Competition Mode)
+                        </button>
                     )}
                 </div>
             </div>
