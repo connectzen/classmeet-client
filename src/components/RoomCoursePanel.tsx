@@ -82,8 +82,9 @@ function drawOnCanvas(ctx: CanvasRenderingContext2D, seg: DrawSeg, w: number, h:
         ctx.globalCompositeOperation = 'source-over';
         ctx.globalAlpha = 1; ctx.strokeStyle = seg.color; ctx.lineWidth = seg.size * 2.5;
         const cx = ((seg.x1 + seg.x2) / 2) * w, cy = ((seg.y1 + seg.y2) / 2) * h;
-        const rx = Math.abs(seg.x2 - seg.x1) * w / 2, ry = Math.abs(seg.y2 - seg.y1) * h / 2;
-        ctx.beginPath(); ctx.ellipse(cx, cy, Math.max(rx, 1), Math.max(ry, 1), 0, 0, 2 * Math.PI); ctx.stroke();
+        // Use max of horizontal/vertical half-extents so the circle always covers the drag area
+        const r = Math.max(Math.abs(seg.x2 - seg.x1) * w / 2, Math.abs(seg.y2 - seg.y1) * h / 2, 1);
+        ctx.beginPath(); ctx.arc(cx, cy, r, 0, 2 * Math.PI); ctx.stroke();
     } else if (seg.mode === 'rect') {
         ctx.globalCompositeOperation = 'source-over';
         ctx.globalAlpha = 1; ctx.strokeStyle = seg.color; ctx.lineWidth = seg.size * 2.5;
