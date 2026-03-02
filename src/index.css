@@ -1059,10 +1059,10 @@ button:active:not(:disabled),
   /* Room code copy button — hide text label on narrow screens */
   .copy-hint { display: none; }
 
-  /* Controls row — wrap to 2 rows so buttons don't overflow */
-  .room-controls { flex-wrap: wrap; gap: 4px; padding: 6px 8px; }
-  .control-btn   { min-width: 44px; padding: 6px 8px; }
-  .control-label { font-size: 0.65rem; }
+  /* Controls row — always single row, shrink everything to fit */
+  .room-controls { flex-wrap: nowrap; gap: 3px; padding: 5px 4px; }
+  .control-btn   { flex: 1 1 0; min-width: 0; padding: 5px clamp(1px, 0.8vw, 8px); font-size: 0.8rem; }
+  .control-label { font-size: 0.5rem; letter-spacing: 0; }
 
   /* Admin-dashboard bottom-tab padding compensation */
   .admin-mobile-content { padding-bottom: 68px !important; }
@@ -2145,11 +2145,14 @@ button:active:not(:disabled),
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 8px 16px;
+  /* Never wrap — all buttons must stay on one row and shrink to fit */
+  flex-wrap: nowrap;
+  gap: 6px;
+  padding: 8px 10px;
   background: var(--surface);
   border-top: 1px solid var(--border);
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .control-btn {
@@ -2157,16 +2160,20 @@ button:active:not(:disabled),
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  padding: 7px 14px;
+  /* flex: 1 1 0 — every button grows/shrinks equally to fill the row */
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 7px clamp(2px, 1.2vw, 14px);
   border-radius: var(--r-md);
   border: 1.5px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
   font-family: inherit;
-  font-size: 1.1rem;
+  font-size: clamp(0.85rem, 2vw, 1.1rem);
   cursor: pointer;
   transition: all var(--t);
-  min-width: 64px;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .control-btn:hover {
@@ -2887,20 +2894,22 @@ button:active:not(:disabled),
     border-radius: var(--r-md);
   }
 
-  /* Compact controls */
+  /* Compact controls — single row, flex-shrink */
   .room-controls {
-    gap: 6px;
-    padding: 6px 10px;
+    flex-wrap: nowrap;
+    gap: 4px;
+    padding: 6px 6px;
   }
 
   .control-btn {
-    min-width: 52px;
-    padding: 6px 10px;
-    font-size: 1rem;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 6px clamp(2px, 1vw, 10px);
+    font-size: 0.95rem;
   }
 
   .control-label {
-    font-size: 0.55rem;
+    font-size: 0.52rem;
   }
 
   /* Lobby */
@@ -3650,9 +3659,9 @@ input[type="radio"] {
   box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.18), 0 8px 40px rgba(0, 0, 0, 0.45);
 }
 
-/* Larger touch targets for touch-only devices */
+/* Touch devices — taller hit target but still shrink horizontally */
 @media (hover: none) {
-  .control-btn { min-width: 54px; min-height: 54px; padding: 9px 12px; }
+  .control-btn { flex: 1 1 0; min-width: 0; min-height: 48px; padding: 7px clamp(2px, 1vw, 12px); }
   .btn { min-height: 44px; }
 }
 

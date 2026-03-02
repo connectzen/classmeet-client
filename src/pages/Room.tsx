@@ -1081,11 +1081,11 @@ function CtrlToggle({ label, on, onChange, color }: { label: string; on: boolean
     return (
         <button
             onClick={onChange}
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', flexShrink: 0 }}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', padding: '4px clamp(2px, 0.8vw, 8px)', flex: '1 1 0', minWidth: 0, boxSizing: 'border-box' }}
         >
-            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: on ? '#e2e8f0' : 'var(--text-muted)', textTransform: 'uppercase', lineHeight: 1 }}>{label}</span>
-            <div style={{ width: 40, height: 22, borderRadius: 11, background: trackColor, border: `1.5px solid ${borderColor}`, position: 'relative', transition: 'background 0.2s, border-color 0.2s', flexShrink: 0 }}>
-                <div style={{ position: 'absolute', top: 3, left: on ? 17 : 3, width: 13, height: 13, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.3)', transition: 'left 0.18s' }} />
+            <span style={{ fontSize: 'clamp(7px, 1.5vw, 9px)', fontWeight: 700, letterSpacing: '0.06em', color: on ? '#e2e8f0' : 'var(--text-muted)', textTransform: 'uppercase', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{label}</span>
+            <div style={{ width: 'clamp(28px, 5vw, 40px)', height: 'clamp(16px, 3vw, 22px)', borderRadius: 11, background: trackColor, border: `1.5px solid ${borderColor}`, position: 'relative', transition: 'background 0.2s, border-color 0.2s', flexShrink: 0 }}>
+                <div style={{ position: 'absolute', top: 2, left: on ? 'calc(100% - 15px)' : 3, width: 'clamp(9px, 2vw, 13px)', height: 'clamp(9px, 2vw, 13px)', borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.3)', transition: 'left 0.18s' }} />
             </div>
         </button>
     );

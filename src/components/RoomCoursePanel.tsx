@@ -570,13 +570,20 @@ export default function RoomCoursePanel({
 
             {/* Floating text input */}
             {textInput && (
-                <textarea autoFocus rows={2} placeholder="Type here, Enter to commit…"
-                    style={{ position: 'fixed', left: textInput.vx, top: textInput.vy, zIndex: 9999, minWidth: 140, background: 'rgba(10,10,20,0.9)', color: drawColor, border: `2px solid ${drawColor}`, borderRadius: 8, padding: '6px 10px', fontSize: Math.round(15 * TOOL_SIZES[drawSizeKey]), fontFamily: 'sans-serif', fontWeight: 700, outline: 'none', resize: 'both', backdropFilter: 'blur(8px)', boxShadow: '0 4px 16px rgba(0,0,0,0.5)' }}
+                <div style={{ position: 'fixed', left: Math.min(textInput.vx, window.innerWidth - 280), top: Math.min(textInput.vy, window.innerHeight - 140), zIndex: 9999, width: 260, background: 'rgba(10,10,22,0.97)', border: `2px solid ${drawColor}`, borderRadius: 12, boxShadow: `0 0 0 1px ${drawColor}40, 0 8px 32px rgba(0,0,0,0.7)`, backdropFilter: 'blur(16px)', overflow: 'hidden' }}>
+                    <div style={{ padding: '6px 12px', borderBottom: `1px solid ${drawColor}40`, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: drawColor, display: 'inline-block', flexShrink: 0 }} />
+                        <span style={{ fontSize: 10, fontWeight: 700, color: drawColor, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Text Annotation</span>
+                        <span style={{ marginLeft: 'auto', fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>Enter ↵ to place</span>
+                    </div>
+                    <textarea autoFocus rows={3} placeholder="Type your annotation…"
+                    style={{ display: 'block', width: '100%', background: 'transparent', color: drawColor, border: 'none', padding: '10px 12px', fontSize: Math.round(14 * TOOL_SIZES[drawSizeKey]), fontFamily: 'sans-serif', fontWeight: 700, outline: 'none', resize: 'none', boxSizing: 'border-box', lineHeight: 1.5, caretColor: drawColor }}
                     onKeyDown={e => {
                         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitText(e.currentTarget.value, textInput.cx, textInput.cy); }
                         if (e.key === 'Escape') setTextInput(null);
                     }}
                     onBlur={e => commitText(e.currentTarget.value, textInput.cx, textInput.cy)} />
+                </div>
             )}
         </div>
     );
