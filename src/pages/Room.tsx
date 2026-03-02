@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { toPng } from 'html-to-image';
 import { useUser } from '../lib/AuthContext';
 import ChatPanel, { ChatMsg } from '../components/ChatPanel';
 import DevicePicker from '../components/DevicePicker';
@@ -78,8 +79,20 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [drawClearSignal, setDrawClearSignal] = useState(0);
     const [snapshotRequest, setSnapshotRequest] = useState(0);
     const [externalDrawSnapshot, setExternalDrawSnapshot] = useState<string | null>(null);
+    // Quiz student screen monitoring (teacher side)
+    const [quizStudentScreens, setQuizStudentScreens] = useState<Map<string, { name: string; dataUrl: string | null }>>(new Map());
+    const [quizFocusedStudent, setQuizFocusedStudent] = useState<string | null>(null);
+    const [quizMonitorMode, setQuizMonitorMode] = useState(false);
     const socketIdRef = useRef<string>('');
     const mobileChatRef = useRef<HTMLDivElement>(null);
+    const quizParticipantRef = useRef<HTMLDivElement>(null);
+    const quizCaptureRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    // Stable helper so handleParticipantLeft can remove departed students from the quiz monitor
+    const clearQuizScreenRef = useRef<(sid: string) => void>(() => {});
+    clearQuizScreenRef.current = (sid: string) => {
+        setQuizStudentScreens(prev => { const n = new Map(prev); n.delete(sid); return n; });
+        setQuizFocusedStudent(prev => (prev === sid ? null : prev));
+    };
     // Refs used in handleParticipantJoined to avoid stale closures
     const liveStateRef = useRef({
         courseToggleOn: false, courseSharedWithStudents: false,
@@ -213,6 +226,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         setParticipants((prev) => { const next = new Map(prev); next.delete(sid); return next; });
         removePeer(sid);
         setSpotlightId((prev) => prev === sid ? '__local__' : prev);
+        clearQuizScreenRef.current(sid);
     }, []);
 
     const handleSignal = useCallback((data: { from: string; signal: unknown }) => {
@@ -288,6 +302,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
         emitCourseToggle, emitCourseNavigate, emitCourseScroll, emitCourseSidebar,
         emitDrawSegment, emitDrawPreview, emitDrawCursor, emitDrawClear, emitDrawSnapshot,
+        emitQuizScreen, emitQuizScreenStop,
     } = useSocket({
             roomCode, roomId, roomName, name, role, isGuestRoomHost,
             onParticipantJoined: handleParticipantJoined,
@@ -333,6 +348,15 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
             },
             onDrawSnapshot: (dataUrl) => {
                 if (role !== 'teacher') setExternalDrawSnapshot(dataUrl);
+            },
+            onQuizScreenUpdate: (data) => {
+                if (role === 'teacher') {
+                    setQuizStudentScreens(prev => new Map(prev).set(data.socketId, { name: data.name, dataUrl: data.dataUrl }));
+                }
+            },
+            onQuizStudentInactive: (socketId) => {
+                setQuizStudentScreens(prev => { const n = new Map(prev); n.delete(socketId); return n; });
+                setQuizFocusedStudent(prev => (prev === socketId ? null : prev));
             },
         });
 
@@ -413,6 +437,62 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     useEffect(() => {
         setDismissedRevealed(false);
     }, [roomQuizRevealed]);
+
+    // ── Quiz monitor: auto-show when first student starts ─────────────────
+    useEffect(() => {
+        if (role === 'teacher' && quizStudentScreens.size > 0) setQuizMonitorMode(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [quizStudentScreens.size, role]);
+
+    // ── Quiz monitor: clear on quiz end ───────────────────────────────────
+    useEffect(() => {
+        if (!roomQuiz) {
+            setQuizStudentScreens(new Map());
+            setQuizFocusedStudent(null);
+            setQuizMonitorMode(false);
+            // Stop capture if running
+            if (quizCaptureRef.current) { clearInterval(quizCaptureRef.current); quizCaptureRef.current = null; }
+        }
+    }, [roomQuiz]);
+
+    // ── Student: capture & stream quiz screen to teacher ──────────────────
+    useEffect(() => {
+        if (role === 'teacher' || !studentQuizStarted || !roomQuiz) {
+            if (quizCaptureRef.current) { clearInterval(quizCaptureRef.current); quizCaptureRef.current = null; }
+            return;
+        }
+        const capture = async () => {
+            const el = quizParticipantRef.current;
+            if (!el) return;
+            try {
+                const dataUrl = await toPng(el, { pixelRatio: 0.5, cacheBust: true });
+                emitQuizScreen(dataUrl);
+            } catch { /* cross-origin content or capture error */ }
+        };
+        capture();
+        quizCaptureRef.current = setInterval(capture, 2200);
+        return () => {
+            if (quizCaptureRef.current) { clearInterval(quizCaptureRef.current); quizCaptureRef.current = null; }
+            emitQuizScreenStop();
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [studentQuizStarted, roomQuiz, role]);
+
+    // Stop capture when student submits
+    useEffect(() => {
+        if (roomQuizSubmitted) {
+            if (quizCaptureRef.current) { clearInterval(quizCaptureRef.current); quizCaptureRef.current = null; }
+            emitQuizScreenStop();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [roomQuizSubmitted]);
+
+    // ── Escape: collapse quiz student focus ────────────────────────────────
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setQuizFocusedStudent(null); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, []);
 
     // Student: always follow teacher navigation (always locked)
     useEffect(() => {
@@ -896,18 +976,39 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 snapshotDataUrl={externalDrawSnapshot}
                             />
                         ) : quizToggleOn && role === 'teacher' ? (
-                            <RoomQuizHost
-                                roomId={roomId}
-                                quizzes={roomQuizzes}
-                                loadingQuizzes={loadingRoomQuizzes}
-                                activeQuiz={roomQuiz}
-                                submissions={roomQuizSubmissions}
-                                revealedStudentIds={revealedStudentIds}
-                                onStartQuiz={startRoomQuiz}
-                                onStopQuiz={stopRoomQuiz}
-                                onClose={() => setQuizToggleOn(false)}
-                                onReveal={revealRoomQuiz}
-                            />
+                            quizMonitorMode && quizStudentScreens.size > 0 ? (
+                                <QuizStudentMonitor
+                                    screens={quizStudentScreens}
+                                    focusedId={quizFocusedStudent}
+                                    onFocus={setQuizFocusedStudent}
+                                    onBack={() => setQuizMonitorMode(false)}
+                                />
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 0 }}>
+                                    {quizStudentScreens.size > 0 && (
+                                        <button
+                                            onClick={() => setQuizMonitorMode(true)}
+                                            style={{ padding: '7px 14px', background: 'rgba(99,102,241,0.18)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: '10px 10px 0 0', color: '#a5b4fc', fontSize: 13, fontWeight: 600, cursor: 'pointer', textAlign: 'left', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 5px #22c55e', flexShrink: 0, display: 'inline-block' }} />
+                                            {quizStudentScreens.size} student{quizStudentScreens.size !== 1 ? 's' : ''} taking quiz — Monitor Live →
+                                        </button>
+                                    )}
+                                    <div style={{ flex: 1, minHeight: 0 }}>
+                                        <RoomQuizHost
+                                            roomId={roomId}
+                                            quizzes={roomQuizzes}
+                                            loadingQuizzes={loadingRoomQuizzes}
+                                            activeQuiz={roomQuiz}
+                                            submissions={roomQuizSubmissions}
+                                            revealedStudentIds={revealedStudentIds}
+                                            onStartQuiz={startRoomQuiz}
+                                            onStopQuiz={stopRoomQuiz}
+                                            onClose={() => setQuizToggleOn(false)}
+                                            onReveal={revealRoomQuiz}
+                                        />
+                                    </div>
+                                </div>
+                            )
                         ) : role !== 'teacher' && roomQuizRevealed && !dismissedRevealed ? (
                             <InlineResultCard
                                 score={(roomQuizRevealed.data as { score?: number | null })?.score ?? null}
@@ -952,16 +1053,18 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                     </button>
                                 </div>
                             ) : (
-                                <RoomQuizParticipant
-                                    quiz={roomQuiz.quiz as { id: string; title: string; questions: unknown[] }}
-                                    userId={user?.id || `guest_${socketId}`}
-                                    userName={name}
-                                    onSubmit={(subId, score) => {
-                                        submitRoomQuiz(subId, roomQuiz.quizId, user?.id || `guest_${socketId}`, name, score);
-                                        setRoomQuizSubmitted(true);
-                                    }}
-                                    onAlert={(title, msg) => alert(`${title}: ${msg}`)}
-                                />
+                                <div ref={quizParticipantRef} style={{ height: '100%' }}>
+                                    <RoomQuizParticipant
+                                        quiz={roomQuiz.quiz as { id: string; title: string; questions: unknown[] }}
+                                        userId={user?.id || `guest_${socketId}`}
+                                        userName={name}
+                                        onSubmit={(subId, score) => {
+                                            submitRoomQuiz(subId, roomQuiz.quizId, user?.id || `guest_${socketId}`, name, score);
+                                            setRoomQuizSubmitted(true);
+                                        }}
+                                        onAlert={(title, msg) => alert(`${title}: ${msg}`)}
+                                    />
+                                </div>
                             )
                         ) : (
                             <SpotlightVideo
@@ -1108,6 +1211,91 @@ function VideoTileInline({ stream, name, muted, isCamOff }: { stream: MediaStrea
             <video ref={ref} autoPlay playsInline muted={muted} className="thumb-video"
                 style={showAvatar ? { display: 'none' } : undefined} />
             {showAvatar && <div className="thumb-avatar">{name.charAt(0).toUpperCase()}</div>}
+        </div>
+    );
+}
+// ── Quiz Student Monitor (teacher sees live student screens) ─────────────
+function QuizStudentMonitor({
+    screens,
+    focusedId,
+    onFocus,
+    onBack,
+}: {
+    screens: Map<string, { name: string; dataUrl: string | null }>;
+    focusedId: string | null;
+    onFocus: (id: string | null) => void;
+    onBack: () => void;
+}) {
+    const entries = Array.from(screens.entries());
+    const cols = entries.length <= 1 ? 1 : entries.length <= 4 ? 2 : entries.length <= 9 ? 3 : 4;
+
+    // ── Fullscreen focus view ────────────────────────────────────────────
+    if (focusedId) {
+        const screen = screens.get(focusedId);
+        return (
+            <div style={{ position: 'relative', width: '100%', height: '100%', background: '#0a0a14', borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', background: 'rgba(0,0,0,0.55)', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
+                    <button onClick={() => onFocus(null)} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: 'rgba(255,255,255,0.1)', color: '#e2e8f0', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>← Back</button>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0' }}>{screen?.name}</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 11, color: '#94a3b8' }}>Press Esc or click ✕ to exit</span>
+                    <button onClick={() => onFocus(null)} style={{ width: 26, height: 26, borderRadius: 6, border: 'none', background: 'rgba(255,255,255,0.08)', color: '#94a3b8', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                </div>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: 12 }}>
+                    {screen?.dataUrl ? (
+                        <img src={screen.dataUrl} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 8 }} alt={screen?.name} />
+                    ) : (
+                        <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, fontWeight: 700, color: '#fff' }}>
+                            {screen?.name?.charAt(0).toUpperCase() || '?'}
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // ── Grid view ────────────────────────────────────────────────────────
+    return (
+        <div style={{ width: '100%', height: '100%', background: 'var(--surface-2)', borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 6px #22c55e', flexShrink: 0 }} />
+                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+                    Live Monitor — {entries.length} student{entries.length !== 1 ? 's' : ''}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', flex: 1 }}>Click a tile for fullscreen · Esc to exit</span>
+                <button onClick={onBack} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+                    Quiz Panel →
+                </button>
+            </div>
+            {/* Grid */}
+            <div style={{ flex: 1, padding: 8, overflow: 'auto', display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 6, alignContent: 'start' }}>
+                {entries.map(([socketId, screen]) => (
+                    <button
+                        key={socketId}
+                        onClick={() => onFocus(socketId)}
+                        style={{ position: 'relative', aspectRatio: '4/3', background: '#0a0a14', borderRadius: 8, overflow: 'hidden', cursor: 'pointer', border: '2px solid rgba(255,255,255,0.08)', padding: 0, transition: 'border-color 0.15s, transform 0.1s' }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#6366f1'; e.currentTarget.style.transform = 'scale(1.025)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.transform = 'scale(1)'; }}
+                    >
+                        {screen.dataUrl ? (
+                            <img src={screen.dataUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt={screen.name} />
+                        ) : (
+                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 700, color: '#6366f1' }}>
+                                {screen.name.charAt(0).toUpperCase()}
+                            </div>
+                        )}
+                        {/* Name bar */}
+                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.85))', padding: '20px 8px 6px', fontSize: 11, fontWeight: 600, color: '#fff', textAlign: 'left', pointerEvents: 'none' }}>
+                            {screen.name}
+                        </div>
+                        {/* Live dot */}
+                        <div style={{ position: 'absolute', top: 6, right: 6, display: 'flex', alignItems: 'center', gap: 3, pointerEvents: 'none' }}>
+                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 4px #22c55e' }} />
+                            <span style={{ fontSize: 9, fontWeight: 700, color: '#22c55e', textTransform: 'uppercase' }}>LIVE</span>
+                        </div>
+                    </button>
+                ))}
+            </div>
         </div>
     );
 }

@@ -46,6 +46,9 @@ interface UseSocketOptions {
     onDrawCursor?: (x: number, y: number) => void;
     onDrawClear?: () => void;
     onDrawSnapshot?: (dataUrl: string) => void;
+    // Quiz screen monitoring
+    onQuizScreenUpdate?: (data: { socketId: string; name: string; dataUrl: string }) => void;
+    onQuizStudentInactive?: (socketId: string) => void;
 }
 
 export function useSocket(options: UseSocketOptions) {
@@ -104,6 +107,11 @@ export function useSocket(options: UseSocketOptions) {
     onDrawCursorRef.current  = onDrawCursor;
     onDrawClearRef.current = onDrawClear;
     onDrawSnapshotRef.current = onDrawSnapshot;
+
+    const onQuizScreenUpdateRef = useRef(options.onQuizScreenUpdate);
+    const onQuizStudentInactiveRef = useRef(options.onQuizStudentInactive);
+    onQuizScreenUpdateRef.current = options.onQuizScreenUpdate;
+    onQuizStudentInactiveRef.current = options.onQuizStudentInactive;
 
     const socketRef = useRef<Socket | null>(null);
     const [socketId, setSocketId] = useState('');
@@ -208,6 +216,12 @@ export function useSocket(options: UseSocketOptions) {
         socket.on('course:draw-snapshot', ({ dataUrl }: { dataUrl: string }) => {
             onDrawSnapshotRef.current?.(dataUrl);
         });
+        socket.on('quiz:screen-update', (data: { socketId: string; name: string; dataUrl: string }) => {
+            onQuizScreenUpdateRef.current?.(data);
+        });
+        socket.on('quiz:student-inactive', ({ socketId: sid }: { socketId: string }) => {
+            onQuizStudentInactiveRef.current?.(sid);
+        });
         socket.on('disconnect', () => setConnected(false));
 
         return () => {
@@ -296,6 +310,14 @@ export function useSocket(options: UseSocketOptions) {
         socketRef.current?.emit('course-draw-snapshot', { roomCode, dataUrl });
     }, [roomCode]);
 
+    const emitQuizScreen = useCallback((dataUrl: string) => {
+        socketRef.current?.emit('quiz:screen-update', { roomCode, dataUrl });
+    }, [roomCode]);
+
+    const emitQuizScreenStop = useCallback(() => {
+        socketRef.current?.emit('quiz:student-inactive', { roomCode });
+    }, [roomCode]);
+
     return {
         socketId, connected, joinError, existingParticipants, currentSpotlight,
         roomQuiz, roomQuizSubmissions, roomQuizRevealed, revealedStudentIds,
@@ -303,5 +325,6 @@ export function useSocket(options: UseSocketOptions) {
         startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
         emitCourseToggle, emitCourseNavigate, emitCourseScroll, emitCourseSidebar,
         emitDrawSegment, emitDrawPreview, emitDrawCursor, emitDrawClear, emitDrawSnapshot,
+        emitQuizScreen, emitQuizScreenStop,
     };
 }
