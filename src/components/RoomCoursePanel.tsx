@@ -488,8 +488,9 @@ export default function RoomCoursePanel({
                     <div ref={contentRef} onScroll={isTeacher ? handleScroll : undefined}
                         style={{ width: '100%', height: '100%', overflowY: isTeacher ? 'auto' : 'hidden', position: 'relative', userSelect: drawActive ? 'none' : 'text' }}>
 
-                        {/* Lesson content — padded right on teacher side so toolbar never overlaps text */}
-                        <div style={{ padding: 20, paddingRight: isTeacher ? 56 : 20, boxSizing: 'border-box' }}>
+                        {/* Lesson content — 56px right padding on both sides keeps text width
+                            identical between teacher and student so scroll sync stays aligned */}
+                        <div style={{ padding: 20, paddingRight: 56, boxSizing: 'border-box' }}>
                             {loading ? (
                                 <div style={{ color: 'var(--text-muted)', padding: 40, textAlign: 'center' }}>Loading course…</div>
                             ) : !course ? (
