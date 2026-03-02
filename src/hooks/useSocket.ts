@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
+import type { DrawSeg } from '../components/RoomCoursePanel';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -40,6 +41,9 @@ interface UseSocketOptions {
     onCourseNavigate?: (courseIdx: number, lessonIdx: number) => void;
     onCourseScroll?: (ratio: number) => void;
     onCourseSidebar?: (open: boolean) => void;
+    onDrawSegment?: (seg: DrawSeg) => void;
+    onDrawClear?: () => void;
+    onDrawSnapshot?: (dataUrl: string) => void;
 }
 
 export function useSocket(options: UseSocketOptions) {
@@ -49,6 +53,7 @@ export function useSocket(options: UseSocketOptions) {
         onSignal, onChatMessage, onRoomEnded,
         onForceMute, onForceCam, onParticipantMuteChanged, onParticipantCamChanged, onTeacherDisconnected,
         onSpotlightChanged, onTeacherJoined, onAdminRefresh, onCourseToggle, onCourseNavigate, onCourseScroll, onCourseSidebar,
+        onDrawSegment, onDrawClear, onDrawSnapshot,
     } = options;
 
     // Keep refs so the single registered socket listeners always call the latest callbacks
@@ -69,6 +74,9 @@ export function useSocket(options: UseSocketOptions) {
     const onCourseNavigateRef = useRef(onCourseNavigate);
     const onCourseScrollRef = useRef(onCourseScroll);
     const onCourseSidebarRef = useRef(onCourseSidebar);
+    const onDrawSegmentRef = useRef(onDrawSegment);
+    const onDrawClearRef = useRef(onDrawClear);
+    const onDrawSnapshotRef = useRef(onDrawSnapshot);
 
     onAdminRefreshRef.current = onAdminRefresh;
     onParticipantJoinedRef.current = onParticipantJoined;
@@ -87,6 +95,9 @@ export function useSocket(options: UseSocketOptions) {
     onCourseNavigateRef.current = onCourseNavigate;
     onCourseScrollRef.current = onCourseScroll;
     onCourseSidebarRef.current = onCourseSidebar;
+    onDrawSegmentRef.current = onDrawSegment;
+    onDrawClearRef.current = onDrawClear;
+    onDrawSnapshotRef.current = onDrawSnapshot;
 
     const socketRef = useRef<Socket | null>(null);
     const [socketId, setSocketId] = useState('');
@@ -176,6 +187,15 @@ export function useSocket(options: UseSocketOptions) {
         socket.on('course:sidebar', ({ open }: { open: boolean }) => {
             onCourseSidebarRef.current?.(open);
         });
+        socket.on('course:draw-segment', (seg: DrawSeg) => {
+            onDrawSegmentRef.current?.(seg);
+        });
+        socket.on('course:draw-clear', () => {
+            onDrawClearRef.current?.();
+        });
+        socket.on('course:draw-snapshot', ({ dataUrl }: { dataUrl: string }) => {
+            onDrawSnapshotRef.current?.(dataUrl);
+        });
         socket.on('disconnect', () => setConnected(false));
 
         return () => {
@@ -244,11 +264,24 @@ export function useSocket(options: UseSocketOptions) {
         socketRef.current?.emit('course-sidebar', { roomCode, open });
     }, [roomCode]);
 
+    const emitDrawSegment = useCallback((seg: DrawSeg) => {
+        socketRef.current?.emit('course-draw-segment', { roomCode, ...seg });
+    }, [roomCode]);
+
+    const emitDrawClear = useCallback(() => {
+        socketRef.current?.emit('course-draw-clear', { roomCode });
+    }, [roomCode]);
+
+    const emitDrawSnapshot = useCallback((dataUrl: string) => {
+        socketRef.current?.emit('course-draw-snapshot', { roomCode, dataUrl });
+    }, [roomCode]);
+
     return {
         socketId, connected, joinError, existingParticipants, currentSpotlight,
         roomQuiz, roomQuizSubmissions, roomQuizRevealed, revealedStudentIds,
         sendSignal, sendMessage, endRoom, muteParticipant, camParticipant, broadcastSelfCam, changeSpotlight,
         startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
         emitCourseToggle, emitCourseNavigate, emitCourseScroll, emitCourseSidebar,
+        emitDrawSegment, emitDrawClear, emitDrawSnapshot,
     };
 }

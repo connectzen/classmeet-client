@@ -405,7 +405,7 @@ export default function RichEditor({
                         <span style={{ fontSize: 11, color: '#64748b' }}>▾</span>
                     </button>
                     {showColorPicker && (
-                        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 200, background: '#1a1a2e', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 10, padding: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', minWidth: 158 }}>
+                        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 200, background: '#1a1a2e', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 10, padding: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', minWidth: 158, maxHeight: 260, overflowY: 'auto' }}>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 5, marginBottom: 8 }}>
                                 {COLOR_PRESETS.map(color => (
                                     <button

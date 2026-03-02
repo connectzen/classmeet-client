@@ -4,7 +4,7 @@ import ChatPanel, { ChatMsg } from '../components/ChatPanel';
 import DevicePicker from '../components/DevicePicker';
 import RescheduleSessionModal from '../components/RescheduleSessionModal';
 import { RoomQuizParticipant, RoomQuizHost, PostSubmitWaiting, InlineResultCard } from '../components/RoomQuizPanel';
-import RoomCoursePanel from '../components/RoomCoursePanel';
+import RoomCoursePanel, { DrawSeg } from '../components/RoomCoursePanel';
 import DOMPurify from 'dompurify';
 import { useSocket, Participant } from '../hooks/useSocket';
 import { useWebRTC } from '../hooks/useWebRTC';
@@ -71,6 +71,11 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [courseCourseIdx, setCourseCourseIdx] = useState(0);
     const [courseTotalLessons, setCourseTotalLessons] = useState(1);
     const [dismissedRevealed, setDismissedRevealed] = useState(false);
+    // Draw/annotation overlay state
+    const [externalDrawSeg, setExternalDrawSeg] = useState<DrawSeg | null>(null);
+    const [drawClearSignal, setDrawClearSignal] = useState(0);
+    const [snapshotRequest, setSnapshotRequest] = useState(0);
+    const [externalDrawSnapshot, setExternalDrawSnapshot] = useState<string | null>(null);
     const socketIdRef = useRef<string>('');
     const mobileChatRef = useRef<HTMLDivElement>(null);
     // Refs used in handleParticipantJoined to avoid stale closures
@@ -194,6 +199,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                     setTimeout(() => {
                         e.emitCourseNavigate?.(s.courseCourseIdx, s.courseLessonIdx);
                         e.emitCourseSidebar?.(s.courseSidebarOpen);
+                        // Trigger canvas snapshot capture so late joiner sees current annotations
+                        setSnapshotRequest(prev => prev + 1);
                     }, 400);
                 }, 600);
             }
@@ -278,6 +285,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         sendSignal, sendMessage, endRoom, muteParticipant, camParticipant, broadcastSelfCam, changeSpotlight,
         startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
         emitCourseToggle, emitCourseNavigate, emitCourseScroll, emitCourseSidebar,
+        emitDrawSegment, emitDrawClear, emitDrawSnapshot,
     } = useSocket({
             roomCode, roomId, roomName, name, role, isGuestRoomHost,
             onParticipantJoined: handleParticipantJoined,
@@ -308,6 +316,15 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
             },
             onCourseSidebar: (open) => {
                 if (role !== 'teacher') setCourseSidebarOpen(open);
+            },
+            onDrawSegment: (seg) => {
+                if (role !== 'teacher') setExternalDrawSeg(seg);
+            },
+            onDrawClear: () => {
+                if (role !== 'teacher') setDrawClearSignal(prev => prev + 1);
+            },
+            onDrawSnapshot: (dataUrl) => {
+                if (role !== 'teacher') setExternalDrawSnapshot(dataUrl);
             },
         });
 
@@ -405,6 +422,11 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
             setCourseSharedWithStudents(false);
             setCourseSidebarOpen(false);
             setExternalCourseScroll(null);
+            // Clear draw state
+            setExternalDrawSeg(null);
+            setDrawClearSignal(0);
+            setSnapshotRequest(0);
+            setExternalDrawSnapshot(null);
         }
     }, [courseToggleOn]);
 
@@ -845,6 +867,10 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                     setCourseSidebarOpen(next);
                                     emitCourseSidebar(next);
                                 }}
+                                onDrawSegment={emitDrawSegment}
+                                onDrawClear={() => { emitDrawClear(); setDrawClearSignal(prev => prev + 1); }}
+                                snapshotRequest={snapshotRequest}
+                                onSnapshot={emitDrawSnapshot}
                             />
                         ) : courseToggleOn && role !== 'teacher' ? (
                             <RoomCoursePanel
@@ -857,6 +883,9 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 onCoursesLoaded={setCourseTotalLessons}
                                 externalScroll={externalCourseScroll}
                                 sidebarOpen={courseSidebarOpen}
+                                externalDrawSeg={externalDrawSeg}
+                                drawClearSignal={drawClearSignal}
+                                snapshotDataUrl={externalDrawSnapshot}
                             />
                         ) : quizToggleOn && role === 'teacher' ? (
                             <RoomQuizHost
