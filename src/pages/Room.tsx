@@ -1231,7 +1231,7 @@ function quizAnswerPreview(entry: StudentProgressEntry, questions: MonitorQuesti
     const a = entry.answers[q.id];
     if (!a) return '';
     if (a.selectedOptions?.length) return a.selectedOptions.join(', ');
-    if (a.answerText) return a.answerText.slice(0, 80);
+    if (a.answerText) return stripHtmlTags(a.answerText).slice(0, 80);
     return '';
 }
 
@@ -1319,7 +1319,7 @@ function QuizProgressFull({ entry, questions, onClose }: {
                     const qText = q.question_text ? stripHtmlTags(q.question_text) : `Question ${i + 1}`;
                     let answerDisplay: string | null = null;
                     if (a?.selectedOptions?.length) answerDisplay = a.selectedOptions.join(', ');
-                    else if (a?.answerText) answerDisplay = a.answerText;
+                    else if (a?.answerText) answerDisplay = stripHtmlTags(a.answerText);
                     return (
                         <div key={q.id || i} style={{ borderRadius: 8, border: `2px solid ${isCurrent ? '#6366f1' : answered ? 'rgba(34,197,94,0.4)' : 'var(--border)'}`, background: isCurrent ? 'rgba(99,102,241,0.08)' : 'var(--surface)', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
