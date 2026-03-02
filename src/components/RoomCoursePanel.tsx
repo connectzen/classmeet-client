@@ -82,7 +82,6 @@ function drawOnCanvas(ctx: CanvasRenderingContext2D, seg: DrawSeg, w: number, h:
         ctx.globalCompositeOperation = 'source-over';
         ctx.globalAlpha = 1; ctx.strokeStyle = seg.color; ctx.lineWidth = seg.size * 2.5;
         const cx = ((seg.x1 + seg.x2) / 2) * w, cy = ((seg.y1 + seg.y2) / 2) * h;
-        // Use max of horizontal/vertical half-extents so the circle always covers the drag area
         const r = Math.max(Math.abs(seg.x2 - seg.x1) * w / 2, Math.abs(seg.y2 - seg.y1) * h / 2, 1);
         ctx.beginPath(); ctx.arc(cx, cy, r, 0, 2 * Math.PI); ctx.stroke();
     } else if (seg.mode === 'rect') {
@@ -124,28 +123,28 @@ export default function RoomCoursePanel({
     const [toolbarPos, setToolbarPos] = useState<{ x: number; y: number } | null>(null);
 
     // ── Refs ─────────────────────────────────────────────────────────────────
-    const contentRef      = useRef<HTMLDivElement>(null);
-    const canvasRef       = useRef<HTMLCanvasElement>(null);
-    const previewRef      = useRef<HTMLCanvasElement>(null);
-    const wrapperRef      = useRef<HTMLDivElement>(null);
-    const scrollThrottle  = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const lastRatio       = useRef(0);
-    const isDrawing       = useRef(false);
-    const lastPt          = useRef<{ x: number; y: number } | null>(null);
-    const shapeStart      = useRef<{ x: number; y: number } | null>(null);
-    const toolbarRef      = useRef<HTMLDivElement>(null);
-    const isDraggingBar   = useRef(false);
-    const barDragOffset   = useRef({ x: 0, y: 0 });
+    const contentRef  = useRef<HTMLDivElement>(null);   // scrollable area
+    const canvasRef   = useRef<HTMLCanvasElement>(null); // annotation layer — INSIDE scrollable div
+    const previewRef  = useRef<HTMLCanvasElement>(null); // shape preview
+    const wrapperRef  = useRef<HTMLDivElement>(null);   // outer non-scrolling wrapper
+    const scrollThrottle = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const lastRatio   = useRef(0);
+    const isDrawing   = useRef(false);
+    const lastPt      = useRef<{ x: number; y: number } | null>(null);
+    const shapeStart  = useRef<{ x: number; y: number } | null>(null);
+    const toolbarRef  = useRef<HTMLDivElement>(null);
+    const isDraggingBar = useRef(false);
+    const barDragOffset = useRef({ x: 0, y: 0 });
 
-    // Always-fresh refs — document-level handlers read these so there are never stale closures
-    const drawState = useRef({ drawTool, drawColor, drawSizeKey });
+    // Always-fresh refs so document-level handlers never have stale closures
+    const drawState   = useRef({ drawTool, drawColor, drawSizeKey });
     drawState.current = { drawTool, drawColor, drawSizeKey };
     const onDrawSegCb = useRef(onDrawSegment);
     onDrawSegCb.current = onDrawSegment;
 
-    const isTeacher   = role === 'teacher';
-    const drawActive  = isTeacher && drawTool !== null;
-    const cursor      = drawTool ? (TOOL_DEFS.find(t => t.id === drawTool)?.cursor ?? 'crosshair') : 'default';
+    const isTeacher  = role === 'teacher';
+    const drawActive = isTeacher && drawTool !== null;
+    const cursor     = drawTool ? (TOOL_DEFS.find(t => t.id === drawTool)?.cursor ?? 'crosshair') : 'default';
 
     // ── Data loading ──────────────────────────────────────────────────────────
     useEffect(() => {
@@ -209,49 +208,66 @@ export default function RoomCoursePanel({
     }, [activeLessonIdx, activeCourseIdx]);
 
     // ── Canvas sizing ─────────────────────────────────────────────────────────
-    // Canvas covers the VIEWPORT (wrapperRef), NOT the full scroll height.
-    // Normalising to viewport dimensions means the same (x,y) fraction points
-    // to the same visual area on every screen size, because scroll is synced.
+    // Canvas lives INSIDE the scrollable div and covers its full scroll area.
+    // The padding wrapper is fixed at 640 px wide so content.scrollWidth is
+    // always 640 on every screen — normalized draw coordinates (0-1) therefore
+    // map to identical pixel positions for both teacher and all students.
+    // Collapsing canvas height before reading scrollHeight breaks the feedback
+    // loop that would otherwise prevent the canvas shrinking on shorter lessons.
     useEffect(() => {
-        const wrapper = wrapperRef.current;
+        const content = contentRef.current;
         const canvas  = canvasRef.current;
         const preview = previewRef.current;
-        if (!wrapper || !canvas || !preview) return;
+        if (!content || !canvas || !preview) return;
 
         const sync = () => {
-            const w = wrapper.clientWidth  || 1;
-            const h = wrapper.clientHeight || 1;
-            if (canvas.width === w && canvas.height === h) return;
-            const saved = canvas.toDataURL();
-            canvas.width = w; canvas.height = h;
-            preview.width = w; preview.height = h;
-            canvas.style.width   = w + 'px'; canvas.style.height  = h + 'px';
-            preview.style.width  = w + 'px'; preview.style.height = h + 'px';
-            if (saved !== 'data:,') {
-                const img = new Image();
-                img.onload = () => canvas.getContext('2d')?.drawImage(img, 0, 0);
-                img.src = saved;
+            // Collapse canvas so it doesn't inflate scrollHeight measurement
+            canvas.style.height  = '0px';
+            preview.style.height = '0px';
+
+            const w = content.scrollWidth  || 1;
+            const h = Math.max(content.scrollHeight, content.clientHeight, 1);
+
+            if (canvas.width !== w || canvas.height !== h) {
+                const saved = canvas.toDataURL();
+                canvas.width = w; canvas.height = h;
+                preview.width = w; preview.height = h;
+                if (saved !== 'data:,') {
+                    const img = new Image();
+                    img.onload = () => canvas.getContext('2d')?.drawImage(img, 0, 0);
+                    img.src = saved;
+                }
             }
+            canvas.style.width   = canvas.width  + 'px';
+            canvas.style.height  = canvas.height + 'px';
+            preview.style.width  = preview.width  + 'px';
+            preview.style.height = preview.height + 'px';
         };
 
         sync();
         const ro = new ResizeObserver(sync);
-        ro.observe(wrapper);
+        ro.observe(content);
         return () => ro.disconnect();
     }, []);
 
     // ── Drawing: document-level events ────────────────────────────────────────
-    // Registered once on mount. All draw state is read from drawState ref so
-    // there are no stale closures. mousemove/mouseup are on document so strokes
-    // never stop when the cursor leaves the canvas boundary.
+    // mousemove/mouseup are on document so strokes never stop when cursor leaves
+    // canvas. drawState ref ensures no stale closures.
+    // Wheel events are forwarded to the scrollable div so the user can still
+    // scroll even when a draw tool is active.
     useEffect(() => {
         if (!isTeacher) return;
-        const canvas = canvasRef.current;
-        if (!canvas) return;
+        const canvas  = canvasRef.current;
+        const content = contentRef.current;
+        if (!canvas || !content) return;
 
+        // Normalize mouse position to canvas coordinates (0–1), accounting for scroll
         const pt = (e: MouseEvent) => {
             const r = canvas.getBoundingClientRect();
-            return { x: (e.clientX - r.left) / canvas.width, y: (e.clientY - r.top) / canvas.height };
+            return {
+                x: (e.clientX - r.left) / canvas.width,
+                y: (e.clientY - r.top)  / canvas.height,
+            };
         };
         const isShape = (t: string) => SHAPE_TOOLS.includes(t);
 
@@ -309,11 +325,19 @@ export default function RoomCoursePanel({
             lastPt.current = null;
         };
 
+        // Forward wheel events → content div so scrolling works with a tool active
+        const onWheel = (e: WheelEvent) => {
+            e.preventDefault();
+            content.scrollBy({ top: e.deltaY, left: e.deltaX, behavior: 'auto' });
+        };
+
         canvas.addEventListener('mousedown', onDown);
+        canvas.addEventListener('wheel', onWheel, { passive: false });
         document.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup', onUp);
         return () => {
             canvas.removeEventListener('mousedown', onDown);
+            canvas.removeEventListener('wheel', onWheel);
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
         };
@@ -333,14 +357,14 @@ export default function RoomCoursePanel({
         if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
     }, [drawClearSignal]);
 
-    // ── Snapshot: teacher sends to late joiner ────────────────────────────────
+    // ── Snapshot: teacher → late joiner ──────────────────────────────────────
     useEffect(() => {
         if (!snapshotRequest || !onSnapshot) return;
         const c = canvasRef.current;
         if (c) onSnapshot(c.toDataURL());
     }, [snapshotRequest, onSnapshot]);
 
-    // ── Snapshot: student receives from teacher ───────────────────────────────
+    // ── Snapshot: student ← teacher ──────────────────────────────────────────
     useEffect(() => {
         if (!snapshotDataUrl) return;
         const c = canvasRef.current;
@@ -403,40 +427,25 @@ export default function RoomCoursePanel({
     }, [onDrawClear]);
 
     // ── Derived values ────────────────────────────────────────────────────────
-    const course      = courses[activeCourseIdx] ?? courses[0];
-    const lesson      = course?.lessons[activeLessonIdx] || null;
+    const course       = courses[activeCourseIdx] ?? courses[0];
+    const lesson       = course?.lessons[activeLessonIdx] || null;
     const totalLessons = course?.lessons.length ?? 0;
-    const canPrev     = activeLessonIdx > 0;
-    const canNext     = activeLessonIdx < totalLessons - 1;
+    const canPrev      = activeLessonIdx > 0;
+    const canNext      = activeLessonIdx < totalLessons - 1;
 
     // ── Render ────────────────────────────────────────────────────────────────
-    // IMPORTANT: the canvas elements MUST always be rendered (never behind an
-    // early-return) so that useEffect([]) finds them on first mount.
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--surface-2)', borderRadius: 12, overflow: 'hidden' }}>
 
-            {/* ── Header: sidebar toggle + course tabs + lesson badge ── */}
+            {/* ── Header ── */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0, flexWrap: 'wrap' }}>
-                <button
-                    onClick={onSidebarToggle}
-                    title={sidebarOpen ? 'Hide lessons' : 'Show lessons'}
-                    style={{
-                        width: 28, height: 28, borderRadius: 7, flexShrink: 0, border: '1px solid var(--border)',
-                        background: sidebarOpen ? 'rgba(99,102,241,0.2)' : 'var(--surface-3)',
-                        color: sidebarOpen ? '#a5b4fc' : 'var(--text-muted)',
-                        cursor: 'pointer', fontSize: 14, fontWeight: 700,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}
-                >{sidebarOpen ? '‹' : '☰'}</button>
+                <button onClick={onSidebarToggle} title={sidebarOpen ? 'Hide lessons' : 'Show lessons'}
+                    style={{ width: 28, height: 28, borderRadius: 7, flexShrink: 0, border: '1px solid var(--border)', background: sidebarOpen ? 'rgba(99,102,241,0.2)' : 'var(--surface-3)', color: sidebarOpen ? '#a5b4fc' : 'var(--text-muted)', cursor: 'pointer', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {sidebarOpen ? '‹' : '☰'}
+                </button>
                 {courses.length > 1 && courses.map((c, i) => (
                     <button key={c.id} onClick={() => isTeacher ? onNav(i, 0) : undefined} disabled={!isTeacher}
-                        style={{
-                            padding: '4px 12px', borderRadius: 8, border: 'none', fontSize: 13,
-                            background: activeCourseIdx === i ? 'rgba(99,102,241,0.3)' : 'var(--surface-3)',
-                            color: activeCourseIdx === i ? '#a5b4fc' : 'var(--text-muted)',
-                            fontWeight: activeCourseIdx === i ? 700 : 400,
-                            cursor: isTeacher ? 'pointer' : 'default',
-                        }}>
+                        style={{ padding: '4px 12px', borderRadius: 8, border: 'none', fontSize: 13, background: activeCourseIdx === i ? 'rgba(99,102,241,0.3)' : 'var(--surface-3)', color: activeCourseIdx === i ? '#a5b4fc' : 'var(--text-muted)', fontWeight: activeCourseIdx === i ? 700 : 400, cursor: isTeacher ? 'pointer' : 'default' }}>
                         <RichContent html={c.title} style={{ display: 'inline' }} />
                     </button>
                 ))}
@@ -451,24 +460,10 @@ export default function RoomCoursePanel({
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
                 {/* Sidebar */}
-                <div style={{
-                    width: sidebarOpen ? 200 : 0, flexShrink: 0,
-                    borderRight: sidebarOpen ? '1px solid var(--border)' : 'none',
-                    overflowY: sidebarOpen ? 'auto' : 'hidden', overflowX: 'hidden',
-                    transition: 'width 0.2s ease',
-                }}>
+                <div style={{ width: sidebarOpen ? 200 : 0, flexShrink: 0, borderRight: sidebarOpen ? '1px solid var(--border)' : 'none', overflowY: sidebarOpen ? 'auto' : 'hidden', overflowX: 'hidden', transition: 'width 0.2s ease' }}>
                     {(course?.lessons ?? []).map((l, i) => (
-                        <button key={l.id} onClick={() => isTeacher ? onNav(activeCourseIdx, i) : undefined}
-                            disabled={!isTeacher}
-                            style={{
-                                display: 'flex', alignItems: 'flex-start', gap: 8, width: '100%',
-                                padding: '10px 12px', border: 'none', textAlign: 'left',
-                                background: activeLessonIdx === i ? 'rgba(99,102,241,0.18)' : 'transparent',
-                                borderLeft: activeLessonIdx === i ? '3px solid #6366f1' : '3px solid transparent',
-                                borderBottom: '1px solid var(--border)',
-                                cursor: isTeacher ? 'pointer' : 'default',
-                                pointerEvents: isTeacher ? 'auto' : 'none',
-                            }}>
+                        <button key={l.id} onClick={() => isTeacher ? onNav(activeCourseIdx, i) : undefined} disabled={!isTeacher}
+                            style={{ display: 'flex', alignItems: 'flex-start', gap: 8, width: '100%', padding: '10px 12px', border: 'none', textAlign: 'left', background: activeLessonIdx === i ? 'rgba(99,102,241,0.18)' : 'transparent', borderLeft: activeLessonIdx === i ? '3px solid #6366f1' : '3px solid transparent', borderBottom: '1px solid var(--border)', cursor: isTeacher ? 'pointer' : 'default', pointerEvents: isTeacher ? 'auto' : 'none' }}>
                             <span style={{ fontSize: 11, color: activeLessonIdx === i ? '#818cf8' : 'var(--text-muted)', fontWeight: 700, minWidth: 18, marginTop: 2 }}>{i + 1}.</span>
                             <span style={{ fontSize: 12, color: activeLessonIdx === i ? '#e2e8f0' : 'var(--text-muted)', lineHeight: 1.4, wordBreak: 'break-word' }}>{l.title}</span>
                         </button>
@@ -478,13 +473,16 @@ export default function RoomCoursePanel({
                 {/* Content wrapper */}
                 <div ref={wrapperRef} style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
 
-                    {/* Scrollable area — canvas lives INSIDE so drawings anchor to content */}
+                    {/* Scrollable area
+                        overflowX:auto lets small screens scroll horizontally to see the
+                        full 640px content — this is what keeps the layout consistent. */}
                     <div ref={contentRef} onScroll={isTeacher ? handleScroll : undefined}
-                        style={{ width: '100%', height: '100%', overflowY: isTeacher ? 'auto' : 'hidden', position: 'relative', userSelect: drawActive ? 'none' : 'text' }}>
+                        style={{ width: '100%', height: '100%', overflowY: isTeacher ? 'auto' : 'hidden', overflowX: 'auto', position: 'relative', userSelect: drawActive ? 'none' : 'text' }}>
 
-                        {/* Lesson content — 56px right padding on both sides keeps text width
-                            identical between teacher and student so scroll sync stays aligned */}
-                        <div style={{ padding: 20, paddingRight: 56, boxSizing: 'border-box' }}>
+                        {/* Lesson content.
+                            width:640px is the critical constraint — the canvas sizes to
+                            this exact scrollWidth so every device has identical coordinates. */}
+                        <div style={{ padding: '20px', boxSizing: 'border-box', width: 640, minWidth: 640 }}>
                             {loading ? (
                                 <div style={{ color: 'var(--text-muted)', padding: 40, textAlign: 'center' }}>Loading course…</div>
                             ) : !course ? (
@@ -492,7 +490,7 @@ export default function RoomCoursePanel({
                             ) : !lesson ? (
                                 <p style={{ color: 'var(--text-muted)' }}>Select a lesson from the list.</p>
                             ) : (
-                                <div style={{ maxWidth: 720, marginLeft: 'auto', marginRight: 'auto' }}>
+                                <div>
                                     <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{lesson.title}</h3>
                                     {lesson.lesson_type === 'video' && lesson.video_url
                                         ? <video src={lesson.video_url} controls style={{ width: '100%', borderRadius: 10, marginBottom: 16, background: '#000' }} />
@@ -500,33 +498,30 @@ export default function RoomCoursePanel({
                                     {lesson.content
                                         ? <RichContent html={lesson.content} style={{ fontSize: 14, lineHeight: 1.7, color: 'var(--text-muted)' }} />
                                         : <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No content for this lesson.</p>}
-                                    <div style={{ height: 60 }} />
+                                    {/* Bottom padding so teacher can annotate near the last line */}
+                                    <div style={{ height: 80 }} />
                                 </div>
                             )}
                         </div>
 
+                        {/* Annotation canvas — inside the scrollable div so drawings stay
+                            attached to the document content and scroll with it. */}
+                        <canvas ref={canvasRef}
+                            onClick={drawActive ? onCanvasClick : undefined}
+                            style={{ position: 'absolute', top: 0, left: 0, pointerEvents: drawActive ? 'auto' : 'none', cursor: drawActive ? cursor : 'default', zIndex: 5 }} />
+                        <canvas ref={previewRef}
+                            style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 6 }} />
                     </div>
-
-                    {/* Canvases — viewport-anchored (outside scrollable div) so that
-                        normalised coordinates map to the same visual position on every
-                        screen size, since students' scroll is locked to teacher's. */}
-                    <canvas ref={canvasRef}
-                        onClick={drawActive ? onCanvasClick : undefined}
-                        style={{ position: 'absolute', top: 0, left: 0, pointerEvents: drawActive ? 'auto' : 'none', cursor: drawActive ? cursor : 'default', zIndex: 5 }} />
-                    <canvas ref={previewRef}
-                        style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 6 }} />
 
                     {/* Prev / Next arrows */}
                     {isTeacher && (
                         <>
-                            <button onClick={() => canPrev && onNav(activeCourseIdx, activeLessonIdx - 1)} disabled={!canPrev}
-                                title="Previous lesson"
-                                style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 32, height: 48, borderRadius: '0 8px 8px 0', border: 'none', background: 'transparent', color: canPrev ? '#a5b4fc' : 'rgba(255,255,255,0.15)', fontSize: 22, cursor: canPrev ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 12, transition: 'background 0.15s' }}
+                            <button onClick={() => canPrev && onNav(activeCourseIdx, activeLessonIdx - 1)} disabled={!canPrev} title="Previous lesson"
+                                style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 32, height: 48, borderRadius: '0 8px 8px 0', border: 'none', background: 'transparent', color: canPrev ? '#a5b4fc' : 'rgba(255,255,255,0.15)', fontSize: 22, cursor: canPrev ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 12 }}
                                 onMouseEnter={e => { if (canPrev) e.currentTarget.style.background = 'rgba(99,102,241,0.15)'; }}
                                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>‹</button>
-                            <button onClick={() => canNext && onNav(activeCourseIdx, activeLessonIdx + 1)} disabled={!canNext}
-                                title="Next lesson"
-                                style={{ position: 'absolute', right: 44, top: '50%', transform: 'translateY(-50%)', width: 32, height: 48, borderRadius: '8px 0 0 8px', border: 'none', background: 'transparent', color: canNext ? '#a5b4fc' : 'rgba(255,255,255,0.15)', fontSize: 22, cursor: canNext ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 12, transition: 'background 0.15s' }}
+                            <button onClick={() => canNext && onNav(activeCourseIdx, activeLessonIdx + 1)} disabled={!canNext} title="Next lesson"
+                                style={{ position: 'absolute', right: 44, top: '50%', transform: 'translateY(-50%)', width: 32, height: 48, borderRadius: '8px 0 0 8px', border: 'none', background: 'transparent', color: canNext ? '#a5b4fc' : 'rgba(255,255,255,0.15)', fontSize: 22, cursor: canNext ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 12 }}
                                 onMouseEnter={e => { if (canNext) e.currentTarget.style.background = 'rgba(99,102,241,0.15)'; }}
                                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>›</button>
                         </>
@@ -534,45 +529,26 @@ export default function RoomCoursePanel({
 
                     {/* Annotation toolbar — teacher only, draggable */}
                     {isTeacher && (
-                        <div ref={toolbarRef}
-                            style={{
-                                position: 'absolute',
-                                ...(toolbarPos ? { left: toolbarPos.x, top: toolbarPos.y } : { right: 6, top: '50%', transform: 'translateY(-50%)' }),
-                                zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-                                background: 'rgba(10,10,20,0.92)', backdropFilter: 'blur(10px)',
-                                border: '1px solid rgba(99,102,241,0.35)', borderRadius: 14, padding: '7px 5px',
-                                boxShadow: '0 6px 24px rgba(0,0,0,0.5)', maxHeight: 'calc(100% - 24px)',
-                                overflowY: 'auto', overflowX: 'hidden',
-                            }}>
-                            {/* Drag handle */}
+                        <div ref={toolbarRef} style={{ position: 'absolute', ...(toolbarPos ? { left: toolbarPos.x, top: toolbarPos.y } : { right: 6, top: '50%', transform: 'translateY(-50%)' }), zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'rgba(10,10,20,0.92)', backdropFilter: 'blur(10px)', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 14, padding: '7px 5px', boxShadow: '0 6px 24px rgba(0,0,0,0.5)', maxHeight: 'calc(100% - 24px)', overflowY: 'auto', overflowX: 'hidden' }}>
                             <div onMouseDown={onBarDragStart} title="Drag toolbar" style={{ cursor: 'grab', color: 'rgba(255,255,255,0.3)', fontSize: 13, padding: '2px 4px', userSelect: 'none', lineHeight: 1, letterSpacing: 1 }}>⠿</div>
                             <div style={{ width: 20, height: 1, background: 'rgba(255,255,255,0.12)' }} />
-
-                            {/* Tool buttons */}
                             {TOOL_DEFS.map(({ id, icon, tip }) => (
                                 <button key={id} onClick={() => setDrawTool(drawTool === id ? null : id)} title={tip}
                                     style={{ width: 30, height: 30, borderRadius: 7, border: 'none', background: drawTool === id ? 'rgba(99,102,241,0.6)' : 'transparent', color: drawTool === id ? '#a5b4fc' : 'var(--text-muted)', fontSize: id === 'text' ? 12 : 14, fontWeight: id === 'text' ? 700 : 400, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s', flexShrink: 0 }}
                                     onMouseEnter={e => { if (drawTool !== id) e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
-                                    onMouseLeave={e => { if (drawTool !== id) e.currentTarget.style.background = 'transparent'; }}
-                                >{icon}</button>
+                                    onMouseLeave={e => { if (drawTool !== id) e.currentTarget.style.background = 'transparent'; }}>{icon}</button>
                             ))}
                             <div style={{ width: 20, height: 1, background: 'rgba(255,255,255,0.12)' }} />
-
-                            {/* Colors */}
                             {DRAW_COLORS.map(c => (
                                 <button key={c} onClick={() => setDrawColor(c)} title={c}
                                     style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${drawColor === c ? '#fff' : 'transparent'}`, background: c, cursor: 'pointer', padding: 0, flexShrink: 0, transition: 'border-color 0.15s' }} />
                             ))}
                             <div style={{ width: 20, height: 1, background: 'rgba(255,255,255,0.12)' }} />
-
-                            {/* Sizes */}
                             {(['S', 'M', 'L'] as const).map(s => (
                                 <button key={s} onClick={() => setDrawSizeKey(s)} title={s === 'S' ? 'Small' : s === 'M' ? 'Medium' : 'Large'}
                                     style={{ width: 26, height: 20, borderRadius: 5, border: 'none', background: drawSizeKey === s ? 'rgba(99,102,241,0.5)' : 'transparent', color: drawSizeKey === s ? '#a5b4fc' : 'var(--text-muted)', fontSize: 10, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>{s}</button>
                             ))}
                             <div style={{ width: 20, height: 1, background: 'rgba(255,255,255,0.12)' }} />
-
-                            {/* Clear */}
                             <button onClick={handleClear} title="Clear annotations"
                                 style={{ width: 30, height: 30, borderRadius: 7, border: 'none', background: 'transparent', color: '#f87171', fontSize: 14, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s' }}
                                 onMouseEnter={e => { e.currentTarget.style.background = 'rgba(248,113,113,0.18)'; }}
