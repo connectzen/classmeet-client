@@ -127,7 +127,7 @@ export default function RescheduleSessionModal({ roomCode, userId, onSaved, onCa
                 borderRadius: 20,
                 padding: '28px 24px',
                 width: '100%',
-                maxWidth: 440,
+                maxWidth: 640,
                 boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
             }} onClick={(e) => e.stopPropagation()}>
                 <h3 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700, color: '#f1f5f9' }}>

@@ -56,6 +56,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [hasScheduledSession, setHasScheduledSession] = useState<boolean | null>(null);
     const [quizToggleOn, setQuizToggleOn] = useState(false);
     const [courseToggleOn, setCourseToggleOn] = useState(false);
+    const [courseSharedWithStudents, setCourseSharedWithStudents] = useState(false);
     const [sessionQuizIds, setSessionQuizIds] = useState<string[]>([]);
     const [sessionCourseIds, setSessionCourseIds] = useState<string[]>([]);
     const [roomQuizzes, setRoomQuizzes] = useState<{ id: string; title: string; question_count?: number; room_id?: string }[]>([]);
@@ -363,11 +364,12 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         }
     }, [externalCourseNav, courseNavLocked, role]);
 
-    // Reset course nav indices when course panel closes
+    // Reset course nav indices and sharing state when course panel closes
     useEffect(() => {
         if (!courseToggleOn) {
             setCourseLessonIdx(0);
             setCourseCourseIdx(0);
+            setCourseSharedWithStudents(false);
         }
     }, [courseToggleOn]);
 
@@ -995,11 +997,35 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 onClick={() => {
                                     const next = !courseToggleOn;
                                     setCourseToggleOn(next);
-                                    emitCourseToggle(next, sessionCourseIds);
+                                    if (!next) {
+                                        // Turning OFF — stop sharing with students too
+                                        emitCourseToggle(false, []);
+                                        setCourseSharedWithStudents(false);
+                                    }
                                     if (next) { if (quizToggleOn && roomQuiz) stopRoomQuiz(); setQuizToggleOn(false); }
                                 }}
                             >
                                 📚 <span className="control-label">Course {courseToggleOn ? 'ON' : 'OFF'}</span>
+                            </button>
+                        )}
+                        {/* Share course with students button — visible after teacher opens course panel */}
+                        {role === 'teacher' && courseToggleOn && (
+                            <button
+                                className={`control-btn ${courseSharedWithStudents ? '' : 'control-btn-off'}`}
+                                style={{ border: courseSharedWithStudents ? '1.5px solid #22c55e' : undefined }}
+                                onClick={() => {
+                                    if (courseSharedWithStudents) {
+                                        emitCourseToggle(false, []);
+                                        setCourseSharedWithStudents(false);
+                                    } else {
+                                        emitCourseToggle(true, sessionCourseIds);
+                                        setCourseSharedWithStudents(true);
+                                    }
+                                }}
+                                title={courseSharedWithStudents ? 'Students are following — click to stop sharing' : 'Click to share course view with students'}
+                            >
+                                {courseSharedWithStudents ? '👁️' : '🙈'}
+                                <span className="control-label">{courseSharedWithStudents ? 'Sharing' : 'Share'}</span>
                             </button>
                         )}
 

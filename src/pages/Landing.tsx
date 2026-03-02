@@ -1443,7 +1443,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     <div style={{
                         background: 'linear-gradient(135deg, #1e1b4b 0%, #1e2a4a 100%)',
                         border: '1px solid rgba(99,102,241,0.4)',
-                        borderRadius: 20, padding: '32px 28px', width: '100%', maxWidth: 520,
+                        borderRadius: 20, padding: '32px 28px', width: '100%', maxWidth: 640,
                         boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
                         margin: 'auto',
                         maxHeight: '90vh',
@@ -1635,7 +1635,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     <div style={{
                         background: 'linear-gradient(135deg, #1e1b4b 0%, #1e2a4a 100%)',
                         border: '1px solid rgba(99,102,241,0.4)',
-                        borderRadius: 20, padding: '32px 28px', width: '100%', maxWidth: 520,
+                        borderRadius: 20, padding: '32px 28px', width: '100%', maxWidth: 640,
                         boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
                         margin: 'auto',
                         maxHeight: '90vh',

@@ -5,6 +5,8 @@ import { insforge } from '../lib/insforge';
 import ProfileEditModal from './ProfileEditModal';
 import InviteLinksSection from './InviteLinksSection';
 
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+
 interface UserMenuProps {
     userRole?: string | null;
 }
@@ -16,6 +18,10 @@ export default function UserMenu({ userRole }: UserMenuProps) {
     const [showEditModal, setShowEditModal] = useState(false);
     const [showInviteLinks, setShowInviteLinks] = useState(false);
     const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deleteTyped, setDeleteTyped] = useState('');
+    const [deleting, setDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState('');
     const menuRef = useRef<HTMLDivElement>(null);
     const showInviteLinksItem = userRole === 'teacher' || userRole === 'member';
 
@@ -36,6 +42,26 @@ export default function UserMenu({ userRole }: UserMenuProps) {
         window.location.reload();
     };
 
+    const handleDeleteAccount = async () => {
+        if (!user?.id) return;
+        setDeleting(true);
+        setDeleteError('');
+        try {
+            const res = await fetch(`${SERVER_URL}/api/account/${user.id}`, { method: 'DELETE' });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                setDeleteError(data.error || 'Failed to delete account. Please try again.');
+                setDeleting(false);
+                return;
+            }
+            await insforge.auth.signOut();
+            window.location.reload();
+        } catch {
+            setDeleteError('Server unreachable. Please try again.');
+            setDeleting(false);
+        }
+    };
+
     if (!user) return null;
 
     const displayName = user.profile?.name || user.email?.split('@')[0] || 'User';
@@ -51,6 +77,74 @@ export default function UserMenu({ userRole }: UserMenuProps) {
     return (
         <>
             {showEditModal && <ProfileEditModal onClose={() => setShowEditModal(false)} />}
+            {showDeleteConfirm && ReactDOM.createPortal(
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 9999999,
+                    background: 'rgba(0,0,0,0.85)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+                }}>
+                    <div style={{
+                        background: 'var(--surface-2, #18181f)',
+                        border: '1px solid rgba(239,68,68,0.4)',
+                        borderRadius: 20, padding: '28px 24px', width: '100%', maxWidth: 440,
+                        boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+                    }}>
+                        <div style={{ fontSize: 36, textAlign: 'center', marginBottom: 12 }}>⚠️</div>
+                        <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: '#f87171', textAlign: 'center' }}>Delete Account</h3>
+                        <p style={{ margin: '0 0 6px', fontSize: 14, color: 'var(--text-muted, #94a3b8)', textAlign: 'center', lineHeight: 1.6 }}>
+                            This will permanently delete your account and <strong style={{ color: '#fca5a5' }}>everything you have created</strong> — classes, courses, quizzes, sessions, and all associated data.
+                        </p>
+                        <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted, #94a3b8)', textAlign: 'center' }}>
+                            This action <strong style={{ color: '#f87171' }}>cannot be undone</strong>.
+                        </p>
+                        <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600, color: 'var(--text, #e8e8f0)' }}>
+                            Type <strong>DELETE</strong> to confirm:
+                        </p>
+                        <input
+                            type="text"
+                            value={deleteTyped}
+                            onChange={e => setDeleteTyped(e.target.value)}
+                            placeholder="DELETE"
+                            style={{
+                                width: '100%', boxSizing: 'border-box', padding: '10px 14px',
+                                border: '1.5px solid rgba(239,68,68,0.4)', borderRadius: 10,
+                                background: 'rgba(239,68,68,0.06)', color: '#fca5a5',
+                                fontSize: 14, outline: 'none', marginBottom: 12,
+                            }}
+                            onFocus={e => { e.currentTarget.style.borderColor = '#f87171'; }}
+                            onBlur={e => { e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)'; }}
+                            autoFocus
+                        />
+                        {deleteError && (
+                            <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5', fontSize: 13, marginBottom: 12 }}>
+                                {deleteError}
+                            </div>
+                        )}
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                            <button
+                                onClick={() => { setShowDeleteConfirm(false); setDeleteTyped(''); setDeleteError(''); }}
+                                disabled={deleting}
+                                style={{ padding: '9px 18px', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, background: 'transparent', color: 'var(--text-muted, #7b7b99)', fontSize: 13, fontWeight: 600, cursor: deleting ? 'not-allowed' : 'pointer' }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeleteAccount}
+                                disabled={deleting || deleteTyped !== 'DELETE'}
+                                style={{
+                                    padding: '9px 18px', border: 'none', borderRadius: 10,
+                                    background: deleting || deleteTyped !== 'DELETE' ? 'rgba(239,68,68,0.3)' : '#dc2626',
+                                    color: '#fff', fontSize: 13, fontWeight: 700,
+                                    cursor: deleting || deleteTyped !== 'DELETE' ? 'not-allowed' : 'pointer',
+                                }}
+                            >
+                                {deleting ? 'Deleting…' : 'Delete My Account'}
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
             {showInviteLinks && user?.id && ReactDOM.createPortal(
                 <div
                     style={{
@@ -206,6 +300,29 @@ export default function UserMenu({ userRole }: UserMenuProps) {
                             <circle cx="12" cy="7" r="4" />
                         </svg>
                         Edit Profile
+                    </button>
+
+                    {/* Delete Account */}
+                    <div style={{ borderTop: '1px solid rgba(239,68,68,0.15)', margin: '6px 0 4px' }} />
+                    <button
+                        onClick={() => { setShowDeleteConfirm(true); setOpen(false); }}
+                        style={{
+                            width: '100%', padding: '9px 12px', border: 'none', borderRadius: 10,
+                            background: 'transparent', color: '#f87171',
+                            fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: 8, transition: 'background 0.15s',
+                            textAlign: 'left', marginBottom: 4,
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                    >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                            <path d="M10 11v6M14 11v6" />
+                            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                        </svg>
+                        Delete Account
                     </button>
 
                     {/* Sign out */}
