@@ -130,6 +130,9 @@ export default function RoomCoursePanel({
     const canNavPrev = isTeacher && activeLessonIdx > 0;
     const canNavNext = isTeacher && activeLessonIdx < totalLessons - 1;
 
+    // Students always see the sidebar (read-only); teacher can toggle it
+    const showSidebar = isTeacher ? sidebarOpen : true;
+
     return (
         <div style={{
             display: 'flex', flexDirection: 'column', height: '100%',
@@ -157,47 +160,47 @@ export default function RoomCoursePanel({
                 </div>
             )}
 
-            {/* Body: collapsible sidebar (teacher only) + lesson content */}
+            {/* Body: sidebar + lesson content */}
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
-                {/* Lesson list sidebar — teacher only */}
-                {isTeacher && (
-                    <div style={{
-                        width: sidebarOpen ? 200 : 0,
-                        flexShrink: 0,
-                        borderRight: sidebarOpen ? '1px solid var(--border)' : 'none',
-                        overflowY: sidebarOpen ? 'auto' : 'hidden',
-                        overflowX: 'hidden',
-                        transition: 'width 0.2s ease',
-                    }}>
-                        {course.lessons.map((l, i) => (
-                            <button
-                                key={l.id}
-                                onClick={() => onNav(activeCourseIdx, i)}
-                                style={{
-                                    display: 'flex', alignItems: 'flex-start', gap: 8, width: '100%',
-                                    padding: '10px 12px', border: 'none', textAlign: 'left',
-                                    background: activeLessonIdx === i ? 'rgba(99,102,241,0.18)' : 'transparent',
-                                    borderLeft: activeLessonIdx === i ? '3px solid #6366f1' : '3px solid transparent',
-                                    borderBottom: '1px solid var(--border)',
-                                    cursor: 'pointer',
-                                }}
-                            >
-                                <span style={{ fontSize: 11, color: activeLessonIdx === i ? '#818cf8' : 'var(--text-muted)', fontWeight: 700, minWidth: 18, marginTop: 2 }}>{i + 1}.</span>
-                                <span style={{ fontSize: 12, color: activeLessonIdx === i ? '#e2e8f0' : 'var(--text-muted)', lineHeight: 1.4, wordBreak: 'break-word' }}>{l.title}</span>
-                            </button>
-                        ))}
-                        {course.lessons.length === 0 && (
-                            <div style={{ padding: 16, fontSize: 13, color: 'var(--text-muted)' }}>No lessons yet.</div>
-                        )}
-                    </div>
-                )}
+                {/* Lesson list sidebar — visible to all, navigable only by teacher */}
+                <div style={{
+                    width: showSidebar ? 200 : 0,
+                    flexShrink: 0,
+                    borderRight: showSidebar ? '1px solid var(--border)' : 'none',
+                    overflowY: showSidebar ? 'auto' : 'hidden',
+                    overflowX: 'hidden',
+                    transition: 'width 0.2s ease',
+                }}>
+                    {course.lessons.map((l, i) => (
+                        <button
+                            key={l.id}
+                            onClick={() => isTeacher ? onNav(activeCourseIdx, i) : undefined}
+                            disabled={!isTeacher}
+                            style={{
+                                display: 'flex', alignItems: 'flex-start', gap: 8, width: '100%',
+                                padding: '10px 12px', border: 'none', textAlign: 'left',
+                                background: activeLessonIdx === i ? 'rgba(99,102,241,0.18)' : 'transparent',
+                                borderLeft: activeLessonIdx === i ? '3px solid #6366f1' : '3px solid transparent',
+                                borderBottom: '1px solid var(--border)',
+                                cursor: isTeacher ? 'pointer' : 'default',
+                                pointerEvents: isTeacher ? 'auto' : 'none',
+                            }}
+                        >
+                            <span style={{ fontSize: 11, color: activeLessonIdx === i ? '#818cf8' : 'var(--text-muted)', fontWeight: 700, minWidth: 18, marginTop: 2 }}>{i + 1}.</span>
+                            <span style={{ fontSize: 12, color: activeLessonIdx === i ? '#e2e8f0' : 'var(--text-muted)', lineHeight: 1.4, wordBreak: 'break-word' }}>{l.title}</span>
+                        </button>
+                    ))}
+                    {course.lessons.length === 0 && (
+                        <div style={{ padding: 16, fontSize: 13, color: 'var(--text-muted)' }}>No lessons yet.</div>
+                    )}
+                </div>
 
                 {/* Lesson content */}
                 <div
                     ref={contentRef}
                     onScroll={isTeacher ? handleTeacherScroll : undefined}
-                    style={{ flex: 1, overflowY: 'auto', padding: 20, position: 'relative', paddingBottom: isTeacher ? 56 : 20 }}
+                    style={{ flex: 1, overflowY: 'auto', padding: 20, position: 'relative' }}
                 >
                     {/* Sidebar toggle button — teacher only */}
                     {isTeacher && (
@@ -233,50 +236,49 @@ export default function RoomCoursePanel({
                     ) : (
                         <p style={{ color: 'var(--text-muted)', paddingLeft: isTeacher ? 40 : 0 }}>Select a lesson from the list.</p>
                     )}
+
+                    {/* Prev / Next — teacher only, transparent, anchored to left/right edges */}
+                    {isTeacher && (
+                        <>
+                            <button
+                                onClick={() => canNavPrev ? onNav(activeCourseIdx, activeLessonIdx - 1) : undefined}
+                                disabled={!canNavPrev}
+                                title="Previous lesson"
+                                style={{
+                                    position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)',
+                                    width: 36, height: 48, borderRadius: '0 8px 8px 0',
+                                    border: 'none', background: 'transparent',
+                                    color: canNavPrev ? '#a5b4fc' : 'rgba(255,255,255,0.18)',
+                                    fontSize: 22, cursor: canNavPrev ? 'pointer' : 'not-allowed',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    zIndex: 3,
+                                    transition: 'background 0.15s, color 0.15s',
+                                }}
+                                onMouseEnter={e => { if (canNavPrev) e.currentTarget.style.background = 'rgba(99,102,241,0.15)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                            >‹</button>
+
+                            <button
+                                onClick={() => canNavNext ? onNav(activeCourseIdx, activeLessonIdx + 1) : undefined}
+                                disabled={!canNavNext}
+                                title="Next lesson"
+                                style={{
+                                    position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)',
+                                    width: 36, height: 48, borderRadius: '8px 0 0 8px',
+                                    border: 'none', background: 'transparent',
+                                    color: canNavNext ? '#a5b4fc' : 'rgba(255,255,255,0.18)',
+                                    fontSize: 22, cursor: canNavNext ? 'pointer' : 'not-allowed',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    zIndex: 3,
+                                    transition: 'background 0.15s, color 0.15s',
+                                }}
+                                onMouseEnter={e => { if (canNavNext) e.currentTarget.style.background = 'rgba(99,102,241,0.15)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                            >›</button>
+                        </>
+                    )}
                 </div>
             </div>
-
-            {/* Floating nav bar — teacher only, docked at bottom of panel */}
-            {isTeacher && (
-                <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    padding: '8px 16px', borderTop: '1px solid var(--border)',
-                    background: 'var(--surface-3)', flexShrink: 0,
-                }}>
-                    <button
-                        onClick={() => canNavPrev ? onNav(activeCourseIdx, activeLessonIdx - 1) : undefined}
-                        disabled={!canNavPrev}
-                        style={{
-                            width: 32, height: 32, borderRadius: 8, border: 'none',
-                            background: canNavPrev ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)',
-                            color: canNavPrev ? '#a5b4fc' : 'var(--text-muted)',
-                            fontSize: 16, cursor: canNavPrev ? 'pointer' : 'not-allowed',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            transition: 'background 0.15s',
-                        }}
-                        title="Previous lesson"
-                    >←</button>
-
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 80, textAlign: 'center', fontWeight: 600 }}>
-                        {activeLessonIdx + 1} / {totalLessons || 1}
-                        <span style={{ fontSize: 10, opacity: 0.6, marginLeft: 4 }}>lesson</span>
-                    </span>
-
-                    <button
-                        onClick={() => canNavNext ? onNav(activeCourseIdx, activeLessonIdx + 1) : undefined}
-                        disabled={!canNavNext}
-                        style={{
-                            width: 32, height: 32, borderRadius: 8, border: 'none',
-                            background: canNavNext ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)',
-                            color: canNavNext ? '#a5b4fc' : 'var(--text-muted)',
-                            fontSize: 16, cursor: canNavNext ? 'pointer' : 'not-allowed',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            transition: 'background 0.15s',
-                        }}
-                        title="Next lesson"
-                    >→</button>
-                </div>
-            )}
         </div>
     );
 }
