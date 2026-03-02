@@ -1418,13 +1418,20 @@ function SubmissionDetail({ quiz, submission, onGraded, onDone }: {
 }
 
 // ─── Take Quiz (Student) ──────────────────────────────────────────────────
-export function TakeQuiz({ quiz, submissionId, userId, showConfirm, showAlert, onDone }: {
+export type QuizProgressSlim = {
+    currentIdx: number;
+    totalQ: number;
+    answers: Record<string, { questionId: string; answerText?: string; selectedOptions?: string[] }>;
+};
+
+export function TakeQuiz({ quiz, submissionId, userId, showConfirm, showAlert, onDone, onProgressUpdate }: {
     quiz: Quiz & { questions: Question[] };
     submissionId: string;
     userId: string;
     showConfirm: (opts: Omit<NonNullable<ConfirmState>, 'open'>) => void;
     showAlert: (title: string, message: string) => void;
     onDone: (score: number | null) => void;
+    onProgressUpdate?: (p: QuizProgressSlim) => void;
 }) {
     const [answers, setAnswers] = useState<Record<string, Answer>>({});
     const [currentIdx, setCurrentIdx] = useState(0);
@@ -1466,6 +1473,23 @@ export function TakeQuiz({ quiz, submissionId, userId, showConfirm, showAlert, o
         autoSaveTimer.current = setTimeout(() => saveAnswers(), 30000);
         return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
     }, [answers]);
+
+    // Broadcast live progress to teacher (debounced 500ms)
+    const onProgressUpdateRef = useRef(onProgressUpdate);
+    useEffect(() => { onProgressUpdateRef.current = onProgressUpdate; }, [onProgressUpdate]);
+    useEffect(() => {
+        const t = setTimeout(() => {
+            const slim = Object.fromEntries(
+                Object.entries(answers).map(([k, a]) => [k, {
+                    questionId: a.questionId,
+                    answerText: a.answerText,
+                    selectedOptions: a.selectedOptions,
+                }])
+            );
+            onProgressUpdateRef.current?.({ currentIdx, totalQ, answers: slim });
+        }, 500);
+        return () => clearTimeout(t);
+    }, [answers, currentIdx, totalQ]);
 
     // Enumerate audio input devices for mic picker
     useEffect(() => {

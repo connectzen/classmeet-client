@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { DrawSeg } from '../components/RoomCoursePanel';
+import type { QuizProgressSlim } from '../components/QuizDrawer';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -46,10 +47,11 @@ interface UseSocketOptions {
     onDrawCursor?: (x: number, y: number) => void;
     onDrawClear?: () => void;
     onDrawSnapshot?: (dataUrl: string) => void;
-    // Quiz monitoring — teacher notified when students start/finish the quiz;
-    // actual live video comes from the already-established WebRTC stream
+    // Quiz monitoring — teacher notified when students start/finish the quiz
     onQuizStudentStarted?: (data: { socketId: string; name: string }) => void;
     onQuizStudentInactive?: (socketId: string) => void;
+    // Live quiz progress (answers + current question index) from student
+    onQuizProgressUpdate?: (data: { socketId: string } & QuizProgressSlim) => void;
 }
 
 export function useSocket(options: UseSocketOptions) {
@@ -111,8 +113,10 @@ export function useSocket(options: UseSocketOptions) {
 
     const onQuizStudentStartedRef = useRef(options.onQuizStudentStarted);
     const onQuizStudentInactiveRef = useRef(options.onQuizStudentInactive);
+    const onQuizProgressUpdateRef = useRef(options.onQuizProgressUpdate);
     onQuizStudentStartedRef.current = options.onQuizStudentStarted;
     onQuizStudentInactiveRef.current = options.onQuizStudentInactive;
+    onQuizProgressUpdateRef.current = options.onQuizProgressUpdate;
 
     const socketRef = useRef<Socket | null>(null);
     const [socketId, setSocketId] = useState('');
@@ -223,6 +227,9 @@ export function useSocket(options: UseSocketOptions) {
         socket.on('quiz:student-inactive', ({ socketId: sid }: { socketId: string }) => {
             onQuizStudentInactiveRef.current?.(sid);
         });
+        socket.on('quiz:progress-update', (data: { socketId: string } & QuizProgressSlim) => {
+            onQuizProgressUpdateRef.current?.(data);
+        });
         socket.on('disconnect', () => setConnected(false));
 
         return () => {
@@ -311,13 +318,18 @@ export function useSocket(options: UseSocketOptions) {
         socketRef.current?.emit('course-draw-snapshot', { roomCode, dataUrl });
     }, [roomCode]);
 
-    // Student notifies teacher they started the quiz (teacher monitors via WebRTC video)
+    // Student notifies teacher they started the quiz
     const emitQuizStarted = useCallback(() => {
         socketRef.current?.emit('quiz:student-started', { roomCode });
     }, [roomCode]);
 
     const emitQuizStopped = useCallback(() => {
         socketRef.current?.emit('quiz:student-inactive', { roomCode });
+    }, [roomCode]);
+
+    // Student broadcasts live quiz progress to teacher
+    const emitQuizProgress = useCallback((progress: QuizProgressSlim) => {
+        socketRef.current?.emit('quiz:progress-update', { roomCode, ...progress });
     }, [roomCode]);
 
     return {
@@ -327,6 +339,6 @@ export function useSocket(options: UseSocketOptions) {
         startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
         emitCourseToggle, emitCourseNavigate, emitCourseScroll, emitCourseSidebar,
         emitDrawSegment, emitDrawPreview, emitDrawCursor, emitDrawClear, emitDrawSnapshot,
-        emitQuizStarted, emitQuizStopped,
+        emitQuizStarted, emitQuizStopped, emitQuizProgress,
     };
 }

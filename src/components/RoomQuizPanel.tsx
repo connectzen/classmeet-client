@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toPng } from 'html-to-image';
-import { TakeQuiz } from './QuizDrawer';
+import { TakeQuiz, QuizProgressSlim } from './QuizDrawer';
 import ConfirmModal from './ConfirmModal';
 import RichEditor, { RichContent } from './RichEditor';
 
@@ -1041,9 +1041,10 @@ interface RoomQuizParticipantProps {
     userName: string;
     onSubmit: (submissionId: string, score: number | null) => void;
     onAlert: (title: string, message: string) => void;
+    onProgressUpdate?: (p: QuizProgressSlim) => void;
 }
 
-export function RoomQuizParticipant({ quiz, userId, userName, onSubmit, onAlert }: RoomQuizParticipantProps) {
+export function RoomQuizParticipant({ quiz, userId, userName, onSubmit, onAlert, onProgressUpdate }: RoomQuizParticipantProps) {
     const [submissionId, setSubmissionId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [confirmState, setConfirmState] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
@@ -1102,6 +1103,7 @@ export function RoomQuizParticipant({ quiz, userId, userName, onSubmit, onAlert 
                 showConfirm={showConfirm}
                 showAlert={showAlert}
                 onDone={handleDone}
+                onProgressUpdate={onProgressUpdate}
             />
             {confirmState && (
                 <ConfirmModal
