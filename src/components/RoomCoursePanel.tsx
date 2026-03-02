@@ -145,6 +145,7 @@ export default function RoomCoursePanel({
     const [textInput, setTextInput] = useState<{ vx: number; vy: number; cx: number; cy: number } | null>(null);
     const [toolbarPos, setToolbarPos] = useState<{ x: number; y: number } | null>(null);
     const [toolbarExpanded, setToolbarExpanded] = useState(false);
+    const [ephemeralMode, setEphemeralMode] = useState(false);
     const [lessonKey, setLessonKey] = useState(0);
     // Teacher cursor rendered on the student's canvas
     const [teacherCursor, setTeacherCursor] = useState<{ x: number; y: number } | null>(null);
@@ -168,10 +169,13 @@ export default function RoomCoursePanel({
     const isDraggingBar = useRef(false);
     const barDragOffset = useRef({ x: 0, y: 0 });
     const cursorThrottle = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const ephemeralStrokes = useRef<Array<{ seg: DrawSeg; drawnAt: number }>>([]);
+    const ephemeralRaf     = useRef<number | null>(null);
+    const persistentSnapshot = useRef<ImageData | null>(null);
 
     // Always-fresh refs so document-level handlers never have stale closures
-    const drawState   = useRef({ drawTool, drawColor, drawSizeKey });
-    drawState.current = { drawTool, drawColor, drawSizeKey };
+    const drawState   = useRef({ drawTool, drawColor, drawSizeKey, ephemeralMode });
+    drawState.current = { drawTool, drawColor, drawSizeKey, ephemeralMode };
     const onDrawSegCb    = useRef(onDrawSegment);
     onDrawSegCb.current  = onDrawSegment;
     const onDrawPrevCb   = useRef(onDrawPreview);
@@ -365,9 +369,13 @@ export default function RoomCoursePanel({
                 const prev = lastPt.current;
                 if (prev) {
                     const seg: DrawSeg = { x1: prev.x, y1: prev.y, x2: p.x, y2: p.y, color: drawColor, size: TOOL_SIZES[drawSizeKey], mode: drawTool };
-                    const ctx = canvas.getContext('2d');
-                    if (ctx) drawOnCanvas(ctx, seg, canvas.width, canvas.height);
-                    onDrawSegCb.current?.(seg);
+                    if (drawState.current.ephemeralMode) {
+                        ephemeralStrokes.current.push({ seg, drawnAt: Date.now() });
+                    } else {
+                        const ctx = canvas.getContext('2d');
+                        if (ctx) drawOnCanvas(ctx, seg, canvas.width, canvas.height);
+                        onDrawSegCb.current?.(seg);
+                    }
                     lastPt.current = p;
                 }
             }
@@ -383,11 +391,15 @@ export default function RoomCoursePanel({
                 const prev = previewRef.current;
                 if (prev) prev.getContext('2d')?.clearRect(0, 0, prev.width, prev.height);
                 const seg: DrawSeg = { x1: shapeStart.current.x, y1: shapeStart.current.y, x2: p.x, y2: p.y, color: drawColor, size: TOOL_SIZES[drawSizeKey], mode: drawTool as DrawSeg['mode'] };
-                const ctx = canvas.getContext('2d');
-                if (ctx) drawOnCanvas(ctx, seg, canvas.width, canvas.height);
-                onDrawSegCb.current?.(seg);
-                // Clear students' preview canvas now that the final segment is committed
-                onDrawPrevCb.current?.({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
+                if (drawState.current.ephemeralMode) {
+                    ephemeralStrokes.current.push({ seg, drawnAt: Date.now() });
+                } else {
+                    const ctx = canvas.getContext('2d');
+                    if (ctx) drawOnCanvas(ctx, seg, canvas.width, canvas.height);
+                    onDrawSegCb.current?.(seg);
+                    // Clear students' preview canvas now that the final segment is committed
+                    onDrawPrevCb.current?.({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
+                }
                 shapeStart.current = null;
             }
             lastPt.current = null;
@@ -448,7 +460,49 @@ export default function RoomCoursePanel({
         if (drawClearSignal == null) return;
         const c = canvasRef.current;
         if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
+        ephemeralStrokes.current = [];
+        persistentSnapshot.current = null;
     }, [drawClearSignal]);
+
+    // ── Ephemeral mode: fading strokes RAF loop ───────────────────────────────
+    useEffect(() => {
+        if (!ephemeralMode) {
+            if (ephemeralRaf.current) { cancelAnimationFrame(ephemeralRaf.current); ephemeralRaf.current = null; }
+            ephemeralStrokes.current = [];
+            persistentSnapshot.current = null;
+            return;
+        }
+        // Snapshot the current canvas so we can restore it each frame
+        const initCanvas = canvasRef.current;
+        if (initCanvas) {
+            const ctx = initCanvas.getContext('2d');
+            if (ctx) persistentSnapshot.current = ctx.getImageData(0, 0, initCanvas.width, initCanvas.height);
+        }
+        const FADE_MS = 1500;
+        const loop = () => {
+            const now = Date.now();
+            ephemeralStrokes.current = ephemeralStrokes.current.filter(s => now - s.drawnAt < FADE_MS + 200);
+            const cnv = canvasRef.current;
+            if (cnv) {
+                const ctx = cnv.getContext('2d');
+                if (ctx) {
+                    ctx.clearRect(0, 0, cnv.width, cnv.height);
+                    if (persistentSnapshot.current) ctx.putImageData(persistentSnapshot.current, 0, 0);
+                    for (const { seg, drawnAt } of ephemeralStrokes.current) {
+                        const age = now - drawnAt;
+                        const alpha = Math.max(0, 1 - age / FADE_MS);
+                        ctx.save();
+                        ctx.globalAlpha = alpha;
+                        drawOnCanvas(ctx, seg, cnv.width, cnv.height);
+                        ctx.restore();
+                    }
+                }
+            }
+            ephemeralRaf.current = requestAnimationFrame(loop);
+        };
+        ephemeralRaf.current = requestAnimationFrame(loop);
+        return () => { if (ephemeralRaf.current) { cancelAnimationFrame(ephemeralRaf.current); ephemeralRaf.current = null; } };
+    }, [ephemeralMode]);
 
     // ── Snapshot: teacher → late joiner ──────────────────────────────────────
     useEffect(() => {
@@ -650,9 +704,12 @@ export default function RoomCoursePanel({
                             onMouseLeave={() => setToolbarExpanded(false)}
                             style={{ position: 'absolute', ...(toolbarPos ? { left: toolbarPos.x, top: toolbarPos.y } : { right: 6, top: '50%', transform: 'translateY(-50%)' }), zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'rgba(10,10,20,0.92)', backdropFilter: 'blur(10px)', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 14, padding: toolbarExpanded ? '7px 5px' : '5px 5px', boxShadow: '0 6px 24px rgba(0,0,0,0.5)', overflow: 'hidden', transition: 'padding 0.18s', maxHeight: toolbarExpanded ? 'calc(100% - 24px)' : 'auto', overflowY: toolbarExpanded ? 'auto' : 'hidden', overflowX: 'hidden' }}>
                             <div onMouseDown={onBarDragStart} title="Drag toolbar" style={{ cursor: 'grab', color: 'rgba(255,255,255,0.3)', fontSize: 13, padding: '2px 4px', userSelect: 'none', lineHeight: 1, letterSpacing: 1 }}>⠿</div>
-                            {/* Collapsed indicator: active color dot */}
+                            {/* Collapsed indicator: active color dot + ephemeral indicator */}
                             {!toolbarExpanded && (
-                                <div style={{ width: 14, height: 14, borderRadius: '50%', background: drawColor, border: '2px solid rgba(255,255,255,0.3)', marginBottom: 2, flexShrink: 0 }} />
+                                <>
+                                    <div style={{ width: 14, height: 14, borderRadius: '50%', background: drawColor, border: '2px solid rgba(255,255,255,0.3)', marginBottom: 2, flexShrink: 0 }} />
+                                    {ephemeralMode && <div style={{ fontSize: 11, lineHeight: 1 }}>💨</div>}
+                                </>
                             )}
                             {/* Expanded: full toolbar */}
                             {toolbarExpanded && (<>
@@ -678,6 +735,11 @@ export default function RoomCoursePanel({
                                 style={{ width: 30, height: 30, borderRadius: 7, border: 'none', background: 'transparent', color: '#f87171', fontSize: 14, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s' }}
                                 onMouseEnter={e => { e.currentTarget.style.background = 'rgba(248,113,113,0.18)'; }}
                                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>🗑</button>
+                            <div style={{ width: 20, height: 1, background: 'rgba(255,255,255,0.12)' }} />
+                            <button onMouseDown={e => { e.preventDefault(); setEphemeralMode(v => !v); }} title={ephemeralMode ? 'Ephemeral ON — strokes vanish' : 'Ephemeral OFF — strokes persist'}
+                                style={{ width: 30, height: 30, borderRadius: 7, border: 'none', background: ephemeralMode ? 'rgba(251,146,60,0.35)' : 'transparent', color: ephemeralMode ? '#fb923c' : 'var(--text-muted)', fontSize: 14, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: ephemeralMode ? '0 0 0 1.5px #fb923c' : 'none', transition: 'all 0.15s' }}
+                                onMouseEnter={e => { if (!ephemeralMode) e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+                                onMouseLeave={e => { if (!ephemeralMode) e.currentTarget.style.background = 'transparent'; }}>💨</button>
                             </>)}
                         </div>
                     )}
