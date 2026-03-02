@@ -65,8 +65,6 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [studentQuizStarted, setStudentQuizStarted] = useState(false);
     const [studentCourseJoined, setStudentCourseJoined] = useState(false);
     const [externalCourseNav, setExternalCourseNav] = useState<{ courseIdx: number; lessonIdx: number } | null>(null);
-    const [externalCourseScroll, setExternalCourseScroll] = useState<number | null>(null);
-    const [courseSidebarOpen, setCourseSidebarOpen] = useState(false);
     const [courseLessonIdx, setCourseLessonIdx] = useState(0);
     const [courseCourseIdx, setCourseCourseIdx] = useState(0);
     const [courseTotalLessons, setCourseTotalLessons] = useState(1);
@@ -245,7 +243,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         roomQuiz, roomQuizSubmissions, roomQuizRevealed, revealedStudentIds,
         sendSignal, sendMessage, endRoom, muteParticipant, camParticipant, broadcastSelfCam, changeSpotlight,
         startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
-        emitCourseToggle, emitCourseNavigate, emitCourseScroll, emitCourseSidebar,
+        emitCourseToggle, emitCourseNavigate,
     } = useSocket({
             roomCode, roomId, roomName, name, role, isGuestRoomHost,
             onParticipantJoined: handleParticipantJoined,
@@ -270,13 +268,6 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
             },
             onCourseNavigate: (courseIdx, lessonIdx) => {
                 if (role !== 'teacher') setExternalCourseNav({ courseIdx, lessonIdx });
-            },
-            onCourseNavLock: () => { /* students always locked — no-op */ },
-            onCourseScroll: (scrollRatio) => {
-                if (role !== 'teacher') setExternalCourseScroll(scrollRatio);
-            },
-            onCourseSidebar: (open) => {
-                if (role !== 'teacher') setCourseSidebarOpen(open);
             },
         });
 
@@ -371,7 +362,6 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
             setCourseLessonIdx(0);
             setCourseCourseIdx(0);
             setCourseSharedWithStudents(false);
-            setCourseSidebarOpen(false);
         }
     }, [courseToggleOn]);
 
@@ -805,52 +795,17 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 activeCourseIdx={courseCourseIdx}
                                 onNav={handleCourseNav}
                                 onCoursesLoaded={setCourseTotalLessons}
-                                onScrollSync={emitCourseScroll}
-                                sidebarOpen={courseSidebarOpen}
-                                onSidebarToggle={() => {
-                                    const next = !courseSidebarOpen;
-                                    setCourseSidebarOpen(next);
-                                    emitCourseSidebar(next);
-                                }}
                             />
                         ) : courseToggleOn && role !== 'teacher' ? (
-                            !studentCourseJoined ? (
-                                // Student sees "Join Course" prompt before the panel opens
-                                <div style={{
-                                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                                    height: '100%', gap: 20, padding: 32, background: 'var(--surface-2)', borderRadius: 12,
-                                }}>
-                                    <div style={{ fontSize: 48 }}>📖</div>
-                                    <div style={{ textAlign: 'center' }}>
-                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Course Ready</div>
-                                        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>Teacher has shared a course</div>
-                                        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Click below to view it alongside the teacher</div>
-                                    </div>
-                                    <button
-                                        onClick={() => setStudentCourseJoined(true)}
-                                        style={{
-                                            padding: '12px 32px', borderRadius: 12, border: 'none', cursor: 'pointer',
-                                            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                                            color: '#fff', fontWeight: 700, fontSize: 15,
-                                            boxShadow: '0 4px 16px rgba(99,102,241,0.4)',
-                                        }}
-                                    >
-                                        ▶ Join Course
-                                    </button>
-                                </div>
-                            ) : (
-                                <RoomCoursePanel
-                                    courseIds={sessionCourseIds}
-                                    serverUrl={SERVER_URL}
-                                    role={role}
-                                    activeLessonIdx={courseLessonIdx}
-                                    activeCourseIdx={courseCourseIdx}
-                                    onNav={handleCourseNav}
-                                    onCoursesLoaded={setCourseTotalLessons}
-                                    externalScroll={externalCourseScroll}
-                                    sidebarOpen={courseSidebarOpen}
-                                />
-                            )
+                            <RoomCoursePanel
+                                courseIds={sessionCourseIds}
+                                serverUrl={SERVER_URL}
+                                role={role}
+                                activeLessonIdx={courseLessonIdx}
+                                activeCourseIdx={courseCourseIdx}
+                                onNav={handleCourseNav}
+                                onCoursesLoaded={setCourseTotalLessons}
+                            />
                         ) : quizToggleOn && role === 'teacher' ? (
                             <RoomQuizHost
                                 roomId={roomId}
