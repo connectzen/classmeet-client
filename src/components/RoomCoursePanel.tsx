@@ -208,41 +208,35 @@ export default function RoomCoursePanel({
         if (p) p.getContext('2d')?.clearRect(0, 0, p.width, p.height);
     }, [activeLessonIdx, activeCourseIdx]);
 
-    // ── Canvas sizing — runs once on mount.
-    // IMPORTANT: canvas is always in the DOM (below), so canvasRef.current is
-    // never null when this effect runs, even during loading state.
-    // FIX: collapse canvas CSS height before reading scrollHeight to break
-    // the feedback loop that prevented shorter lessons from shrinking the canvas.
+    // ── Canvas sizing ─────────────────────────────────────────────────────────
+    // Canvas covers the VIEWPORT (wrapperRef), NOT the full scroll height.
+    // Normalising to viewport dimensions means the same (x,y) fraction points
+    // to the same visual area on every screen size, because scroll is synced.
     useEffect(() => {
-        const content = contentRef.current;
+        const wrapper = wrapperRef.current;
         const canvas  = canvasRef.current;
         const preview = previewRef.current;
-        if (!content || !canvas || !preview) return;
+        if (!wrapper || !canvas || !preview) return;
 
         const sync = () => {
-            canvas.style.height  = '0px';
-            preview.style.height = '0px';
-            const w = content.clientWidth  || 1;
-            const h = Math.max(content.scrollHeight, content.clientHeight, 1);
-            if (canvas.width !== w || canvas.height !== h) {
-                const saved = canvas.toDataURL();
-                canvas.width = w; canvas.height = h;
-                preview.width = w; preview.height = h;
-                if (saved !== 'data:,') {
-                    const img = new Image();
-                    img.onload = () => canvas.getContext('2d')?.drawImage(img, 0, 0);
-                    img.src = saved;
-                }
+            const w = wrapper.clientWidth  || 1;
+            const h = wrapper.clientHeight || 1;
+            if (canvas.width === w && canvas.height === h) return;
+            const saved = canvas.toDataURL();
+            canvas.width = w; canvas.height = h;
+            preview.width = w; preview.height = h;
+            canvas.style.width   = w + 'px'; canvas.style.height  = h + 'px';
+            preview.style.width  = w + 'px'; preview.style.height = h + 'px';
+            if (saved !== 'data:,') {
+                const img = new Image();
+                img.onload = () => canvas.getContext('2d')?.drawImage(img, 0, 0);
+                img.src = saved;
             }
-            canvas.style.width   = canvas.width  + 'px';
-            canvas.style.height  = canvas.height + 'px';
-            preview.style.width  = preview.width  + 'px';
-            preview.style.height = preview.height + 'px';
         };
 
         sync();
         const ro = new ResizeObserver(sync);
-        ro.observe(content);
+        ro.observe(wrapper);
         return () => ro.disconnect();
     }, []);
 
@@ -511,13 +505,16 @@ export default function RoomCoursePanel({
                             )}
                         </div>
 
-                        {/* Canvases ALWAYS in the DOM so useEffect([]) finds them on first mount */}
-                        <canvas ref={canvasRef}
-                            onClick={drawActive ? onCanvasClick : undefined}
-                            style={{ position: 'absolute', top: 0, left: 0, pointerEvents: drawActive ? 'auto' : 'none', cursor: drawActive ? cursor : 'default', zIndex: 5 }} />
-                        <canvas ref={previewRef}
-                            style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 6 }} />
                     </div>
+
+                    {/* Canvases — viewport-anchored (outside scrollable div) so that
+                        normalised coordinates map to the same visual position on every
+                        screen size, since students' scroll is locked to teacher's. */}
+                    <canvas ref={canvasRef}
+                        onClick={drawActive ? onCanvasClick : undefined}
+                        style={{ position: 'absolute', top: 0, left: 0, pointerEvents: drawActive ? 'auto' : 'none', cursor: drawActive ? cursor : 'default', zIndex: 5 }} />
+                    <canvas ref={previewRef}
+                        style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 6 }} />
 
                     {/* Prev / Next arrows */}
                     {isTeacher && (
