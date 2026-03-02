@@ -40,6 +40,7 @@ interface UseSocketOptions {
     onCourseNavigate?: (courseIdx: number, lessonIdx: number) => void;
     onCourseNavLock?: (locked: boolean) => void;
     onCourseScroll?: (scrollRatio: number) => void;
+    onCourseSidebar?: (open: boolean) => void;
 }
 
 export function useSocket(options: UseSocketOptions) {
@@ -48,7 +49,7 @@ export function useSocket(options: UseSocketOptions) {
         onParticipantJoined, onParticipantLeft,
         onSignal, onChatMessage, onRoomEnded,
         onForceMute, onForceCam, onParticipantMuteChanged, onParticipantCamChanged, onTeacherDisconnected,
-        onSpotlightChanged, onTeacherJoined, onAdminRefresh, onCourseToggle, onCourseNavigate, onCourseNavLock, onCourseScroll,
+        onSpotlightChanged, onTeacherJoined, onAdminRefresh, onCourseToggle, onCourseNavigate, onCourseNavLock, onCourseScroll, onCourseSidebar,
     } = options;
 
     // Keep refs so the single registered socket listeners always call the latest callbacks
@@ -69,6 +70,7 @@ export function useSocket(options: UseSocketOptions) {
     const onCourseNavigateRef = useRef(onCourseNavigate);
     const onCourseNavLockRef = useRef(onCourseNavLock);
     const onCourseScrollRef = useRef(onCourseScroll);
+    const onCourseSidebarRef = useRef(onCourseSidebar);
 
     onAdminRefreshRef.current = onAdminRefresh;
     onParticipantJoinedRef.current = onParticipantJoined;
@@ -87,6 +89,7 @@ export function useSocket(options: UseSocketOptions) {
     onCourseNavigateRef.current = onCourseNavigate;
     onCourseNavLockRef.current = onCourseNavLock;
     onCourseScrollRef.current = onCourseScroll;
+    onCourseSidebarRef.current = onCourseSidebar;
 
     const socketRef = useRef<Socket | null>(null);
     const [socketId, setSocketId] = useState('');
@@ -176,6 +179,9 @@ export function useSocket(options: UseSocketOptions) {
         socket.on('course:scroll', ({ scrollRatio }: { scrollRatio: number }) => {
             onCourseScrollRef.current?.(scrollRatio);
         });
+        socket.on('course:sidebar', ({ open }: { open: boolean }) => {
+            onCourseSidebarRef.current?.(open);
+        });
         socket.on('disconnect', () => setConnected(false));
 
         return () => {
@@ -244,11 +250,15 @@ export function useSocket(options: UseSocketOptions) {
         socketRef.current?.emit('course-scroll', { roomCode, scrollRatio });
     }, [roomCode]);
 
+    const emitCourseSidebar = useCallback((open: boolean) => {
+        socketRef.current?.emit('course-sidebar', { roomCode, open });
+    }, [roomCode]);
+
     return {
         socketId, connected, joinError, existingParticipants, currentSpotlight,
         roomQuiz, roomQuizSubmissions, roomQuizRevealed, revealedStudentIds,
         sendSignal, sendMessage, endRoom, muteParticipant, camParticipant, broadcastSelfCam, changeSpotlight,
         startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
-        emitCourseToggle, emitCourseNavigate, emitCourseNavLock, emitCourseScroll,
+        emitCourseToggle, emitCourseNavigate, emitCourseNavLock, emitCourseScroll, emitCourseSidebar,
     };
 }

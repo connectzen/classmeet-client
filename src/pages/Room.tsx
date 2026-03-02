@@ -66,6 +66,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [studentCourseJoined, setStudentCourseJoined] = useState(false);
     const [externalCourseNav, setExternalCourseNav] = useState<{ courseIdx: number; lessonIdx: number } | null>(null);
     const [externalCourseScroll, setExternalCourseScroll] = useState<number | null>(null);
+    const [courseSidebarOpen, setCourseSidebarOpen] = useState(false);
     const [courseLessonIdx, setCourseLessonIdx] = useState(0);
     const [courseCourseIdx, setCourseCourseIdx] = useState(0);
     const [courseTotalLessons, setCourseTotalLessons] = useState(1);
@@ -244,7 +245,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         roomQuiz, roomQuizSubmissions, roomQuizRevealed, revealedStudentIds,
         sendSignal, sendMessage, endRoom, muteParticipant, camParticipant, broadcastSelfCam, changeSpotlight,
         startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
-        emitCourseToggle, emitCourseNavigate, emitCourseScroll,
+        emitCourseToggle, emitCourseNavigate, emitCourseScroll, emitCourseSidebar,
     } = useSocket({
             roomCode, roomId, roomName, name, role, isGuestRoomHost,
             onParticipantJoined: handleParticipantJoined,
@@ -273,6 +274,9 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
             onCourseNavLock: () => { /* students always locked — no-op */ },
             onCourseScroll: (scrollRatio) => {
                 if (role !== 'teacher') setExternalCourseScroll(scrollRatio);
+            },
+            onCourseSidebar: (open) => {
+                if (role !== 'teacher') setCourseSidebarOpen(open);
             },
         });
 
@@ -367,6 +371,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
             setCourseLessonIdx(0);
             setCourseCourseIdx(0);
             setCourseSharedWithStudents(false);
+            setCourseSidebarOpen(false);
         }
     }, [courseToggleOn]);
 
@@ -801,6 +806,12 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 onNav={handleCourseNav}
                                 onCoursesLoaded={setCourseTotalLessons}
                                 onScrollSync={emitCourseScroll}
+                                sidebarOpen={courseSidebarOpen}
+                                onSidebarToggle={() => {
+                                    const next = !courseSidebarOpen;
+                                    setCourseSidebarOpen(next);
+                                    emitCourseSidebar(next);
+                                }}
                             />
                         ) : courseToggleOn && role !== 'teacher' ? (
                             !studentCourseJoined ? (
@@ -837,6 +848,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                     onNav={handleCourseNav}
                                     onCoursesLoaded={setCourseTotalLessons}
                                     externalScroll={externalCourseScroll}
+                                    sidebarOpen={courseSidebarOpen}
                                 />
                             )
                         ) : quizToggleOn && role === 'teacher' ? (

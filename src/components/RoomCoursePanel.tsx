@@ -34,16 +34,20 @@ interface Props {
     externalScroll?: number | null;
     /** Total lessons count for nav label */
     totalLessons?: number;
+    /** Controlled sidebar open state (synced from teacher via socket) */
+    sidebarOpen?: boolean;
+    /** Teacher: called when sidebar toggle button is clicked */
+    onSidebarToggle?: () => void;
 }
 
 export default function RoomCoursePanel({
     courseIds, serverUrl, role,
     activeLessonIdx, activeCourseIdx, onNav, onCoursesLoaded,
     onScrollSync, externalScroll,
+    sidebarOpen = false, onSidebarToggle,
 }: Props) {
     const [courses, setCourses] = useState<CourseData[]>([]);
     const [loading, setLoading] = useState(true);
-    const [sidebarOpen, setSidebarOpen] = useState(false);
 
     const contentRef = useRef<HTMLDivElement>(null);
     const scrollThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -130,8 +134,8 @@ export default function RoomCoursePanel({
     const canNavPrev = isTeacher && activeLessonIdx > 0;
     const canNavNext = isTeacher && activeLessonIdx < totalLessons - 1;
 
-    // Students always see the sidebar (read-only); teacher can toggle it
-    const showSidebar = isTeacher ? sidebarOpen : true;
+    // Sidebar state is controlled externally (synced from teacher via socket)
+    const showSidebar = sidebarOpen;
 
     return (
         <div style={{
@@ -205,7 +209,7 @@ export default function RoomCoursePanel({
                     {/* Sidebar toggle button — teacher only */}
                     {isTeacher && (
                         <button
-                            onClick={() => setSidebarOpen(v => !v)}
+                            onClick={onSidebarToggle}
                             title={sidebarOpen ? 'Hide lesson list' : 'Show lesson list'}
                             style={{
                                 position: 'absolute', top: 12, left: 12, zIndex: 2,
