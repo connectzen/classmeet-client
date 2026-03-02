@@ -64,7 +64,6 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [roomQuizSubmitted, setRoomQuizSubmitted] = useState(false);
     const [studentQuizStarted, setStudentQuizStarted] = useState(false);
     const [studentCourseJoined, setStudentCourseJoined] = useState(false);
-    const [courseNavLocked, setCourseNavLocked] = useState(true);
     const [externalCourseNav, setExternalCourseNav] = useState<{ courseIdx: number; lessonIdx: number } | null>(null);
     const [externalCourseScroll, setExternalCourseScroll] = useState<number | null>(null);
     const [courseLessonIdx, setCourseLessonIdx] = useState(0);
@@ -245,7 +244,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         roomQuiz, roomQuizSubmissions, roomQuizRevealed, revealedStudentIds,
         sendSignal, sendMessage, endRoom, muteParticipant, camParticipant, broadcastSelfCam, changeSpotlight,
         startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
-        emitCourseToggle, emitCourseNavigate, emitCourseNavLock, emitCourseScroll,
+        emitCourseToggle, emitCourseNavigate, emitCourseScroll,
     } = useSocket({
             roomCode, roomId, roomName, name, role, isGuestRoomHost,
             onParticipantJoined: handleParticipantJoined,
@@ -271,9 +270,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
             onCourseNavigate: (courseIdx, lessonIdx) => {
                 if (role !== 'teacher') setExternalCourseNav({ courseIdx, lessonIdx });
             },
-            onCourseNavLock: (locked) => {
-                if (role !== 'teacher') setCourseNavLocked(locked);
-            },
+            onCourseNavLock: () => { /* students always locked — no-op */ },
             onCourseScroll: (scrollRatio) => {
                 if (role !== 'teacher') setExternalCourseScroll(scrollRatio);
             },
@@ -356,13 +353,13 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         setDismissedRevealed(false);
     }, [roomQuizRevealed]);
 
-    // Student: follow teacher navigation when locked
+    // Student: always follow teacher navigation (always locked)
     useEffect(() => {
-        if (role !== 'teacher' && courseNavLocked && externalCourseNav) {
+        if (role !== 'teacher' && externalCourseNav) {
             setCourseLessonIdx(externalCourseNav.lessonIdx);
             setCourseCourseIdx(externalCourseNav.courseIdx);
         }
-    }, [externalCourseNav, courseNavLocked, role]);
+    }, [externalCourseNav, role]);
 
     // Reset course nav indices and sharing state when course panel closes
     useEffect(() => {
@@ -839,8 +836,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                     activeCourseIdx={courseCourseIdx}
                                     onNav={handleCourseNav}
                                     onCoursesLoaded={setCourseTotalLessons}
-                                    navLocked={courseNavLocked}
-                                    externalScroll={courseNavLocked ? externalCourseScroll : null}
+                                    externalScroll={externalCourseScroll}
                                 />
                             )
                         ) : quizToggleOn && role === 'teacher' ? (
@@ -938,82 +934,41 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                             ⚙️ <span className="control-label">Devices</span>
                         </button>
 
-                        {/* Course lesson nav — shown when course panel is open */}
-                        {courseToggleOn && (
-                            <>
-                                <div style={{ width: 1, height: 32, background: 'var(--border)', flexShrink: 0 }} />
-                                <button
-                                    className={`control-btn ${(courseLessonIdx === 0 || (role !== 'teacher' && courseNavLocked)) ? 'control-btn-off' : ''}`}
-                                    onClick={() => { if (courseLessonIdx > 0 && (role === 'teacher' || !courseNavLocked)) handleCourseNav(courseCourseIdx, courseLessonIdx - 1); }}
-                                    disabled={courseLessonIdx === 0 || (role !== 'teacher' && courseNavLocked)}
-                                >
-                                    ← <span className="control-label">Prev</span>
-                                </button>
-                                <span style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'center', flexShrink: 0, lineHeight: 1.3, minWidth: 52 }}>
-                                    {courseLessonIdx + 1} / {courseTotalLessons || 1}<br />
-                                    <span style={{ fontSize: 9, opacity: 0.7 }}>lesson</span>
-                                </span>
-                                <button
-                                    className={`control-btn ${(courseLessonIdx >= (courseTotalLessons || 1) - 1 || (role !== 'teacher' && courseNavLocked)) ? 'control-btn-off' : ''}`}
-                                    onClick={() => { if (courseLessonIdx < (courseTotalLessons || 1) - 1 && (role === 'teacher' || !courseNavLocked)) handleCourseNav(courseCourseIdx, courseLessonIdx + 1); }}
-                                    disabled={courseLessonIdx >= (courseTotalLessons || 1) - 1 || (role !== 'teacher' && courseNavLocked)}
-                                >
-                                    <span className="control-label">Next</span> →
-                                </button>
-                                {/* Teacher: lock/unlock student navigation */}
-                                {role === 'teacher' && (
-                                    <button
-                                        className={`control-btn ${courseNavLocked ? '' : 'control-btn-off'}`}
-                                        onClick={() => { const locked = !courseNavLocked; setCourseNavLocked(locked); emitCourseNavLock(locked); }}
-                                        title={courseNavLocked ? 'Students follow your navigation — click to let them browse freely' : 'Students browse freely — click to lock them to your view'}
-                                    >
-                                        {courseNavLocked ? '🔒' : '🔓'}
-                                        <span className="control-label">{courseNavLocked ? 'Locked' : 'Free'}</span>
-                                    </button>
-                                )}
-                                <div style={{ width: 1, height: 32, background: 'var(--border)', flexShrink: 0 }} />
-                            </>
-                        )}
-
-                        {/* Quiz toggle (teacher only) */}
+                        {/* Quiz toggle switch (teacher only) */}
                         {role === 'teacher' && (
-                            <button
-                                className={`control-btn ${quizToggleOn ? '' : 'control-btn-off'}`}
-                                onClick={() => {
+                            <CtrlToggle
+                                label="Quiz"
+                                on={quizToggleOn}
+                                onChange={() => {
                                     const next = !quizToggleOn;
                                     if (quizToggleOn && roomQuiz) stopRoomQuiz();
                                     setQuizToggleOn(next);
-                                    if (next) { setCourseToggleOn(false); emitCourseToggle(false, []); setRoomQuizSubmitted(false); }
+                                    if (next) { setCourseToggleOn(false); emitCourseToggle(false, []); setCourseSharedWithStudents(false); setRoomQuizSubmitted(false); }
                                 }}
-                            >
-                                📝 <span className="control-label">Quiz {quizToggleOn ? 'ON' : 'OFF'}</span>
-                            </button>
+                            />
                         )}
 
-                        {/* Course toggle (teacher only, when session has courses) */}
+                        {/* Course toggle switch (teacher only, when session has courses) */}
                         {role === 'teacher' && sessionCourseIds.length > 0 && (
-                            <button
-                                className={`control-btn ${courseToggleOn ? '' : 'control-btn-off'}`}
-                                onClick={() => {
+                            <CtrlToggle
+                                label="Course"
+                                on={courseToggleOn}
+                                onChange={() => {
                                     const next = !courseToggleOn;
                                     setCourseToggleOn(next);
-                                    if (!next) {
-                                        // Turning OFF — stop sharing with students too
-                                        emitCourseToggle(false, []);
-                                        setCourseSharedWithStudents(false);
-                                    }
+                                    if (!next) { emitCourseToggle(false, []); setCourseSharedWithStudents(false); }
                                     if (next) { if (quizToggleOn && roomQuiz) stopRoomQuiz(); setQuizToggleOn(false); }
                                 }}
-                            >
-                                📚 <span className="control-label">Course {courseToggleOn ? 'ON' : 'OFF'}</span>
-                            </button>
+                            />
                         )}
-                        {/* Share course with students button — visible after teacher opens course panel */}
+
+                        {/* Share toggle — shown when course panel is open */}
                         {role === 'teacher' && courseToggleOn && (
-                            <button
-                                className={`control-btn ${courseSharedWithStudents ? '' : 'control-btn-off'}`}
-                                style={{ border: courseSharedWithStudents ? '1.5px solid #22c55e' : undefined }}
-                                onClick={() => {
+                            <CtrlToggle
+                                label="Share"
+                                on={courseSharedWithStudents}
+                                color="#22c55e"
+                                onChange={() => {
                                     if (courseSharedWithStudents) {
                                         emitCourseToggle(false, []);
                                         setCourseSharedWithStudents(false);
@@ -1022,11 +977,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                         setCourseSharedWithStudents(true);
                                     }
                                 }}
-                                title={courseSharedWithStudents ? 'Students are following — click to stop sharing' : 'Click to share course view with students'}
-                            >
-                                {courseSharedWithStudents ? '👁️' : '🙈'}
-                                <span className="control-label">{courseSharedWithStudents ? 'Sharing' : 'Share'}</span>
-                            </button>
+                            />
                         )}
 
                         {/* Mobile chat toggle */}
@@ -1073,6 +1024,22 @@ function SpotlightVideo({ stream, name, isLocal, isCamOff }: { stream: MediaStre
             )}
             <div className="spotlight-label">{name}</div>
         </div>
+    );
+}
+
+function CtrlToggle({ label, on, onChange, color }: { label: string; on: boolean; onChange: () => void; color?: string }) {
+    const trackColor = on ? (color || '#6366f1') : 'rgba(255,255,255,0.1)';
+    const borderColor = on ? (color ? `${color}80` : 'rgba(99,102,241,0.5)') : 'rgba(255,255,255,0.12)';
+    return (
+        <button
+            onClick={onChange}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', flexShrink: 0 }}
+        >
+            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: on ? '#e2e8f0' : 'var(--text-muted)', textTransform: 'uppercase', lineHeight: 1 }}>{label}</span>
+            <div style={{ width: 40, height: 22, borderRadius: 11, background: trackColor, border: `1.5px solid ${borderColor}`, position: 'relative', transition: 'background 0.2s, border-color 0.2s', flexShrink: 0 }}>
+                <div style={{ position: 'absolute', top: 3, left: on ? 17 : 3, width: 13, height: 13, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.3)', transition: 'left 0.18s' }} />
+            </div>
+        </button>
     );
 }
 
