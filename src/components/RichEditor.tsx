@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
-import { Extension } from '@tiptap/core';
+import { useEditor, EditorContent, ReactNodeViewRenderer, NodeViewWrapper } from '@tiptap/react';
+import { Extension, NodeViewProps } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import TiptapImage from '@tiptap/extension-image';
@@ -72,6 +72,92 @@ const SIZES = ['11', '12', '14', '16', '18', '20', '24', '28', '32', '36', '42',
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+
+// ── Resizable image node view ───────────────────────────────────────────────────────
+function ResizableImageView({ node, updateAttributes, selected }: NodeViewProps) {
+    const imgRef = useRef<HTMLImageElement>(null);
+    const isResizing = useRef(false);
+    const startX = useRef(0);
+    const startW = useRef(0);
+
+    const onCornerMouseDown = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        isResizing.current = true;
+        startX.current = e.clientX;
+        startW.current = imgRef.current?.offsetWidth ?? 300;
+
+        const onMove = (ev: MouseEvent) => {
+            if (!isResizing.current) return;
+            const newW = Math.max(60, startW.current + ev.clientX - startX.current);
+            if (imgRef.current) imgRef.current.style.width = newW + 'px';
+        };
+        const onUp = (ev: MouseEvent) => {
+            if (!isResizing.current) return;
+            isResizing.current = false;
+            const newW = Math.max(60, startW.current + ev.clientX - startX.current);
+            updateAttributes({ width: newW + 'px' });
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    };
+
+    return (
+        <NodeViewWrapper style={{ display: 'inline-block', position: 'relative', lineHeight: 0 }}>
+            <img
+                ref={imgRef}
+                src={node.attrs.src}
+                alt={node.attrs.alt || ''}
+                draggable={false}
+                style={{
+                    width: node.attrs.width || 'auto',
+                    maxWidth: '100%',
+                    borderRadius: 6,
+                    margin: '4px 0',
+                    display: 'block',
+                    outline: selected ? '2px solid #6366f1' : '2px solid transparent',
+                    transition: 'outline-color 0.15s',
+                    userSelect: 'none',
+                }}
+            />
+            {/* Resize handle — bottom-right corner */}
+            <div
+                title="Drag to resize"
+                onMouseDown={onCornerMouseDown}
+                style={{
+                    position: 'absolute', bottom: 2, right: 2,
+                    width: 14, height: 14,
+                    background: '#6366f1',
+                    border: '2px solid #fff',
+                    borderRadius: 3,
+                    cursor: 'nwse-resize',
+                    opacity: selected ? 1 : 0,
+                    transition: 'opacity 0.15s',
+                    zIndex: 10,
+                }}
+            />
+        </NodeViewWrapper>
+    );
+}
+
+// Extend TiptapImage to accept a width attribute and use the resizable view
+const ResizableImage = TiptapImage.extend({
+    addAttributes() {
+        return {
+            ...this.parent?.(),
+            width: {
+                default: null,
+                parseHTML: el => (el as HTMLImageElement).getAttribute('width') || (el as HTMLImageElement).style.width || null,
+                renderHTML: attrs => attrs.width ? { width: attrs.width, style: `width:${attrs.width}` } : {},
+            },
+        };
+    },
+    addNodeView() {
+        return ReactNodeViewRenderer(ResizableImageView);
+    },
+});
 
 export function isRichEmpty(html: string) {
     if (!html) return true;
@@ -284,7 +370,7 @@ export default function RichEditor({
         extensions: [
             StarterKit,
             Underline,
-            TiptapImage,
+            ResizableImage,
             Link.configure({ openOnClick: false }),
             TextStyle,
             Color,
@@ -435,30 +521,34 @@ export default function RichEditor({
                     {divider}
                     <TBtn label="≡ Bullets" title="Bullet list" active={editor?.isActive('bulletList')} onClick={handleBulletList} />
                     <TBtn label="1. List" title="Ordered list" active={editor?.isActive('orderedList')} onClick={handleOrderedList} />
-                    <TBtn label="❝ Quote" title="Blockquote" active={editor?.isActive('blockquote')} onClick={handleBlockquote} />                    {divider}
-                    {/* Image upload */}
-                    <input
-                        ref={imgInputRef}
-                        type="file"
-                        accept="image/*"
-                        style={{ display: 'none' }}
-                        onChange={async e => {
-                            const file = e.target.files?.[0];
-                            if (!file || !editor) return;
-                            const fd = new FormData();
-                            fd.append('file', file);
-                            try {
-                                const r = await fetch(`${SERVER}/api/quiz/upload`, { method: 'POST', body: fd });
-                                const data = await r.json();
-                                if (data.url) editor.chain().focus().setImage({ src: data.url }).run();
-                            } catch { /* ignore */ }
-                            e.target.value = '';
-                        }}
-                    />
-                    <button type="button" title="Insert image" onMouseDown={e => { e.preventDefault(); imgInputRef.current?.click(); }}
-                        style={{ padding: '3px 8px', borderRadius: 5, border: 'none', background: 'rgba(255,255,255,0.07)', color: '#94a3b8', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                        🖼 <span style={{ fontSize: 11 }}>Img</span>
-                    </button>                </div>
+                    <TBtn label="❝ Quote" title="Blockquote" active={editor?.isActive('blockquote')} onClick={handleBlockquote} />
+                    {/* Image upload — only in full editors, not compact/title areas */}
+                    {!compact && (<>
+                        {divider}
+                        <input
+                            ref={imgInputRef}
+                            type="file"
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            onChange={async e => {
+                                const file = e.target.files?.[0];
+                                if (!file || !editor) return;
+                                const fd = new FormData();
+                                fd.append('file', file);
+                                try {
+                                    const r = await fetch(`${SERVER}/api/quiz/upload`, { method: 'POST', body: fd });
+                                    const data = await r.json();
+                                    if (data.url) editor.chain().focus().setImage({ src: data.url }).run();
+                                } catch { /* ignore */ }
+                                e.target.value = '';
+                            }}
+                        />
+                        <button type="button" title="Insert image" onMouseDown={e => { e.preventDefault(); imgInputRef.current?.click(); }}
+                            style={{ padding: '3px 8px', borderRadius: 5, border: 'none', background: 'rgba(255,255,255,0.07)', color: '#94a3b8', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                            🖼 <span style={{ fontSize: 11 }}>Img</span>
+                        </button>
+                    </>)}
+                </div>
             )}
             {/* Chat hint bar — replaces toolbar in chatMode */}
             {chatMode && (

@@ -20,11 +20,11 @@ import RichEditor from './RichEditor';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
-type LessonType = 'text' | 'video' | 'audio';
+type LessonType = 'text' | 'video' | 'audio' | 'image';
 
 interface Lesson {
     id: string; title: string; content: string;
-    lesson_type: LessonType; video_url: string | null; audio_url: string | null; order_index: number;
+    lesson_type: LessonType; video_url: string | null; audio_url: string | null; image_url: string | null; order_index: number;
 }
 interface Quiz { id: string; title: string; status: string; }
 interface Assignment { id: string; title: string; description: string; order_index: number; assignment_type?: string; file_url?: string | null; }
@@ -59,7 +59,18 @@ function SortableLessonCard({
         e.target.value = '';
     }
 
-    const typeIcon = lesson.lesson_type === 'video' ? '🎬' : lesson.lesson_type === 'audio' ? '🎵' : '📄';
+    async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const fd = new FormData();
+        fd.append('file', file);
+        const r = await fetch(`${SERVER}/api/quiz/upload`, { method: 'POST', body: fd });
+        const data = await r.json();
+        if (data.url) onUpdate(lesson.id, { image_url: data.url });
+        e.target.value = '';
+    }
+
+    const typeIcon = lesson.lesson_type === 'video' ? '🎬' : lesson.lesson_type === 'audio' ? '🎵' : lesson.lesson_type === 'image' ? '🖼️' : '📄';
 
     return (
         <div ref={setNodeRef} style={dragStyle}>
@@ -82,6 +93,7 @@ function SortableLessonCard({
                         <option value="text">Text</option>
                         <option value="video">Video</option>
                         <option value="audio">Audio</option>
+                        <option value="image">Image</option>
                     </select>
                     <button type="button" onClick={onToggleExpand} style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 12, padding: '3px 5px', flexShrink: 0 }}>
                         {expanded ? '▼' : '▶'}
@@ -91,6 +103,23 @@ function SortableLessonCard({
                 {/* Expanded */}
                 {expanded && (
                     <div style={{ padding: '0 11px 11px' }}>
+                        {lesson.lesson_type === 'image' && (
+                            <div>
+                                <div style={{ marginBottom: 7, padding: '6px 10px', borderRadius: 7, background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', fontSize: 11, color: '#a5b4fc', lineHeight: 1.5 }}>
+                                    📐 <strong>Recommended:</strong> 640 × 480 px (4:3) or 640 × 360 px (16:9)
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 7, background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.35)', cursor: 'pointer', fontSize: 13, color: '#a5b4fc' }}>
+                                        🖼 Upload image
+                                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
+                                    </label>
+                                    {lesson.image_url && <span style={{ fontSize: 12, color: '#4ade80' }}>✓ Uploaded</span>}
+                                </div>
+                                {lesson.image_url && (
+                                    <img src={lesson.image_url} alt="preview" style={{ marginTop: 8, maxWidth: '100%', borderRadius: 7, display: 'block' }} />
+                                )}
+                            </div>
+                        )}
                         {lesson.lesson_type === 'video' && (
                             <input type="url" value={lesson.video_url || ''} onChange={e => onUpdate(lesson.id, { video_url: e.target.value })} placeholder="Paste YouTube or video URL…"
                                 style={{ width: '100%', padding: '8px 12px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#e2e8f0', fontSize: 13, boxSizing: 'border-box' }} />
@@ -160,6 +189,7 @@ function SortableTopicCard({
         if (updates.lesson_type !== undefined) payload.lessonType = updates.lesson_type;
         if (updates.video_url !== undefined) payload.videoUrl = updates.video_url;
         if (updates.audio_url !== undefined) payload.audioUrl = updates.audio_url;
+        if (updates.image_url !== undefined) payload.imageUrl = updates.image_url;
         if (Object.keys(payload).length === 0) return;
         await fetch(`${SERVER}/api/lessons/${lessonId}`, {
             method: 'PATCH',
@@ -185,7 +215,7 @@ function SortableTopicCard({
             const newLesson: Lesson = {
                 id: l.id, title: l.title, content: l.content || '',
                 lesson_type: (l.lesson_type || 'text') as LessonType,
-                video_url: null, audio_url: null, order_index: l.order_index ?? topic.lessons.length,
+                video_url: null, audio_url: null, image_url: null, order_index: l.order_index ?? topic.lessons.length,
             };
             onTopicDataChange(topic.id, { lessons: [...topic.lessons, newLesson] });
             setExpandedLessonId(l.id);

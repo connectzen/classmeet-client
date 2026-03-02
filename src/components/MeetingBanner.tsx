@@ -85,7 +85,7 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
     const gradientBg   = isTeacher
         ? 'linear-gradient(135deg, #1e1b4b 0%, #1e3a5f 50%, #1d2e5e 100%)'
         : 'linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4c1d95 100%)';
-    const badgeLabel   = isTeacher ? '📚 Class Teacher' : '🏛️ Admin Meeting';
+    const badgeLabel   = isTeacher ? 'Class Teacher' : 'Admin Meeting';
 
     const handleJoinClick = () => {
         if (!canJoin) {
@@ -130,13 +130,14 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
                     <span style={{
                         flexShrink: 0,
-                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                         width: 110,
                         background: accentBg, border: `1px solid ${accentBorder}`,
-                        borderRadius: 8, padding: '3px 10px', fontSize: 9, fontWeight: 700,
-                        color: accentColor, letterSpacing: '0.06em', textTransform: 'uppercase',
+                        borderRadius: 8, padding: '3px 6px', fontSize: 9, fontWeight: 700,
+                        color: accentColor, letterSpacing: '0.03em', textTransform: 'uppercase',
+                        whiteSpace: 'nowrap', overflow: 'hidden',
                     }}>
-                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: accentColor, flexShrink: 0 }} />
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: accentColor, flexShrink: 0 }} />
                         {badgeLabel}
                     </span>
                     <h3 style={{
@@ -155,7 +156,7 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                                 src={meeting.session_image_url}
                                 alt={teacherName || meeting.title}
                                 style={{
-                                    width: 110, height: 140, borderRadius: 14,
+                                    width: '100%', height: 'auto', minHeight: 80, borderRadius: 14,
                                     objectFit: 'cover', objectPosition: 'center center',
                                     border: '2px solid rgba(99,102,241,0.45)',
                                     boxShadow: '0 4px 16px rgba(0,0,0,0.4)', display: 'block',
@@ -163,13 +164,14 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                             />
                         ) : (
                             <div style={{
-                                width: 110, height: 140, borderRadius: 14,
+                                width: '100%', paddingBottom: '127%', borderRadius: 14, position: 'relative',
                                 background: 'linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(139,92,246,0.25) 100%)',
                                 border: '2px solid rgba(99,102,241,0.35)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
                             }}>
-                                <div style={{ fontSize: 40, opacity: 0.6 }}>📚</div>
+                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <div style={{ fontSize: 40, opacity: 0.6 }}>📚</div>
+                                </div>
                             </div>
                         )}
                         {teacherName && (
