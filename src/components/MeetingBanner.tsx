@@ -150,13 +150,13 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                 <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
 
                     {/* Image column */}
-                    <div style={{ flexShrink: 0, textAlign: 'center', width: 110 }}>
+                    <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', width: 110 }}>
                         {meeting.session_image_url ? (
                             <img
                                 src={meeting.session_image_url}
                                 alt={teacherName || meeting.title}
                                 style={{
-                                    width: '100%', height: 140, borderRadius: 14,
+                                    width: 110, height: 140, borderRadius: 14,
                                     objectFit: 'cover', objectPosition: 'center top',
                                     border: '2px solid rgba(99,102,241,0.45)',
                                     boxShadow: '0 4px 16px rgba(0,0,0,0.4)', display: 'block',
@@ -164,20 +164,19 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                             />
                         ) : (
                             <div style={{
-                                width: '100%', paddingBottom: '127%', borderRadius: 14, position: 'relative',
+                                width: 110, height: 140, borderRadius: 14, flexShrink: 0,
                                 background: 'linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(139,92,246,0.25) 100%)',
                                 border: '2px solid rgba(99,102,241,0.35)',
                                 boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
                             }}>
-                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <div style={{ fontSize: 40, opacity: 0.6 }}>📚</div>
-                                </div>
+                                <div style={{ fontSize: 40, opacity: 0.6 }}>📚</div>
                             </div>
                         )}
                         {teacherName && (
                             <div style={{
                                 marginTop: 5, fontSize: 11, fontWeight: 700, color: '#e2e8f0',
-                                textAlign: 'center', maxWidth: 110,
+                                textAlign: 'center', width: '100%',
                                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                             }}>
                                 {teacherName}

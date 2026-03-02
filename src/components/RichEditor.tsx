@@ -400,19 +400,12 @@ export default function RichEditor({
     ensureFonts();
     const [, forceUpdate] = useState(0);
     const [showColorPicker, setShowColorPicker] = useState(false);
+    const [colorPickerPos, setColorPickerPos] = useState({ top: 0, left: 0 });
+    const colorBtnRef = useRef<HTMLButtonElement>(null);
     const colorPickerRef = useRef<HTMLDivElement>(null);
     const imgInputRef = useRef<HTMLInputElement>(null);
 
-    useEffect(() => {
-        if (!showColorPicker) return;
-        function handleClickOutside(e: MouseEvent) {
-            if (colorPickerRef.current && !colorPickerRef.current.contains(e.target as Node)) {
-                setShowColorPicker(false);
-            }
-        }
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [showColorPicker]);
+
 
     const editor = useEditor({
         extensions: [
@@ -534,37 +527,48 @@ export default function RichEditor({
                     {/* Color picker */}
                     <div ref={colorPickerRef} style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
                         <button
+                            ref={colorBtnRef}
                             title="Text color"
-                            onMouseDown={e => { e.preventDefault(); setShowColorPicker(v => !v); }}
+                            onMouseDown={e => {
+                                e.preventDefault();
+                                if (!showColorPicker && colorBtnRef.current) {
+                                    const r = colorBtnRef.current.getBoundingClientRect();
+                                    setColorPickerPos({ top: r.bottom + 4, left: r.left });
+                                }
+                                setShowColorPicker(v => !v);
+                            }}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 7px', borderRadius: 5, background: showColorPicker ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.07)', cursor: 'pointer', border: 'none', userSelect: 'none' }}
                         >
                             <span style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8', borderBottom: `3px solid ${currentColor}`, paddingBottom: 1, lineHeight: 1 }}>A</span>
                             <span style={{ fontSize: 11, color: '#64748b' }}>▾</span>
                         </button>
                         {showColorPicker && (
-                            <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 200, background: '#1a1a2e', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 10, padding: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', minWidth: 158, maxHeight: 260, overflowY: 'auto' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 5, marginBottom: 8 }}>
-                                    {COLOR_PRESETS.map(color => (
-                                        <button
-                                            key={color}
-                                            title={color}
-                                            onMouseDown={e => { e.preventDefault(); editor?.chain().focus().setColor(color).run(); setShowColorPicker(false); }}
-                                            style={{ width: 22, height: 22, borderRadius: 5, background: color, border: currentColor === color ? '2px solid #fff' : '2px solid rgba(255,255,255,0.15)', cursor: 'pointer', padding: 0, transition: 'transform 0.1s', flexShrink: 0 }}
-                                            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.2)')}
-                                            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                            <>
+                                <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onMouseDown={e => { e.preventDefault(); setShowColorPicker(false); }} />
+                                <div style={{ position: 'fixed', top: colorPickerPos.top, left: colorPickerPos.left, zIndex: 9999, background: '#1a1a2e', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 10, padding: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', minWidth: 158, maxHeight: 260, overflowY: 'auto' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 5, marginBottom: 8 }}>
+                                        {COLOR_PRESETS.map(color => (
+                                            <button
+                                                key={color}
+                                                title={color}
+                                                onMouseDown={e => { e.preventDefault(); editor?.chain().focus().setColor(color).run(); setShowColorPicker(false); }}
+                                                style={{ width: 22, height: 22, borderRadius: 5, background: color, border: currentColor === color ? '2px solid #fff' : '2px solid rgba(255,255,255,0.15)', cursor: 'pointer', padding: 0, transition: 'transform 0.1s', flexShrink: 0 }}
+                                                onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.2)')}
+                                                onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                                            />
+                                        ))}
+                                    </div>
+                                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <span style={{ fontSize: 11, color: '#64748b' }}>Custom</span>
+                                        <input
+                                            type="color"
+                                            value={currentColor}
+                                            onChange={e => editor?.chain().focus().setColor(e.target.value).run()}
+                                            style={{ width: 32, height: 22, padding: 0, border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, cursor: 'pointer', background: 'none' }}
                                         />
-                                    ))}
+                                    </div>
                                 </div>
-                                <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <span style={{ fontSize: 11, color: '#64748b' }}>Custom</span>
-                                    <input
-                                        type="color"
-                                        value={currentColor}
-                                        onChange={e => editor?.chain().focus().setColor(e.target.value).run()}
-                                        style={{ width: 32, height: 22, padding: 0, border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, cursor: 'pointer', background: 'none' }}
-                                    />
-                                </div>
-                            </div>
+                            </>
                         )}
                     </div>
                     {divider}

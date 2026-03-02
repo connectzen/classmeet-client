@@ -1480,17 +1480,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                             </div>
                             <div>
                                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                                    What will you cover?
-                                </label>
-                                <RichEditor
-                                    value={sessionDesc}
-                                    onChange={setSessionDesc}
-                                    placeholder="Introduction to the topic&#10;Key concepts and definitions&#10;Practice exercises"
-                                    minHeight={100}
-                                />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                                     What I Will Learn
                                 </label>
                                 <RichEditor
@@ -1667,17 +1656,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     onChange={e => setEditSessionDateTime(e.target.value)}
                                     onClick={e => (e.currentTarget as HTMLInputElement).showPicker?.()}
                                     style={{ width: '100%', boxSizing: 'border-box', colorScheme: 'dark', cursor: 'pointer' }}
-                                />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                                    What will you cover?
-                                </label>
-                                <RichEditor
-                                    value={editSessionDesc}
-                                    onChange={setEditSessionDesc}
-                                    placeholder="Introduction to the topic&#10;Key concepts and definitions&#10;Practice exercises"
-                                    minHeight={100}
                                 />
                             </div>
                             <div>
