@@ -71,6 +71,8 @@ const FONTS = [
 const SIZES = ['11', '12', '14', '16', '18', '20', '24', '28', '32', '36', '42', '48', '60', '72'];
 
 // ── Helper ────────────────────────────────────────────────────────────────────
+const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+
 export function isRichEmpty(html: string) {
     if (!html) return true;
     const stripped = html.replace(/<[^>]*>/g, '').trim();
@@ -265,6 +267,7 @@ export default function RichEditor({
     const [, forceUpdate] = useState(0);
     const [showColorPicker, setShowColorPicker] = useState(false);
     const colorPickerRef = useRef<HTMLDivElement>(null);
+    const imgInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (!showColorPicker) return;
@@ -432,8 +435,30 @@ export default function RichEditor({
                     {divider}
                     <TBtn label="≡ Bullets" title="Bullet list" active={editor?.isActive('bulletList')} onClick={handleBulletList} />
                     <TBtn label="1. List" title="Ordered list" active={editor?.isActive('orderedList')} onClick={handleOrderedList} />
-                    <TBtn label="❝ Quote" title="Blockquote" active={editor?.isActive('blockquote')} onClick={handleBlockquote} />
-                </div>
+                    <TBtn label="❝ Quote" title="Blockquote" active={editor?.isActive('blockquote')} onClick={handleBlockquote} />                    {divider}
+                    {/* Image upload */}
+                    <input
+                        ref={imgInputRef}
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        onChange={async e => {
+                            const file = e.target.files?.[0];
+                            if (!file || !editor) return;
+                            const fd = new FormData();
+                            fd.append('file', file);
+                            try {
+                                const r = await fetch(`${SERVER}/api/quiz/upload`, { method: 'POST', body: fd });
+                                const data = await r.json();
+                                if (data.url) editor.chain().focus().setImage({ src: data.url }).run();
+                            } catch { /* ignore */ }
+                            e.target.value = '';
+                        }}
+                    />
+                    <button type="button" title="Insert image" onMouseDown={e => { e.preventDefault(); imgInputRef.current?.click(); }}
+                        style={{ padding: '3px 8px', borderRadius: 5, border: 'none', background: 'rgba(255,255,255,0.07)', color: '#94a3b8', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                        🖼 <span style={{ fontSize: 11 }}>Img</span>
+                    </button>                </div>
             )}
             {/* Chat hint bar — replaces toolbar in chatMode */}
             {chatMode && (

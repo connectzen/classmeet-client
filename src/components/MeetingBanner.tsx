@@ -130,7 +130,8 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
                     <span style={{
                         flexShrink: 0,
-                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                        width: 110,
                         background: accentBg, border: `1px solid ${accentBorder}`,
                         borderRadius: 8, padding: '3px 10px', fontSize: 9, fontWeight: 700,
                         color: accentColor, letterSpacing: '0.06em', textTransform: 'uppercase',
@@ -148,7 +149,7 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                 <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
 
                     {/* Image column */}
-                    <div style={{ flexShrink: 0, textAlign: 'center' }}>
+                    <div style={{ flexShrink: 0, textAlign: 'center', width: 110 }}>
                         {meeting.session_image_url ? (
                             <img
                                 src={meeting.session_image_url}

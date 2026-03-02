@@ -7,6 +7,8 @@ interface Lesson {
     content: string;
     lesson_type: string;
     video_url?: string | null;
+    audio_url?: string | null;
+    image_url?: string | null;
     order_index: number;
 }
 
@@ -126,6 +128,7 @@ export default function RoomCoursePanel({
     const [textInput, setTextInput] = useState<{ vx: number; vy: number; cx: number; cy: number } | null>(null);
     const [toolbarPos, setToolbarPos] = useState<{ x: number; y: number } | null>(null);
     const [toolbarExpanded, setToolbarExpanded] = useState(false);
+    const [lessonKey, setLessonKey] = useState(0);
     // Teacher cursor rendered on the student's canvas
     const [teacherCursor, setTeacherCursor] = useState<{ x: number; y: number } | null>(null);
 
@@ -223,6 +226,7 @@ export default function RoomCoursePanel({
         const p = previewRef.current;
         if (p) p.getContext('2d')?.clearRect(0, 0, p.width, p.height);
         setTeacherCursor(null);
+        setLessonKey(k => k + 1);
     }, [activeLessonIdx, activeCourseIdx]);
 
     // ── Canvas sizing ─────────────────────────────────────────────────────────
@@ -482,6 +486,8 @@ export default function RoomCoursePanel({
 
     const commitText = useCallback((text: string, cx: number, cy: number) => {
         setTextInput(null);
+        // Always clear preview canvas on students when text input closes
+        onDrawPrevCb.current?.({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
         if (!text.trim()) return;
         const { drawColor, drawSizeKey } = drawState.current;
         const seg: DrawSeg = { x1: cx, y1: cy, x2: cx, y2: cy, color: drawColor, size: TOOL_SIZES[drawSizeKey], mode: 'text', text };
@@ -563,8 +569,11 @@ export default function RoomCoursePanel({
                             ) : !lesson ? (
                                 <p style={{ color: 'var(--text-muted)' }}>Select a lesson from the list.</p>
                             ) : (
-                                <div>
+                                <div key={lessonKey} className="lesson-slide-in">
                                     <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{lesson.title}</h3>
+                                    {lesson.lesson_type === 'image' && lesson.image_url && (
+                                        <img src={lesson.image_url} alt={lesson.title} style={{ width: '100%', borderRadius: 10, marginBottom: 16, display: 'block' }} />
+                                    )}
                                     {lesson.lesson_type === 'video' && lesson.video_url
                                         ? <video src={lesson.video_url} controls style={{ width: '100%', borderRadius: 10, marginBottom: 16, background: '#000' }} />
                                         : null}
@@ -676,7 +685,10 @@ export default function RoomCoursePanel({
                     }}
                     onKeyDown={e => {
                         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitText(e.currentTarget.value, textInput.cx, textInput.cy); }
-                        if (e.key === 'Escape') setTextInput(null);
+                        if (e.key === 'Escape') {
+                            onDrawPrevCb.current?.({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
+                            setTextInput(null);
+                        }
                     }}
                     onBlur={e => commitText(e.currentTarget.value, textInput.cx, textInput.cy)} />
                 </div>

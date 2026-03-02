@@ -3,7 +3,7 @@ import DOMPurify from 'dompurify';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
-type LessonType = 'text' | 'video' | 'audio';
+type LessonType = 'text' | 'video' | 'audio' | 'image';
 
 interface Lesson {
     id: string;
@@ -13,6 +13,7 @@ interface Lesson {
     lesson_type: LessonType;
     video_url: string | null;
     audio_url: string | null;
+    image_url: string | null;
 }
 
 interface Course {
@@ -36,9 +37,9 @@ export default function CourseViewer({ course, onClose }: Props) {
             const r = await fetch(`${SERVER}/api/courses/${course.id}/lessons`);
             if (r.ok) {
                 const data = await r.json();
-                setLessons((data as { id: string; title: string; content: string | null; order_index: number; lesson_type?: string; video_url?: string | null; audio_url?: string | null }[])
+                setLessons((data as { id: string; title: string; content: string | null; order_index: number; lesson_type?: string; video_url?: string | null; audio_url?: string | null; image_url?: string | null }[])
                     .sort((a: { order_index: number }, b: { order_index: number }) => a.order_index - b.order_index)
-                    .map((l: { id: string; title: string; content: string | null; order_index: number; lesson_type?: string; video_url?: string | null; audio_url?: string | null }) => ({
+                    .map((l: { id: string; title: string; content: string | null; order_index: number; lesson_type?: string; video_url?: string | null; audio_url?: string | null; image_url?: string | null }) => ({
                         id: l.id,
                         title: l.title,
                         content: l.content || '',
@@ -46,6 +47,7 @@ export default function CourseViewer({ course, onClose }: Props) {
                         lesson_type: (l.lesson_type || 'text') as LessonType,
                         video_url: l.video_url || null,
                         audio_url: l.audio_url || null,
+                        image_url: l.image_url || null,
                     })));
             }
         } catch { /* ignore */ } finally {
@@ -151,6 +153,11 @@ export default function CourseViewer({ course, onClose }: Props) {
                                     <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 600, color: 'var(--text)' }}>
                                         {lesson.title || `Lesson ${activeLessonIdx + 1}`}
                                     </h3>
+                                    {lesson.lesson_type === 'image' && lesson.image_url && (
+                                        <div style={{ marginBottom: 16 }}>
+                                            <img src={lesson.image_url} alt={lesson.title} style={{ width: '100%', borderRadius: 12, display: 'block' }} />
+                                        </div>
+                                    )}
                                     {lesson.lesson_type === 'video' && lesson.video_url && (
                                         <div style={{ marginBottom: 16 }}>
                                             {lesson.video_url.includes('youtube') || lesson.video_url.includes('youtu.be') ? (

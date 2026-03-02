@@ -21,7 +21,7 @@ import CurriculumEditor from './CurriculumEditor';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
-type LessonType = 'text' | 'video' | 'audio';
+type LessonType = 'text' | 'video' | 'audio' | 'image';
 
 interface Lesson {
     id?: string;
@@ -31,6 +31,7 @@ interface Lesson {
     lesson_type?: LessonType;
     video_url?: string | null;
     audio_url?: string | null;
+    image_url?: string | null;
 }
 
 interface Course {
@@ -93,6 +94,24 @@ function SortableLessonCard({
         e.target.value = '';
     }
 
+    async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file || !lesson.id) return;
+        const fd = new FormData();
+        fd.append('file', file);
+        const r = await fetch(`${SERVER}/api/quiz/upload`, { method: 'POST', body: fd });
+        const data = await r.json();
+        if (data.url) {
+            onUpdate(idx, { image_url: data.url }, false);
+            await fetch(`${SERVER}/api/lessons/${lesson.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ imageUrl: data.url }),
+            });
+        }
+        e.target.value = '';
+    }
+
     return (
         <div ref={setNodeRef} style={style} className="lesson-card" data-lesson-id={lesson.id}>
             <div style={{
@@ -147,6 +166,7 @@ function SortableLessonCard({
                         <option value="text" style={{ background: '#1e1b4b', color: '#e2e8f0' }}>Text</option>
                         <option value="video" style={{ background: '#1e1b4b', color: '#e2e8f0' }}>Video</option>
                         <option value="audio" style={{ background: '#1e1b4b', color: '#e2e8f0' }}>Audio</option>
+                        <option value="image" style={{ background: '#1e1b4b', color: '#e2e8f0' }}>Image</option>
                     </select>
                     <button type="button" onClick={() => onDelete(idx)} disabled={saving} style={{ padding: '6px 10px', borderRadius: 6, border: 'none', background: 'rgba(239,68,68,0.2)', color: '#ef4444', fontSize: 12, cursor: saving ? 'not-allowed' : 'pointer' }}>Delete</button>
                 </div>
@@ -180,6 +200,27 @@ function SortableLessonCard({
                                 </label>
                                 {lesson.audio_url && (
                                     <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--text-muted)' }}>✓ Audio uploaded</span>
+                                )}
+                            </div>
+                        )}
+                        {type === 'image' && (
+                            <div style={{ marginTop: 12 }}>
+                                <div style={{ marginBottom: 8, padding: '8px 12px', borderRadius: 8, background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', fontSize: 12, color: '#a5b4fc', lineHeight: 1.5 }}>
+                                    📐 <strong>Recommended dimensions:</strong> <span style={{ color: '#e2e8f0' }}>640 × 480 px</span> (4:3) or <span style={{ color: '#e2e8f0' }}>640 × 360 px</span> (16:9)<br />
+                                    <span style={{ color: '#64748b', fontSize: 11 }}>Images are displayed at 640 px wide — matching the live classroom canvas exactly.</span>
+                                </div>
+                                <label style={{
+                                    display: 'inline-block', padding: '8px 14px', borderRadius: 8,
+                                    background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)',
+                                    cursor: 'pointer', fontSize: 13, color: 'var(--primary)',
+                                }}>
+                                    🖼 Upload image
+                                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
+                                </label>
+                                {lesson.image_url && (
+                                    <div style={{ marginTop: 10 }}>
+                                        <img src={lesson.image_url} alt="Lesson" style={{ maxWidth: '100%', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)' }} />
+                                    </div>
                                 )}
                             </div>
                         )}
@@ -218,7 +259,7 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
             const r = await fetch(`${SERVER}/api/courses/${courseId}/lessons`);
             if (r.ok) {
                 const data = await r.json();
-                const mapped = (data as { id: string; title: string; content: string | null; order_index: number; lesson_type?: string; video_url?: string | null; audio_url?: string | null }[]).map(l => ({
+                const mapped = (data as { id: string; title: string; content: string | null; order_index: number; lesson_type?: string; video_url?: string | null; audio_url?: string | null; image_url?: string | null }[]).map(l => ({
                     id: l.id,
                     title: l.title,
                     content: l.content || '',
@@ -226,6 +267,7 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
                     lesson_type: (l.lesson_type || 'text') as LessonType,
                     video_url: l.video_url || null,
                     audio_url: l.audio_url || null,
+                    image_url: l.image_url || null,
                 }));
                 setLessons(mapped);
                 setExpandedLessonIdx(mapped.length > 0 ? 0 : -1);
@@ -303,6 +345,7 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
                     lesson_type: (l.lesson_type || 'text') as LessonType,
                     video_url: l.video_url || null,
                     audio_url: l.audio_url || null,
+                    image_url: l.image_url || null,
                 };
                 setLessons(prev => [...prev, newLesson]);
                 setExpandedLessonIdx(lessons.length);
@@ -321,6 +364,7 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
         if (updates.lesson_type !== undefined) payload.lessonType = updates.lesson_type;
         if (updates.video_url !== undefined) payload.videoUrl = updates.video_url;
         if (updates.audio_url !== undefined) payload.audioUrl = updates.audio_url;
+        if (updates.image_url !== undefined) payload.imageUrl = updates.image_url;
         if (Object.keys(payload).length === 0) return;
         try {
             await fetch(`${SERVER}/api/lessons/${l.id}`, {

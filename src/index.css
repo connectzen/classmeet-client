@@ -3954,3 +3954,12 @@ input[type="radio"] {
 /* Chat input row — accommodate RichEditor */
 .chat-input-row { align-items: flex-end; gap: 8px; }
 .chat-input-row .rich-editor-content { min-height: 36px !important; font-size: 14px; padding: 6px 10px; }
+
+/* Lesson slide-in transition — triggered on lesson/course navigation */
+@keyframes lessonSlideIn {
+  from { opacity: 0; transform: translateX(28px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.lesson-slide-in {
+  animation: lessonSlideIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
