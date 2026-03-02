@@ -306,8 +306,9 @@ export default function RoomCoursePanel({
         };
 
         const onMove = (e: MouseEvent) => {
-            // Always emit cursor position (throttled to ~30 fps)
-            if (canvas.contains(e.target as Node) || isDrawing.current) {
+            // Emit cursor position only when a draw tool is active (throttled to ~30 fps)
+            const activeTool = drawState.current.drawTool;
+            if (activeTool && (canvas.contains(e.target as Node) || isDrawing.current)) {
                 const r = canvas.getBoundingClientRect();
                 const cx = (e.clientX - r.left) / canvas.width;
                 const cy = (e.clientY - r.top)  / canvas.height;
@@ -403,6 +404,14 @@ export default function RoomCoursePanel({
         if ((externalDrawPreview as DrawSeg & { text?: string }).text === '__clear_preview__') return;
         drawOnCanvas(ctx, externalDrawPreview, p.width, p.height);
     }, [externalDrawPreview]);
+
+    // ── Clear teacher cursor dot for students when tool deselected ─────────────
+    useEffect(() => {
+        if (!drawTool) {
+            // Sentinel -1,-1 tells students to hide the cursor dot
+            onDrawCursorCb.current?.(-1, -1);
+        }
+    }, [drawTool]);
 
     // ── Receive teacher cursor position (student) ─────────────────────────────
     useEffect(() => {

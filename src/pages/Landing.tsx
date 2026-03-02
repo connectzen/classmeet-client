@@ -83,7 +83,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const joinInputRef = useRef<HTMLInputElement>(null);
     const dateTimeRef = useRef<HTMLInputElement>(null);
 
-    const displayName = user?.profile?.name || user?.email?.split('@')[0] || '';
+    const displayName = user?.profile?.name?.split(' ')[0] || user?.email?.split('@')[0] || '';
 
     const initialsFor = (name: string, fallback?: string) => {
         if (name?.trim()) return name.trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();

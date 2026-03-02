@@ -139,6 +139,17 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
 
                     {/* Image column */}
                     <div style={{ flexShrink: 0, textAlign: 'center' }}>
+                        {/* Badge — full width, above profile image */}
+                        <div style={{
+                            width: 110, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                            background: accentBg, border: `1px solid ${accentBorder}`,
+                            borderRadius: 8, padding: '4px 0', fontSize: 9, fontWeight: 700,
+                            color: accentColor, letterSpacing: '0.06em', textTransform: 'uppercase',
+                            boxSizing: 'border-box', marginBottom: 6,
+                        }}>
+                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: accentColor, flexShrink: 0 }} />
+                            {badgeLabel}
+                        </div>
                         {meeting.session_image_url ? (
                             <img
                                 src={meeting.session_image_url}
@@ -161,17 +172,6 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                                 <div style={{ fontSize: 40, opacity: 0.6 }}>📚</div>
                             </div>
                         )}
-                        {/* Badge — full width matching profile image */}
-                        <div style={{
-                            marginTop: 7, width: 110, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-                            background: accentBg, border: `1px solid ${accentBorder}`,
-                            borderRadius: 8, padding: '4px 0', fontSize: 9, fontWeight: 700,
-                            color: accentColor, letterSpacing: '0.06em', textTransform: 'uppercase',
-                            boxSizing: 'border-box',
-                        }}>
-                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: accentColor, flexShrink: 0 }} />
-                            {badgeLabel}
-                        </div>
                         {teacherName && (
                             <div style={{
                                 marginTop: 5, fontSize: 11, fontWeight: 700, color: '#e2e8f0',

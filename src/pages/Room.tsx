@@ -326,7 +326,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                 if (role !== 'teacher') setExternalDrawPreview(seg);
             },
             onDrawCursor: (x, y) => {
-                if (role !== 'teacher') setExternalCursor({ x, y });
+                if (role !== 'teacher') setExternalCursor(x < 0 ? null : { x, y });
             },
             onDrawClear: () => {
                 if (role !== 'teacher') setDrawClearSignal(prev => prev + 1);
@@ -767,7 +767,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                 </div>
                 <div className="room-header-right">
                     <span className="room-header-greeting">
-                        {(() => { const h = new Date().getHours(); return h < 12 ? '🌤️ Good morning' : h < 18 ? '☀️ Good afternoon' : '🌙 Good evening'; })()}, <strong>{name}</strong>!
+                        {(() => { const h = new Date().getHours(); return h < 12 ? '🌤️ Good morning' : h < 18 ? '☀️ Good afternoon' : '🌙 Good evening'; })()}, <strong>{name.split(' ')[0]}</strong>!
                     </span>
                 </div>
             </div>
@@ -908,7 +908,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 onClose={() => setQuizToggleOn(false)}
                                 onReveal={revealRoomQuiz}
                             />
-                        ) : roomQuizRevealed && !dismissedRevealed ? (
+                        ) : role !== 'teacher' && roomQuizRevealed && !dismissedRevealed ? (
                             <InlineResultCard
                                 score={(roomQuizRevealed.data as { score?: number | null })?.score ?? null}
                                 comment={(roomQuizRevealed.data as { comment?: string })?.comment}
