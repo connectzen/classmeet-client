@@ -207,7 +207,7 @@ interface InlineResultCardProps {
 }
 
 export function InlineResultCard({ score, comment, studentName, isClassReveal, currentUserId, revealedStudentId, onClose }: InlineResultCardProps) {
-    const [phase, setPhase] = useState<'name' | 'countdown' | 'score'>(isClassReveal ? 'name' : 'score');
+    const [phase, setPhase] = useState<'name' | 'countdown' | 'score'>('name');
     const [countdownNum, setCountdownNum] = useState(3);
     const [displayScore, setDisplayScore] = useState(0);
     const [downloadState, setDownloadState] = useState<'idle' | 'downloading' | 'downloaded'>('idle');
@@ -248,12 +248,11 @@ export function InlineResultCard({ score, comment, studentName, isClassReveal, c
         setIsCapturing(false);
     }, [downloadState, isGood, studentName]);
 
-    // Class reveal: name phase (2s) -> countdown phase (3s) -> score phase
+    // All reveals: name phase (2s) -> countdown phase (3s) -> score phase
     useEffect(() => {
-        if (!isClassReveal) return;
         const nameTimer = setTimeout(() => setPhase('countdown'), 2000);
         return () => clearTimeout(nameTimer);
-    }, [isClassReveal]);
+    }, []);
 
     useEffect(() => {
         if (phase !== 'countdown') return;

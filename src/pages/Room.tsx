@@ -1233,8 +1233,8 @@ function quizAnswerPreview(entry: StudentProgressEntry, questions: MonitorQuesti
     if (!q) return '';
     const a = entry.answers[q.id];
     if (!a) {
-        if (q.type === 'recording') return '🎙️ Recording…';
-        if (q.type === 'upload' || q.type === 'video') return '📎 Uploading…';
+        if (q.type === 'recording') return '';
+        if (q.type === 'upload' || q.type === 'video') return '';
         return '';
     }
     if (a.selectedOptions?.length) return a.selectedOptions.join(', ');
