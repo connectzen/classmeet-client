@@ -212,7 +212,7 @@ export default function RoomCoursePanel({
                     )}
 
                     {lesson ? (
-                        <div style={{ paddingLeft: isTeacher ? 40 : 0 }}>
+                        <div style={{ paddingLeft: isTeacher ? 40 : 0, maxWidth: 720, marginLeft: 'auto', marginRight: 'auto' }}>
                             <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{lesson.title}</h3>
                             {lesson.lesson_type === 'video' && lesson.video_url ? (
                                 <video src={lesson.video_url} controls style={{ width: '100%', borderRadius: 10, marginBottom: 16, background: '#000' }} />

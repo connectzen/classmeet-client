@@ -73,6 +73,17 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [dismissedRevealed, setDismissedRevealed] = useState(false);
     const socketIdRef = useRef<string>('');
     const mobileChatRef = useRef<HTMLDivElement>(null);
+    // Refs used in handleParticipantJoined to avoid stale closures
+    const liveStateRef = useRef({
+        courseToggleOn: false, courseSharedWithStudents: false,
+        sessionCourseIds: [] as string[], courseLessonIdx: 0,
+        courseCourseIdx: 0, courseSidebarOpen: false,
+    });
+    const emittersRef = useRef<{
+        emitCourseToggle?: (active: boolean, courseIds: string[]) => void;
+        emitCourseNavigate?: (courseIdx: number, lessonIdx: number) => void;
+        emitCourseSidebar?: (open: boolean) => void;
+    }>({});
 
     const copyRoomCode = () => {
         navigator.clipboard.writeText(roomCode).then(() => {
@@ -160,13 +171,34 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         return () => { cancelled = true; };
     }, [activeVideoDeviceId, activeAudioDeviceId]);
 
+    // Keep live state ref in sync so handleParticipantJoined can read current values
+    liveStateRef.current = {
+        courseToggleOn, courseSharedWithStudents, sessionCourseIds,
+        courseLessonIdx, courseCourseIdx, courseSidebarOpen,
+    };
+
     // ── Socket event handlers ────────────────────────────────────────────
     const handleParticipantJoined = useCallback((p: Participant) => {
         setParticipants((prev) => new Map(prev).set(p.socketId, { ...p, isMuted: false, isCamOff: false }));
         addNewPeer(p.socketId);
-        // If a teacher just joined and we had a countdown, cancel it
         if (p.role === 'teacher') setTeacherGraceCountdown(null);
-    }, []);
+
+        // Teacher: re-broadcast current state so late-joining students see what's on screen
+        if (role === 'teacher') {
+            const s = liveStateRef.current;
+            const e = emittersRef.current;
+            if (s.courseToggleOn && s.courseSharedWithStudents && e.emitCourseToggle) {
+                // Small delay to let the new client finish joining before receiving state
+                setTimeout(() => {
+                    e.emitCourseToggle!(true, s.sessionCourseIds);
+                    setTimeout(() => {
+                        e.emitCourseNavigate?.(s.courseCourseIdx, s.courseLessonIdx);
+                        e.emitCourseSidebar?.(s.courseSidebarOpen);
+                    }, 400);
+                }, 600);
+            }
+        }
+    }, [role]);
 
     const handleParticipantLeft = useCallback((sid: string) => {
         setParticipants((prev) => { const next = new Map(prev); next.delete(sid); return next; });
@@ -279,8 +311,9 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
             },
         });
 
-    // Keep ref in sync so callbacks can read current socketId without stale closures
+    // Keep refs in sync
     socketIdRef.current = socketId;
+    emittersRef.current = { emitCourseToggle, emitCourseNavigate, emitCourseSidebar };
 
     // Course navigation — shared by teacher (broadcasts) and student (local only)
     const handleCourseNav = useCallback((courseIdx: number, lessonIdx: number) => {
