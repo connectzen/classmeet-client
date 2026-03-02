@@ -126,10 +126,20 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
 
             <div style={{ position: 'relative' }}>
 
-                {/* ── Header: Title ── */}
-                <div style={{ marginBottom: 10 }}>
+                {/* ── Header: Badge + Title side by side ── */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+                    <span style={{
+                        flexShrink: 0,
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                        background: accentBg, border: `1px solid ${accentBorder}`,
+                        borderRadius: 8, padding: '3px 10px', fontSize: 9, fontWeight: 700,
+                        color: accentColor, letterSpacing: '0.06em', textTransform: 'uppercase',
+                    }}>
+                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: accentColor, flexShrink: 0 }} />
+                        {badgeLabel}
+                    </span>
                     <h3 style={{
-                        margin: 0, fontSize: 15, fontWeight: 700, color: '#f1f5f9',
+                        margin: 0, fontSize: 15, fontWeight: 700, color: '#f1f5f9', flex: 1, minWidth: 0,
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(meeting.title, { ADD_ATTR: ['style'] }) }} />
                 </div>
@@ -139,23 +149,12 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
 
                     {/* Image column */}
                     <div style={{ flexShrink: 0, textAlign: 'center' }}>
-                        {/* Badge — full width, above profile image */}
-                        <div style={{
-                            width: 110, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-                            background: accentBg, border: `1px solid ${accentBorder}`,
-                            borderRadius: 8, padding: '4px 0', fontSize: 9, fontWeight: 700,
-                            color: accentColor, letterSpacing: '0.06em', textTransform: 'uppercase',
-                            boxSizing: 'border-box', marginBottom: 6,
-                        }}>
-                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: accentColor, flexShrink: 0 }} />
-                            {badgeLabel}
-                        </div>
                         {meeting.session_image_url ? (
                             <img
                                 src={meeting.session_image_url}
                                 alt={teacherName || meeting.title}
                                 style={{
-                                    width: 110, height: 110, borderRadius: 14,
+                                    width: 110, height: 140, borderRadius: 14,
                                     objectFit: 'cover', objectPosition: 'center center',
                                     border: '2px solid rgba(99,102,241,0.45)',
                                     boxShadow: '0 4px 16px rgba(0,0,0,0.4)', display: 'block',
@@ -163,7 +162,7 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                             />
                         ) : (
                             <div style={{
-                                width: 110, height: 110, borderRadius: 14,
+                                width: 110, height: 140, borderRadius: 14,
                                 background: 'linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(139,92,246,0.25) 100%)',
                                 border: '2px solid rgba(99,102,241,0.35)',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -184,7 +183,7 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                     </div>
 
                     {/* Countdown + Join column */}
-                    <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 12 }}>
+                    <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 12, alignSelf: 'stretch' }}>
                         {timeLeft.isLive ? (
                             <span style={{
                                 display: 'inline-flex', alignItems: 'center', gap: 7,

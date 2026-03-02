@@ -306,17 +306,22 @@ export default function RoomCoursePanel({
         };
 
         const onMove = (e: MouseEvent) => {
-            // Emit cursor position only when a draw tool is active (throttled to ~30 fps)
-            const activeTool = drawState.current.drawTool;
-            if (activeTool && (canvas.contains(e.target as Node) || isDrawing.current)) {
-                const r = canvas.getBoundingClientRect();
-                const cx = (e.clientX - r.left) / canvas.width;
-                const cy = (e.clientY - r.top)  / canvas.height;
-                if (!cursorThrottle.current) {
-                    cursorThrottle.current = setTimeout(() => {
-                        cursorThrottle.current = null;
-                        onDrawCursorCb.current?.(cx, cy);
-                    }, 33);
+            // Emit cursor position whenever mouse is over the content area (throttled ~30 fps)
+            const wr = wrapperRef.current;
+            if (wr) {
+                const wrRect = wr.getBoundingClientRect();
+                const inBounds = e.clientX >= wrRect.left && e.clientX <= wrRect.right
+                               && e.clientY >= wrRect.top  && e.clientY <= wrRect.bottom;
+                if (inBounds || isDrawing.current) {
+                    const r = canvas.getBoundingClientRect();
+                    const cx = (e.clientX - r.left) / canvas.width;
+                    const cy = (e.clientY - r.top)  / canvas.height;
+                    if (!cursorThrottle.current) {
+                        cursorThrottle.current = setTimeout(() => {
+                            cursorThrottle.current = null;
+                            onDrawCursorCb.current?.(cx, cy);
+                        }, 33);
+                    }
                 }
             }
 
@@ -373,6 +378,11 @@ export default function RoomCoursePanel({
             content.scrollBy({ top: e.deltaY, left: e.deltaX, behavior: 'auto' });
         };
 
+        // Clear cursor when mouse leaves content wrapper
+        const onWrapperLeave = () => { onDrawCursorCb.current?.(-1, -1); };
+        const wr = wrapperRef.current;
+        if (wr) wr.addEventListener('mouseleave', onWrapperLeave);
+
         canvas.addEventListener('mousedown', onDown);
         canvas.addEventListener('wheel', onWheel, { passive: false });
         document.addEventListener('mousemove', onMove);
@@ -382,6 +392,7 @@ export default function RoomCoursePanel({
             canvas.removeEventListener('wheel', onWheel);
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
+            if (wr) wr.removeEventListener('mouseleave', onWrapperLeave);
         };
     }, [isTeacher]);
 
@@ -404,14 +415,6 @@ export default function RoomCoursePanel({
         if ((externalDrawPreview as DrawSeg & { text?: string }).text === '__clear_preview__') return;
         drawOnCanvas(ctx, externalDrawPreview, p.width, p.height);
     }, [externalDrawPreview]);
-
-    // ── Clear teacher cursor dot for students when tool deselected ─────────────
-    useEffect(() => {
-        if (!drawTool) {
-            // Sentinel -1,-1 tells students to hide the cursor dot
-            onDrawCursorCb.current?.(-1, -1);
-        }
-    }, [drawTool]);
 
     // ── Receive teacher cursor position (student) ─────────────────────────────
     useEffect(() => {
@@ -619,7 +622,7 @@ export default function RoomCoursePanel({
                             ref={toolbarRef}
                             onMouseEnter={() => setToolbarExpanded(true)}
                             onMouseLeave={() => setToolbarExpanded(false)}
-                            style={{ position: 'absolute', ...(toolbarPos ? { left: toolbarPos.x, top: toolbarPos.y } : { right: 6, top: '50%', transform: 'translateY(-50%)' }), zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'rgba(10,10,20,0.92)', backdropFilter: 'blur(10px)', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 14, padding: toolbarExpanded ? '7px 5px' : '5px 5px', boxShadow: '0 6px 24px rgba(0,0,0,0.5)', overflow: 'hidden', transition: 'padding 0.18s' }}>
+                            style={{ position: 'absolute', ...(toolbarPos ? { left: toolbarPos.x, top: toolbarPos.y } : { right: 6, top: '50%', transform: 'translateY(-50%)' }), zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'rgba(10,10,20,0.92)', backdropFilter: 'blur(10px)', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 14, padding: toolbarExpanded ? '7px 5px' : '5px 5px', boxShadow: '0 6px 24px rgba(0,0,0,0.5)', overflow: 'hidden', transition: 'padding 0.18s', maxHeight: toolbarExpanded ? 'calc(100% - 24px)' : 'auto', overflowY: toolbarExpanded ? 'auto' : 'hidden', overflowX: 'hidden' }}>
                             <div onMouseDown={onBarDragStart} title="Drag toolbar" style={{ cursor: 'grab', color: 'rgba(255,255,255,0.3)', fontSize: 13, padding: '2px 4px', userSelect: 'none', lineHeight: 1, letterSpacing: 1 }}>⠿</div>
                             {/* Collapsed indicator: active color dot */}
                             {!toolbarExpanded && (
