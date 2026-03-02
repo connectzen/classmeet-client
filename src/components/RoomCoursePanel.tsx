@@ -714,6 +714,11 @@ export default function RoomCoursePanel({
                             {/* Expanded: full toolbar */}
                             {toolbarExpanded && (<>
                             <div style={{ width: 20, height: 1, background: 'rgba(255,255,255,0.12)' }} />
+                            <button onMouseDown={e => { e.preventDefault(); setEphemeralMode(v => !v); }} title={ephemeralMode ? 'Ephemeral ON — strokes vanish' : 'Ephemeral OFF — strokes persist'}
+                                style={{ width: 30, height: 30, borderRadius: 7, border: 'none', background: ephemeralMode ? 'rgba(251,146,60,0.35)' : 'transparent', color: ephemeralMode ? '#fb923c' : 'var(--text-muted)', fontSize: 14, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: ephemeralMode ? '0 0 0 1.5px #fb923c' : 'none', transition: 'all 0.15s' }}
+                                onMouseEnter={e => { if (!ephemeralMode) e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+                                onMouseLeave={e => { if (!ephemeralMode) e.currentTarget.style.background = 'transparent'; }}>💨</button>
+                            <div style={{ width: 20, height: 1, background: 'rgba(255,255,255,0.12)' }} />
                             {TOOL_DEFS.map(({ id, icon, tip }) => (
                                 <button key={id} onClick={() => setDrawTool(drawTool === id ? null : id)} title={tip}
                                     style={{ width: 30, height: 30, borderRadius: 7, border: 'none', background: drawTool === id ? 'rgba(99,102,241,0.6)' : 'transparent', color: drawTool === id ? '#a5b4fc' : 'var(--text-muted)', fontSize: id === 'text' ? 12 : 14, fontWeight: id === 'text' ? 700 : 400, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s', flexShrink: 0 }}
@@ -735,11 +740,6 @@ export default function RoomCoursePanel({
                                 style={{ width: 30, height: 30, borderRadius: 7, border: 'none', background: 'transparent', color: '#f87171', fontSize: 14, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s' }}
                                 onMouseEnter={e => { e.currentTarget.style.background = 'rgba(248,113,113,0.18)'; }}
                                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>🗑</button>
-                            <div style={{ width: 20, height: 1, background: 'rgba(255,255,255,0.12)' }} />
-                            <button onMouseDown={e => { e.preventDefault(); setEphemeralMode(v => !v); }} title={ephemeralMode ? 'Ephemeral ON — strokes vanish' : 'Ephemeral OFF — strokes persist'}
-                                style={{ width: 30, height: 30, borderRadius: 7, border: 'none', background: ephemeralMode ? 'rgba(251,146,60,0.35)' : 'transparent', color: ephemeralMode ? '#fb923c' : 'var(--text-muted)', fontSize: 14, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: ephemeralMode ? '0 0 0 1.5px #fb923c' : 'none', transition: 'all 0.15s' }}
-                                onMouseEnter={e => { if (!ephemeralMode) e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
-                                onMouseLeave={e => { if (!ephemeralMode) e.currentTarget.style.background = 'transparent'; }}>💨</button>
                             </>)}
                         </div>
                     )}

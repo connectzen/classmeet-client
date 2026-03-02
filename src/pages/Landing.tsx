@@ -1089,7 +1089,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                 {memberSessions.map(s => (
                                                     <div key={s.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%' }}>
                                                         <MeetingBanner
-                                                            meeting={{ ...s, session_image_url: teacherProfiles[s.created_by]?.avatar_url || s.session_image_url }}
+                                                            meeting={{ ...s, session_image_url: (s.created_by === user?.id ? user?.profile?.avatar_url : null) || teacherProfiles[s.created_by]?.avatar_url || s.session_image_url }}
                                                             displayName={displayName}
                                                             userRole="teacher"
                                                             isCreator={true}
@@ -1289,7 +1289,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                 <div key={s.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%' }}>
                                                     <MeetingBanner
                                                         key={s.id}
-                                                        meeting={{ ...s, session_image_url: teacherProfiles[s.created_by]?.avatar_url || s.session_image_url }}
+                                                        meeting={{ ...s, session_image_url: (s.created_by === user?.id ? user?.profile?.avatar_url : null) || teacherProfiles[s.created_by]?.avatar_url || s.session_image_url }}
                                                         displayName={displayName}
                                                         userRole="teacher"
                                                         isCreator={true}
@@ -1409,7 +1409,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                             {studentTeacherSessions.map(s => (
                                                 <MeetingBanner
                                                     key={s.id}
-                                                    meeting={{ ...s, session_image_url: teacherProfiles[s.created_by]?.avatar_url || s.session_image_url }}
+                                                    meeting={{ ...s, session_image_url: (s.created_by === user?.id ? user?.profile?.avatar_url : null) || teacherProfiles[s.created_by]?.avatar_url || s.session_image_url }}
                                                     displayName={displayName}
                                                     userRole="student"
                                                     isCreator={false}
@@ -1464,6 +1464,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     onChange={setSessionTitle}
                                     placeholder="e.g. Math 101 — Chapter 5"
                                     minHeight={44}
+                                    disableImage
                                 />
                             </div>
                             <div>
@@ -1487,6 +1488,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     onChange={setSessionWhatIWillLearn}
                                     placeholder="e.g. Solve quadratic equations, understand parabolas…"
                                     minHeight={80}
+                                    disableImage
                                 />
                             </div>
                             {availableQuizzes.length > 0 && (
@@ -1645,6 +1647,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     onChange={setEditSessionTitle}
                                     placeholder="e.g. Math 101 — Chapter 5"
                                     minHeight={44}
+                                    disableImage
                                 />
                             </div>
                             <div>
@@ -1667,6 +1670,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     onChange={setEditWhatIWillLearn}
                                     placeholder="e.g. Solve quadratic equations, understand parabolas…"
                                     minHeight={80}
+                                    disableImage
                                 />
                             </div>
                             {availableQuizzes.length > 0 && (

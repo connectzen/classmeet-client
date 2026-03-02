@@ -71,6 +71,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [courseCourseIdx, setCourseCourseIdx] = useState(0);
     const [courseTotalLessons, setCourseTotalLessons] = useState(1);
     const [dismissedRevealed, setDismissedRevealed] = useState(false);
+    const [revealKey, setRevealKey] = useState(0);
     // Draw/annotation overlay state
     const [externalDrawSeg, setExternalDrawSeg] = useState<DrawSeg | null>(null);
     const [externalDrawPreview, setExternalDrawPreview] = useState<DrawSeg | null>(null);
@@ -452,6 +453,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         }
     }, [roomQuiz]);
     useEffect(() => {
+        if (roomQuizRevealed) setRevealKey(k => k + 1);
         setDismissedRevealed(false);
     }, [roomQuizRevealed]);
 
@@ -1009,6 +1011,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                             )
                         ) : role !== 'teacher' && roomQuizRevealed && !dismissedRevealed ? (
                             <InlineResultCard
+                                key={revealKey}
                                 score={(roomQuizRevealed.data as { score?: number | null })?.score ?? null}
                                 comment={(roomQuizRevealed.data as { comment?: string })?.comment}
                                 studentName={(roomQuizRevealed.data as { studentName?: string })?.studentName}

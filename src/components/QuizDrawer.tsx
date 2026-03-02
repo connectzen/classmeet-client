@@ -1379,26 +1379,30 @@ function SubmissionDetail({ quiz, submission, onGraded, onDone }: {
                             </div>
                         )}
 
-                        {/* Manual grading for text/recording/video/upload */}
-                        {(q.type === 'text' || q.type === 'recording' || q.type === 'video' || q.type === 'upload') && ans && (
+                        {/* Manual grading for text/recording/video/upload; override for auto-graded */}
+                        {ans && (
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 4 }}>
-                                <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>Mark:</span>
+                                <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                    {(q.type === 'select' || q.type === 'multi-select') ? 'Override:' : 'Mark:'}
+                                </span>
                                 <input
                                     className="quiz-input"
                                     type="number" min="0" max={q.points}
                                     style={{ width: 65, marginBottom: 0 }}
-                                    placeholder="0"
+                                    placeholder={q.type === 'select' || q.type === 'multi-select' ? 'Auto' : '0'}
                                     value={grades[ans.id]?.grade ?? ''}
                                     onChange={e => setGrades(prev => ({ ...prev, [ans.id]: { ...prev[ans.id], grade: e.target.value } }))}
                                 />
                                 <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>/ {q.points}</span>
-                                <input
-                                    className="quiz-input"
-                                    style={{ flex: 1, marginBottom: 0, minWidth: 100 }}
-                                    placeholder="Feedback (optional)"
-                                    value={grades[ans.id]?.feedback ?? ''}
-                                    onChange={e => setGrades(prev => ({ ...prev, [ans.id]: { ...prev[ans.id], feedback: e.target.value } }))}
-                                />
+                                {(q.type === 'text' || q.type === 'recording' || q.type === 'video' || q.type === 'upload') && (
+                                    <input
+                                        className="quiz-input"
+                                        style={{ flex: 1, marginBottom: 0, minWidth: 100 }}
+                                        placeholder="Feedback (optional)"
+                                        value={grades[ans.id]?.feedback ?? ''}
+                                        onChange={e => setGrades(prev => ({ ...prev, [ans.id]: { ...prev[ans.id], feedback: e.target.value } }))}
+                                    />
+                                )}
                             </div>
                         )}
                     </div>
@@ -1441,6 +1445,7 @@ export function TakeQuiz({ quiz, submissionId, userId, showConfirm, showAlert, o
         quiz.time_limit_minutes ? quiz.time_limit_minutes * 60 : null
     );
     const [recording, setRecording] = useState(false);
+    const [processingRecording, setProcessingRecording] = useState(false);
     const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
     const [uploading, setUploading] = useState(false);
     const [audioDevices, setAudioDevices] = useState<{ deviceId: string; label: string }[]>([]);
@@ -1568,6 +1573,7 @@ export function TakeQuiz({ quiz, submissionId, userId, showConfirm, showAlert, o
                 stream.getTracks().forEach(t => t.stop());
                 analyserRef.current = null;
                 setAudioLevel(0);
+                setProcessingRecording(false);
                 const blob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' });
                 // Create a local URL immediately so the student can play back right away
                 const localUrl = URL.createObjectURL(blob);
@@ -1591,6 +1597,7 @@ export function TakeQuiz({ quiz, submissionId, userId, showConfirm, showAlert, o
     }
 
     function stopRecording() {
+        setProcessingRecording(true);
         mediaRecorder?.stop();
         setMediaRecorder(null);
         setRecording(false);
@@ -1737,7 +1744,17 @@ export function TakeQuiz({ quiz, submissionId, userId, showConfirm, showAlert, o
 
                 {!q.children?.length && q.type === 'recording' && (
                     <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                        {curAns.fileUrl ? (
+                        {processingRecording ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: 16 }}>
+                                <div style={{ fontSize: 32 }}>✅</div>
+                                <p style={{ color: '#22c55e', fontWeight: 700, fontSize: 15 }}>Done! Processing recording…</p>
+                                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                    {[0,1,2].map(i => (
+                                        <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', animation: `rqp-gentle-pulse 1.2s ease-in-out ${i*0.2}s infinite` }} />
+                                    ))}
+                                </div>
+                            </div>
+                        ) : curAns.fileUrl ? (
                             <div>
                                 <p style={{ color: '#22c55e', marginBottom: 12 }}>✅ Recording saved</p>
                                 <audio src={curAns.fileUrl} controls style={{ width: '100%', borderRadius: 8 }} />
@@ -1786,6 +1803,11 @@ export function TakeQuiz({ quiz, submissionId, userId, showConfirm, showAlert, o
                                     {recording ? '⏹' : '🎙️'}
                                 </button>
                                 {recording && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
+                                        <span style={{ fontSize: 13, fontWeight: 700, color: '#ef4444', animation: 'rqp-gentle-pulse 1s ease-in-out infinite' }}>🔴 Recording…</span>
+                                    </div>
+                                )}
+                                {recording && (
                                     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 28 }}>
                                         {[0, 1, 2, 3, 4, 5, 6, 7].map(i => {
                                             const center = 3.5;
@@ -1808,7 +1830,7 @@ export function TakeQuiz({ quiz, submissionId, userId, showConfirm, showAlert, o
                                 )}
                             </div>
                         )}
-                        {recording && <p style={{ marginTop: 10, color: '#ef4444', fontSize: 14 }}>Recording… tap to stop</p>}
+                        {recording && <p style={{ marginTop: 6, color: 'rgba(239,68,68,0.6)', fontSize: 12 }}>Tap the button to stop</p>}
                     </div>
                 )}
 

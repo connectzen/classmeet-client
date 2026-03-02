@@ -374,6 +374,8 @@ interface RichEditorProps {
     style?: React.CSSProperties;
     /** Extra styles on the editor content area */
     editorStyle?: React.CSSProperties;
+    /** Hide the image upload button (e.g. title/description fields) */
+    disableImage?: boolean;
 }
 
 const COLOR_PRESETS = [
@@ -394,6 +396,7 @@ export default function RichEditor({
     compact = false,
     chatMode = false,
     autoFocus = false,
+    disableImage = false,
     style,
     editorStyle,
 }: RichEditorProps) {
@@ -579,8 +582,8 @@ export default function RichEditor({
                     <TBtn label="≡ Bullets" title="Bullet list" active={editor?.isActive('bulletList')} onClick={handleBulletList} />
                     <TBtn label="1. List" title="Ordered list" active={editor?.isActive('orderedList')} onClick={handleOrderedList} />
                     <TBtn label="❝ Quote" title="Blockquote" active={editor?.isActive('blockquote')} onClick={handleBlockquote} />
-                    {/* Image upload — only in full editors, not compact/title areas */}
-                    {!compact && (<>
+                    {/* Image upload — only in full editors, not compact/title areas, and not when disableImage */}
+                    {!compact && !disableImage && (<>
                         {divider}
                         <input
                             ref={imgInputRef}
