@@ -21,7 +21,7 @@ interface CourseData {
 export interface DrawSeg {
     x1: number; y1: number; x2: number; y2: number;
     color: string; size: number;
-    mode: 'pen' | 'highlight' | 'eraser' | 'circle' | 'rect' | 'square' | 'text';
+    mode: 'pen' | 'highlight' | 'eraser' | 'circle' | 'rect' | 'square' | 'text' | 'arrow';
     text?: string;
 }
 
@@ -50,16 +50,17 @@ interface Props {
     snapshotDataUrl?: string | null;
 }
 
-type DrawTool = 'pen' | 'highlight' | 'eraser' | 'text' | 'circle' | 'rect' | 'square';
+type DrawTool = 'pen' | 'highlight' | 'eraser' | 'text' | 'circle' | 'rect' | 'square' | 'arrow';
 
 const DRAW_COLORS = ['#ff4444', '#ff9900', '#ffdd00', '#44ff88', '#00ccff', '#ffffff'];
 const TOOL_SIZES: Record<string, number> = { S: 0.6, M: 1, L: 2 };
-const SHAPE_TOOLS = ['circle', 'rect', 'square'];
+const SHAPE_TOOLS = ['circle', 'rect', 'square', 'arrow'];
 
 const TOOL_DEFS: { id: DrawTool; icon: string; tip: string; cursor: string }[] = [
     { id: 'pen',       icon: '✏',  tip: 'Pen',        cursor: 'crosshair' },
     { id: 'highlight', icon: '▌',  tip: 'Highlight',  cursor: 'crosshair' },
     { id: 'text',      icon: 'T',  tip: 'Text',       cursor: 'text'      },
+    { id: 'arrow',     icon: '↗',  tip: 'Arrow',      cursor: 'crosshair' },
     { id: 'circle',    icon: '○',  tip: 'Circle',     cursor: 'crosshair' },
     { id: 'rect',      icon: '▭',  tip: 'Rectangle',  cursor: 'crosshair' },
     { id: 'square',    icon: '□',  tip: 'Square',     cursor: 'crosshair' },
@@ -100,6 +101,22 @@ function drawOnCanvas(ctx: CanvasRenderingContext2D, seg: DrawSeg, w: number, h:
         const dw = (seg.x2 - seg.x1) * w, dh = (seg.y2 - seg.y1) * h;
         const side = Math.min(Math.abs(dw), Math.abs(dh));
         ctx.strokeRect(seg.x1 * w, seg.y1 * h, Math.sign(dw) * side, Math.sign(dh) * side);
+    } else if (seg.mode === 'arrow') {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1; ctx.strokeStyle = seg.color; ctx.fillStyle = seg.color;
+        ctx.lineWidth = seg.size * 2.5;
+        const ax1 = seg.x1 * w, ay1 = seg.y1 * h;
+        const ax2 = seg.x2 * w, ay2 = seg.y2 * h;
+        // Shaft
+        ctx.beginPath(); ctx.moveTo(ax1, ay1); ctx.lineTo(ax2, ay2); ctx.stroke();
+        // Arrowhead
+        const angle = Math.atan2(ay2 - ay1, ax2 - ax1);
+        const headLen = Math.max(10, seg.size * 12);
+        ctx.beginPath();
+        ctx.moveTo(ax2, ay2);
+        ctx.lineTo(ax2 - headLen * Math.cos(angle - Math.PI / 6), ay2 - headLen * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(ax2 - headLen * Math.cos(angle + Math.PI / 6), ay2 - headLen * Math.sin(angle + Math.PI / 6));
+        ctx.closePath(); ctx.fill();
     } else if (seg.mode === 'text') {
         ctx.globalCompositeOperation = 'source-over';
         ctx.globalAlpha = 1; ctx.fillStyle = seg.color;

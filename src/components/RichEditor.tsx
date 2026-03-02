@@ -121,62 +121,70 @@ function ResizableImageView({ node, updateAttributes, selected, deleteNode }: No
         deleteNode();
     };
 
+    const align = (node.attrs.textAlign as string) || 'left';
+
     return (
         <NodeViewWrapper
             draggable
             data-drag-handle
-            style={{ display: 'inline-block', position: 'relative', lineHeight: 0, cursor: selected ? 'grab' : 'default' }}
+            style={{ display: 'block', cursor: selected ? 'grab' : 'default', lineHeight: 0 }}
         >
-            <img
-                ref={imgRef}
-                src={node.attrs.src}
-                alt={node.attrs.alt || ''}
-                draggable={false}
-                style={{
-                    width: node.attrs.width || 'auto',
-                    maxWidth: '100%',
-                    borderRadius: 6,
-                    margin: '4px 0',
-                    display: 'block',
-                    outline: selected ? '2px solid #6366f1' : '2px solid transparent',
-                    transition: 'outline-color 0.15s',
-                    userSelect: 'none',
-                }}
-            />
-            {/* Delete button — top-right when selected */}
-            {selected && (
-                <button
-                    title="Delete image"
-                    onMouseDown={handleDelete}
-                    style={{
-                        position: 'absolute', top: 6, right: 20,
-                        background: '#ef4444', border: 'none',
-                        borderRadius: 5, color: '#fff',
-                        cursor: 'pointer', fontSize: 11,
-                        fontWeight: 700, padding: '2px 8px',
-                        zIndex: 20, lineHeight: 1.6,
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-                    }}
-                >
-                    🗑 Delete
-                </button>
-            )}
-            {/* Resize handle — bottom-right corner */}
-            <div
-                title="Drag to resize"
-                onMouseDown={onCornerMouseDown}
-                style={{
-                    position: 'absolute', bottom: 2, right: 2,
-                    width: 14, height: 14,
-                    background: '#6366f1',
-                    border: '2px solid #fff',
-                    borderRadius: 3,
-                    cursor: 'nwse-resize',
-                    opacity: selected ? 1 : 0,
-                    transition: 'opacity 0.15s',
-                    zIndex: 10,
-                }}
-            />
+            {/* Alignment wrapper: centers the inner positioning container */}
+            <div style={{ textAlign: align as React.CSSProperties['textAlign'], lineHeight: 0 }}>
+                {/* Position context for delete btn + resize handle */}
+                <div style={{ display: 'inline-block', position: 'relative', lineHeight: 0 }}>
+                    <img
+                        ref={imgRef}
+                        src={node.attrs.src}
+                        alt={node.attrs.alt || ''}
+                        draggable={false}
+                        style={{
+                            width: node.attrs.width || 'auto',
+                            maxWidth: '100%',
+                            borderRadius: 6,
+                            margin: '4px 0',
+                            display: 'block',
+                            outline: selected ? '2px solid #6366f1' : '2px solid transparent',
+                            transition: 'outline-color 0.15s',
+                            userSelect: 'none',
+                        }}
+                    />
+                    {/* Delete button — top-right when selected */}
+                    {selected && (
+                        <button
+                            title="Delete image"
+                            onMouseDown={handleDelete}
+                            style={{
+                                position: 'absolute', top: 6, right: 20,
+                                background: '#ef4444', border: 'none',
+                                borderRadius: 5, color: '#fff',
+                                cursor: 'pointer', fontSize: 11,
+                                fontWeight: 700, padding: '2px 8px',
+                                zIndex: 20, lineHeight: 1.6,
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                            }}
+                        >
+                            🗑 Delete
+                        </button>
+                    )}
+                    {/* Resize handle — bottom-right corner */}
+                    <div
+                        title="Drag to resize"
+                        onMouseDown={onCornerMouseDown}
+                        style={{
+                            position: 'absolute', bottom: 2, right: 2,
+                            width: 14, height: 14,
+                            background: '#6366f1',
+                            border: '2px solid #fff',
+                            borderRadius: 3,
+                            cursor: 'nwse-resize',
+                            opacity: selected ? 1 : 0,
+                            transition: 'opacity 0.15s',
+                            zIndex: 10,
+                        }}
+                    />
+                </div>
+            </div>
         </NodeViewWrapper>
     );
 }

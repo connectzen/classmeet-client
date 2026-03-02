@@ -156,8 +156,8 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
                                 src={meeting.session_image_url}
                                 alt={teacherName || meeting.title}
                                 style={{
-                                    width: '100%', height: 'auto', minHeight: 80, borderRadius: 14,
-                                    objectFit: 'cover', objectPosition: 'center center',
+                                    width: '100%', height: 140, borderRadius: 14,
+                                    objectFit: 'cover', objectPosition: 'center top',
                                     border: '2px solid rgba(99,102,241,0.45)',
                                     boxShadow: '0 4px 16px rgba(0,0,0,0.4)', display: 'block',
                                 }}
