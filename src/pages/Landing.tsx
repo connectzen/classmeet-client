@@ -207,8 +207,8 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [groupsCollapsed, setGroupsCollapsed] = useState(true);
     const [teachersCollapsed, setTeachersCollapsed] = useState(true);
     const [teacherStudentsCollapsed, setTeacherStudentsCollapsed] = useState<Record<string, boolean>>({});
-    const [dashSidebarOpen, setDashSidebarOpen] = useState(true);
-    const [studentTeachersCollapsed, setStudentTeachersCollapsed] = useState(true);
+    const [dashSidebarOpen, setDashSidebarOpen] = useState(false);
+    const [studentTeachersCollapsed, setStudentTeachersCollapsed] = useState(false);
     const [studentPublishedCourses, setStudentPublishedCourses] = useState<{ id: string; title: string; description?: string | null }[]>([]);
     const [loadingStudentCourses, setLoadingStudentCourses] = useState(false);
     const [viewingStudentCourse, setViewingStudentCourse] = useState<{ id: string; title: string; description?: string | null } | null>(null);

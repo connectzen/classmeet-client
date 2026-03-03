@@ -99,7 +99,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
     // Mobile detection (sidebar → bottom tab bar below 640 px)
     const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
     useEffect(() => {
         const handler = () => setIsMobile(window.innerWidth < 640);
         window.addEventListener('resize', handler);
