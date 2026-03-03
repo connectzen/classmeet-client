@@ -203,8 +203,8 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [loadingStudentsList, setLoadingStudentsList] = useState(false);
 
     // Sidebar collapse state
-    const [studentsCollapsed, setStudentsCollapsed] = useState(true);
-    const [groupsCollapsed, setGroupsCollapsed] = useState(true);
+    const [studentsCollapsed, setStudentsCollapsed] = useState(false);
+    const [groupsCollapsed, setGroupsCollapsed] = useState(false);
     const [teachersCollapsed, setTeachersCollapsed] = useState(true);
     const [teacherStudentsCollapsed, setTeacherStudentsCollapsed] = useState<Record<string, boolean>>({});
     const [dashSidebarOpen, setDashSidebarOpen] = useState(true);
