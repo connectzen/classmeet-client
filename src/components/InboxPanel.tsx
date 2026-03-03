@@ -76,7 +76,7 @@ export default function InboxPanel({ userId, userRole: _userRole }: Props) {
                             {messages.length === 0 ? (
                                 <p style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: '32px 0', margin: 0 }}>No messages yet.</p>
                             ) : messages.map(m => (
-                                <div key={m.id} style={{ padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid var(--border)', background: !m.is_read ? 'rgba(99,102,241,0.1)' : 'transparent' }}
+                                <div key={m.id} className="hover-card-subtle" style={{ padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid var(--border)', background: !m.is_read ? 'rgba(99,102,241,0.1)' : 'transparent', border: '1px solid transparent', borderRadius: 8 }}
                                     onClick={() => toggleExpand(m.id)}>
                                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                                         <div style={{ flex: 1, minWidth: 0 }}>

@@ -112,6 +112,7 @@ export default function MemberCoursesSection({ userId, userName, onCoursesChange
                     {displayCourses.map(c => (
                         <div
                             key={c.id}
+                            className="hover-card"
                             style={{
                                 padding: studentView ? '18px 14px' : '12px 14px',
                                 background: 'linear-gradient(135deg, #1e1b4b 0%, #1e3a5f 50%, #1d2e5e 100%)',
@@ -120,10 +121,7 @@ export default function MemberCoursesSection({ userId, userName, onCoursesChange
                                 boxShadow: '0 4px 20px rgba(99,102,241,0.18), 0 2px 6px rgba(0,0,0,0.2)',
                                 overflow: 'hidden',
                                 position: 'relative',
-                                transition: 'border-color 0.15s, box-shadow 0.15s',
                             }}
-                            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.55)'; e.currentTarget.style.boxShadow = '0 6px 28px rgba(99,102,241,0.3)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(34,197,94,0.4)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(99,102,241,0.18), 0 2px 6px rgba(0,0,0,0.2)'; }}
                         >
                             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                                 <div style={{ flex: 1, minWidth: 0 }}>

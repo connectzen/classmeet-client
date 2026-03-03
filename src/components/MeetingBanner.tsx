@@ -104,7 +104,7 @@ export default function MeetingBanner({ meeting, displayName, userRole, isCreato
         : `Starts in ${pad(timeLeft.minutes)}m ${pad(timeLeft.seconds)}s`;
 
     return (
-        <div style={{
+        <div className="hover-card" style={{
             position: 'relative',
             background: gradientBg,
             border: `1px solid ${accentBorder}`,

@@ -1028,7 +1028,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                 <div
                                                     key={teacherId}
                                                     onClick={() => students.length > 0 && setTeacherStudentsCollapsed(prev => ({ ...prev, [teacherId]: !stuCollapsed }))}
-                                                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 12px', cursor: students.length > 0 ? 'pointer' : 'default' }}
+                                                    className={students.length > 0 ? 'hover-card-subtle' : undefined} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 12px', cursor: students.length > 0 ? 'pointer' : 'default' }}
                                                 >
                                                     {/* Teacher row */}
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1208,7 +1208,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                     const avatarUrl = studentProfiles[st.id]?.avatar_url || st.avatar_url;
                                                     const showStudentAvatar = avatarUrl && !failedAvatarUrls.has(avatarUrl);
                                                     return (
-                                                    <div key={st.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '7px 10px' }}>
+                                                    <div key={st.id} className="hover-card-subtle" style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '7px 10px' }}>
                                                         <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, overflow: 'hidden' }}>
                                                             {showStudentAvatar ? (
                                                                 <img src={avatarUrl} alt="" onError={() => markAvatarFailed(avatarUrl)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -1254,7 +1254,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     ) : (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                             {teacherGroups.map(g => (
-                                                <div key={g.id} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 12px' }}>
+                                                <div key={g.id} className="hover-card-subtle" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 12px' }}>
                                                     <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{g.name}</div>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 8 }}>
                                                         <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 20, height: 17, borderRadius: 100, padding: '0 6px', fontSize: 10, fontWeight: 700, background: g.member_count > 0 ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.06)', border: g.member_count > 0 ? '1px solid rgba(34,197,94,0.35)' : '1px solid rgba(255,255,255,0.1)', color: g.member_count > 0 ? '#4ade80' : 'var(--text-muted)' }}>{g.member_count}</span>
@@ -1412,7 +1412,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                     const avatarUrl = teacherProfiles[tid]?.avatar_url;
                                                     const isOnline = onlineUserIds.has(tid);
                                                     return (
-                                                        <div key={tid} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '7px 10px' }}>
+                                                        <div key={tid} className="hover-card-subtle" style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '7px 10px' }}>
                                                             <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, overflow: 'hidden' }}>
                                                                 {avatarUrl && !failedAvatarUrls.has(avatarUrl) ? (
                                                                     <img src={avatarUrl} alt="" onError={() => markAvatarFailed(avatarUrl)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />

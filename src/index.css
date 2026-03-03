@@ -3861,6 +3861,26 @@ input[type="radio"] {
   border-color: rgba(99,102,241,0.4);
   box-shadow: var(--shadow-primary);
 }
+
+/* ── Universal hover card effects ── */
+.hover-card {
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+.hover-card:hover {
+  border-color: rgba(99,102,241,0.55) !important;
+  box-shadow: 0 6px 28px rgba(99,102,241,0.28), 0 2px 8px rgba(0,0,0,0.25) !important;
+  transform: translateY(-1px);
+}
+/* Subtle variant for sidebar/list items */
+.hover-card-subtle {
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+.hover-card-subtle:hover {
+  border-color: rgba(99,102,241,0.35) !important;
+  box-shadow: 0 2px 12px rgba(99,102,241,0.15) !important;
+  background: rgba(99,102,241,0.08) !important;
+}
+
 .teacher-stat-label {
   font-size: 10px;
   font-weight: 700;
