@@ -3829,8 +3829,22 @@ input[type="radio"] {
   padding: 14px 12px;
 }
 @keyframes stat-value-in {
-  from { opacity: 0; transform: translateY(12px) scale(0.75); }
+  from { opacity: 0; transform: translateY(16px) scale(0.6); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes num-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.35); text-shadow: 0 0 24px rgba(34,197,94,0.9), 0 0 48px rgba(34,197,94,0.5); }
+  70%  { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+@keyframes num-glow-pulse {
+  0%, 100% { text-shadow: 0 0 8px rgba(34,197,94,0.4); }
+  50%       { text-shadow: 0 0 22px rgba(34,197,94,0.85), 0 0 40px rgba(34,197,94,0.4); }
+}
+@keyframes card-border-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0), inset 0 0 0 0 rgba(99,102,241,0); }
+  50%       { box-shadow: 0 0 18px 2px rgba(99,102,241,0.18); }
 }
 .teacher-stat-card {
   background: var(--surface);
@@ -3841,9 +3855,10 @@ input[type="radio"] {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  animation: card-border-glow 3s ease-in-out infinite;
 }
 .teacher-stat-card:hover {
-  border-color: rgba(99,102,241,0.3);
+  border-color: rgba(99,102,241,0.4);
   box-shadow: var(--shadow-primary);
 }
 .teacher-stat-label {
@@ -3861,6 +3876,13 @@ input[type="radio"] {
   letter-spacing: -0.04em;
   line-height: 1;
   animation: stat-value-in 0.5s ease-out both;
+}
+.stat-num {
+  display: inline-block;
+}
+.stat-num-done {
+  animation: num-pop 0.55s cubic-bezier(0.34,1.56,0.64,1) both,
+             num-glow-pulse 2.5s ease-in-out 0.55s infinite;
 }
 @media (max-width: 860px) {
   .teacher-stats-bar:not(.student-stats-bar) { grid-template-columns: repeat(2, 1fr); }

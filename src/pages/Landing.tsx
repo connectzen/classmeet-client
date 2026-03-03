@@ -46,21 +46,26 @@ function getStoredClasses(): { id: string; code: string; name: string }[] {
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
 // ── Animated count-up number component ───────────────────────────────────────
-function CountUp({ value, duration = 700 }: { value: number; duration?: number }) {
+function CountUp({ value, duration = 900 }: { value: number; duration?: number }) {
     const [display, setDisplay] = useState(0);
+    const [done, setDone] = useState(false);
     useEffect(() => {
-        if (value === 0) { setDisplay(0); return; }
+        setDone(false);
+        if (value === 0) { setDisplay(0); setDone(true); return; }
         let start: number | null = null;
         const run = (ts: number) => {
             if (!start) start = ts;
             const p = Math.min((ts - start) / duration, 1);
-            setDisplay(Math.round((1 - (1 - p) ** 3) * value));
+            // elastic overshoot easing
+            const ease = p === 1 ? 1 : 1 - Math.pow(2, -10 * p) * Math.cos((p * 10 - 0.75) * (2 * Math.PI) / 3);
+            setDisplay(Math.round(ease * value));
             if (p < 1) requestAnimationFrame(run);
+            else setDone(true);
         };
         const id = requestAnimationFrame(run);
         return () => cancelAnimationFrame(id);
     }, [value, duration]);
-    return <>{display}</>;
+    return <span className={done ? 'stat-num stat-num-done' : 'stat-num'}>{display}</span>;
 }
 
 export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Props) {
