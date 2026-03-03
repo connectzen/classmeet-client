@@ -457,11 +457,11 @@ function SortableTopicCard({
                                                 if (picked) setAssignmentTitle(stripHtml(picked.title));
                                             }
                                         }}
-                                        style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.3)', color: assignmentQuizId ? '#e2e8f0' : '#64748b', fontSize: 13, boxSizing: 'border-box', width: '100%', cursor: 'pointer' }}
+                                        style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: '#13131a', color: assignmentQuizId ? '#e2e8f0' : '#64748b', fontSize: 13, boxSizing: 'border-box', width: '100%', cursor: 'pointer', colorScheme: 'dark' }}
                                     >
-                                        <option value="">— Select a quiz —</option>
+                                        <option value="" style={{ background: '#13131a', color: '#64748b' }}>— Select a quiz —</option>
                                         {availableQuizzes.map(q => (
-                                            <option key={q.id} value={q.id}>{stripHtml(q.title)}{q.status !== 'published' ? ' (draft)' : ''}</option>
+                                            <option key={q.id} value={q.id} style={{ background: '#13131a', color: '#e2e8f0' }}>{stripHtml(q.title)}{q.status !== 'published' ? ' (draft)' : ''}</option>
                                         ))}
                                     </select>
                                 )}
