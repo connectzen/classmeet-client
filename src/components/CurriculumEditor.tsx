@@ -341,10 +341,11 @@ function SortableTopicCard({
                 }}>
                     <div style={{ overflow: 'hidden' }}>
                         <div style={{ padding: 14, opacity: expanded ? 1 : 0, transition: 'opacity 0.22s ease' }}>
-                        {/* Sortable lessons */}
-                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleLessonDragEnd}>
-                            <SortableContext items={topic.lessons.map(l => l.id)} strategy={verticalListSortingStrategy}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                        {/* Unified items list: lessons + quizzes + assignments */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                            {/* Sortable lessons */}
+                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleLessonDragEnd}>
+                                <SortableContext items={topic.lessons.map(l => l.id)} strategy={verticalListSortingStrategy}>
                                     {topic.lessons.map(lesson => (
                                         <SortableLessonCard
                                             key={lesson.id}
@@ -357,46 +358,36 @@ function SortableTopicCard({
                                             onDelete={handleLessonDelete}
                                         />
                                     ))}
+                                </SortableContext>
+                            </DndContext>
+
+                            {/* Attached quizzes — same row style */}
+                            {topic.quizzes.map(quiz => (
+                                <div key={quiz.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)' }}>
+                                    <span style={{ fontSize: 14, flexShrink: 0 }}>📝</span>
+                                    <span style={{ flex: 1, fontSize: 13, color: '#c4b5fd', fontWeight: 500 }}>{quiz.title}</span>
+                                    <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 20, background: quiz.status === 'published' ? 'rgba(34,197,94,0.15)' : 'rgba(100,116,139,0.2)', color: quiz.status === 'published' ? '#4ade80' : '#94a3b8', flexShrink: 0 }}>{quiz.status}</span>
+                                    <button type="button" onClick={() => handleDetachQuiz(quiz.id)} style={{ background: 'transparent', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 12, padding: '2px 5px', flexShrink: 0 }} title="Remove">✕</button>
                                 </div>
-                            </SortableContext>
-                        </DndContext>
+                            ))}
 
-                        {/* Attached quizzes */}
-                        {topic.quizzes.length > 0 && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: topic.lessons.length > 0 ? 9 : 0 }}>
-                                {topic.quizzes.map(quiz => (
-                                    <div key={quiz.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(139,92,246,0.25)', background: 'rgba(139,92,246,0.07)' }}>
-                                        <span style={{ fontSize: 14, flexShrink: 0 }}>📝</span>
-                                        <span style={{ flex: 1, fontSize: 13, color: '#c4b5fd', fontWeight: 500 }}>{quiz.title}</span>
-                                        <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 20, background: quiz.status === 'published' ? 'rgba(34,197,94,0.15)' : 'rgba(100,116,139,0.2)', color: quiz.status === 'published' ? '#4ade80' : '#94a3b8', flexShrink: 0 }}>{quiz.status}</span>
-                                        <button type="button" onClick={() => handleDetachQuiz(quiz.id)} style={{ background: 'transparent', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 12, padding: '2px 5px', flexShrink: 0 }} title="Remove">✕</button>
+                            {/* Attached assignments — same row style */}
+                            {topic.assignments.map(a => (
+                                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)' }}>
+                                    <span style={{ fontSize: 14, flexShrink: 0 }}>
+                                        {a.assignment_type === 'link' ? '🔗' : a.assignment_type === 'file' ? '📎' : a.assignment_type === 'quiz' ? '📝' : '📋'}
+                                    </span>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontSize: 13, color: '#fcd34d', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stripHtml(a.title)}</div>
+                                        {a.description && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stripHtml(a.description)}</div>}
                                     </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Attached assignments */}
-                        {topic.assignments.length > 0 && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 9 }}>
-                                {topic.assignments.map(a => (
-                                    <div key={a.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(251,191,36,0.2)', background: 'rgba(251,191,36,0.05)' }}>
-                                        <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>
-                                            {a.assignment_type === 'link' ? '🔗' : a.assignment_type === 'file' ? '📎' : a.assignment_type === 'quiz' ? '📝' : '📋'}
-                                        </span>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ fontSize: 13, color: '#fcd34d', fontWeight: 600 }}>{a.title}</div>
-                                            {a.description && <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{a.description}</div>}
-                                            {a.file_url && (
-                                                <a href={a.file_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: '#818cf8', marginTop: 2, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                    {a.file_url}
-                                                </a>
-                                            )}
-                                        </div>
-                                        <button type="button" onClick={() => handleDeleteAssignment(a.id)} style={{ background: 'transparent', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 12, padding: '2px 5px', flexShrink: 0 }} title="Delete">✕</button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                                    {a.file_url && (
+                                        <a href={a.file_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: '#818cf8', flexShrink: 0 }}>Open ↗</a>
+                                    )}
+                                    <button type="button" onClick={() => handleDeleteAssignment(a.id)} style={{ background: 'transparent', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 12, padding: '2px 5px', flexShrink: 0 }} title="Delete">✕</button>
+                                </div>
+                            ))}
+                        </div>
 
                         {/* Action bar */}
                         <div style={{ display: 'flex', gap: 6, marginTop: itemCount > 0 ? 12 : 4, flexWrap: 'wrap' }}>
