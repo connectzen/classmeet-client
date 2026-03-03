@@ -845,8 +845,10 @@ function QuizBuilder({ quizId, showConfirm, onAddQuestion, onEditQuiz, onPublish
             {quiz.questions.map((q, i) => (
                 <div key={q.id}>
                     <div className="quiz-builder-card quiz-builder-stagger" style={{
-                        background: 'rgba(0,0,0,0.3)', borderRadius: 12, padding: 12,
-                        marginBottom: 8, border: '1px solid rgba(255,255,255,0.08)',
+                        background: 'transparent', borderRadius: 0, padding: '10px 12px',
+                        marginBottom: 8, border: 'none',
+                        borderLeft: '2px solid rgba(99,102,241,0.35)',
+                        paddingLeft: 12,
                         display: 'flex', gap: 10, alignItems: 'flex-start',
                         animationDelay: `${i * 0.05}s`,
                     }}>
