@@ -626,7 +626,7 @@ export default function RoomCoursePanel({
                         overflowX:auto lets small screens scroll horizontally to see the
                         full 640px content — this is what keeps the layout consistent. */}
                     <div ref={contentRef} onScroll={isTeacher ? handleScroll : undefined}
-                        style={{ width: '100%', maxWidth: CANVAS_W, height: '100%', overflowY: isTeacher ? 'auto' : 'hidden', overflowX: 'auto', position: 'relative', userSelect: drawActive ? 'none' : 'text' }}>
+                        style={{ width: '100%', height: '100%', overflowY: isTeacher ? 'auto' : 'hidden', overflowX: 'auto', position: 'relative', userSelect: drawActive ? 'none' : 'text' }}>
 
                         {/* Lesson content — fixed at exactly CANVAS_W (640 px).
                             Teacher on 1400px panel and student on 360px phone both
@@ -750,7 +750,7 @@ export default function RoomCoursePanel({
             {textInput && (
                 <div style={{ position: 'fixed', left: Math.min(textInput.vx, window.innerWidth - 260), top: Math.min(textInput.vy, window.innerHeight - 60), zIndex: 9999, width: 240, background: 'transparent', border: 'none', padding: 0 }}>
                     <textarea autoFocus rows={2} placeholder=""
-                    style={{ display: 'block', width: '100%', background: 'transparent', color: drawColor, border: 'none', borderBottom: `1.5px solid ${drawColor}80`, padding: '2px 0', fontSize: Math.round(14 * TOOL_SIZES[drawSizeKey]), fontFamily: 'sans-serif', fontWeight: 700, outline: 'none', resize: 'none', boxSizing: 'border-box', lineHeight: 1.4, caretColor: drawColor, letterSpacing: '0.01em' }}
+                    style={{ display: 'block', width: '100%', background: 'transparent', color: drawColor, border: 'none', padding: '2px 0', fontSize: Math.round(14 * TOOL_SIZES[drawSizeKey]), fontFamily: 'sans-serif', fontWeight: 700, outline: 'none', resize: 'none', boxSizing: 'border-box', lineHeight: 1.4, caretColor: drawColor, letterSpacing: '0.01em' }}
                     onChange={e => {
                         // Stream typed text to students in real time
                         const { drawSizeKey: sk, drawColor: dc } = drawState.current;
