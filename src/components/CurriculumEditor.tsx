@@ -76,7 +76,7 @@ function SortableLessonCard({
 
     return (
         <div ref={setNodeRef} style={dragStyle}>
-            <div style={expanded ? { background: 'transparent', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden', boxShadow: 'none' } : { background: '#2c344a', borderRadius: 12, border: '1px solid rgba(255,255,255,0.12)', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
+            <div style={{ background: '#2c344a', borderRadius: 12, border: '1px solid rgba(255,255,255,0.12)', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
                 {/* Row */}
                 <div
                     onClick={!editingLessonTitle ? onToggleExpand : undefined}
@@ -370,7 +370,7 @@ function SortableTopicCard({
                     transition: 'grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 }}>
                     <div style={{ overflow: 'hidden' }}>
-                        <div style={{ padding: '14px 16px', background: '#161929', opacity: expanded ? 1 : 0, transition: 'opacity 0.22s ease' }}>
+                        <div style={{ padding: '14px 16px', background: '#2c344a', opacity: expanded ? 1 : 0, transition: 'opacity 0.22s ease' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                             {/* Sortable lessons */}
                             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleLessonDragEnd}>
@@ -392,7 +392,7 @@ function SortableTopicCard({
 
                             {/* Attached quizzes */}
                             {topic.quizzes.map(quiz => (
-                                <div key={quiz.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 9, border: '1px solid rgba(139,92,246,0.32)', borderLeft: '3px solid rgba(139,92,246,0.7)', background: 'linear-gradient(90deg,rgba(139,92,246,0.1) 0%,rgba(139,92,246,0.04) 100%)' }}>
+                                <div key={quiz.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: '#2c344a' }}>
                                     <span style={{ fontSize: 15, flexShrink: 0 }}>📝</span>
                                     <span style={{ flex: 1, fontSize: 13, color: '#c4b5fd', fontWeight: 600 }}>{stripHtml(quiz.title)}</span>
                                     <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 20, fontWeight: 700, letterSpacing: '0.05em', background: quiz.status === 'published' ? 'rgba(34,197,94,0.15)' : 'rgba(100,116,139,0.2)', color: quiz.status === 'published' ? '#4ade80' : '#94a3b8', flexShrink: 0, textTransform: 'uppercase' }}>{quiz.status}</span>
@@ -402,7 +402,7 @@ function SortableTopicCard({
 
                             {/* Attached assignments */}
                             {topic.assignments.map(a => (
-                                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 9, border: '1px solid rgba(251,191,36,0.28)', borderLeft: '3px solid rgba(251,191,36,0.65)', background: 'linear-gradient(90deg,rgba(251,191,36,0.09) 0%,rgba(251,191,36,0.03) 100%)' }}>
+                                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: '#2c344a' }}>
                                     <span style={{ fontSize: 14, flexShrink: 0 }}>
                                         {a.assignment_type === 'link' ? '🔗' : a.assignment_type === 'file' ? '📎' : a.assignment_type === 'quiz' ? '📝' : '📋'}
                                     </span>

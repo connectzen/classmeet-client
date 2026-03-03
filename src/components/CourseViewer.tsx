@@ -402,7 +402,7 @@ export default function CourseViewer({ course, userId, userName, onClose }: Prop
                                                                         const isLOpen = expandedLessonId === lesson.id;
                                                                         const icon = lesson.lesson_type === 'video' ? '🎬' : lesson.lesson_type === 'audio' ? '🎵' : lesson.lesson_type === 'image' ? '🖼️' : '📄';
                                                                         return (
-                                                                            <div key={lesson.id} className="hover-card" style={{ borderRadius: 12, border: '1px solid rgba(255,255,255,0.12)', overflow: 'hidden', background: isLOpen ? 'transparent' : '#2c344a', boxShadow: isLOpen ? 'none' : '0 2px 10px rgba(0,0,0,0.2)' }}>
+                                                                            <div key={lesson.id} className="hover-card" style={{ borderRadius: 12, border: '1px solid rgba(255,255,255,0.12)', overflow: 'hidden', background: '#2c344a', boxShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
                                                                                 <button type="button" onClick={() => setExpandedLessonId(isLOpen ? null : lesson.id)}
                                                                                     style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '10px 13px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
                                                                                     <span style={{ fontSize: 13 }}>{icon}</span>
@@ -456,7 +456,7 @@ export default function CourseViewer({ course, userId, userName, onClose }: Prop
                                                                         <button key={q.id} type="button"
                                                                             onClick={() => q.status === 'published' && setActiveQuizId(q.id)}
                                                                             disabled={q.status !== 'published'}
-                                                                            style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '10px 13px', borderRadius: 9, border: `1px solid ${q.status === 'published' ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.06)'}`, background: q.status === 'published' ? 'rgba(139,92,246,0.08)' : 'rgba(255,255,255,0.02)', cursor: q.status === 'published' ? 'pointer' : 'default', textAlign: 'left', width: '100%' }}>
+                                                                            style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '10px 13px', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: '#2c344a', cursor: q.status === 'published' ? 'pointer' : 'default', textAlign: 'left', width: '100%' }}>
                                                                             <span style={{ fontSize: 14 }}>📝</span>
                                                                             <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: q.status === 'published' ? '#c4b5fd' : '#64748b' }}>{stripHtml(q.title)}</span>
                                                                             {q.time_limit_minutes && <span style={{ fontSize: 11, color: '#64748b' }}>⏱ {q.time_limit_minutes}m</span>}
@@ -480,7 +480,7 @@ export default function CourseViewer({ course, userId, userName, onClose }: Prop
                                                                         return (
                                                                             <div key={a.id}
                                                                                 onClick={() => isQuizAssign && setActiveQuizId(a.quiz_id!)}
-                                                                                style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 13px', borderRadius: 9, border: `1px solid ${isQuizAssign ? 'rgba(251,191,36,0.25)' : 'rgba(255,255,255,0.07)'}`, background: isQuizAssign ? 'rgba(251,191,36,0.05)' : 'rgba(255,255,255,0.02)', cursor: isQuizAssign ? 'pointer' : 'default' }}>
+                                                                                style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 13px', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: '#2c344a', cursor: isQuizAssign ? 'pointer' : 'default' }}>
                                                                                 <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>{icon}</span>
                                                                                 <div style={{ flex: 1, minWidth: 0 }}>
                                                                                     <div style={{ fontSize: 13, fontWeight: 600, color: isQuizAssign ? '#fcd34d' : '#cbd5e1', marginBottom: 2 }}>{stripHtml(a.title)}</div>
