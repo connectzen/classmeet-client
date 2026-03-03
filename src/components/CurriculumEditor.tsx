@@ -76,16 +76,15 @@ function SortableLessonCard({
 
     return (
         <div ref={setNodeRef} style={dragStyle}>
-            <div style={{ background: '#0d0d18', borderRadius: 9, border: '1px solid rgba(99,102,241,0.22)', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.35)' }}>
-                {/* Row — click to expand, dbl-click title or edit btn to edit */}
+            <div style={{ background: 'linear-gradient(135deg,#161628 0%,#12121f 100%)', borderRadius: 10, border: '1px solid rgba(99,102,241,0.28)', borderLeft: '3px solid rgba(99,102,241,0.65)', overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
+                {/* Row */}
                 <div
                     onClick={!editingLessonTitle ? onToggleExpand : undefined}
-                    style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 11px', cursor: editingLessonTitle ? 'default' : 'pointer', userSelect: 'none' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', cursor: editingLessonTitle ? 'default' : 'pointer', userSelect: 'none' }}
                 >
-                    <div {...attributes} {...listeners} onClick={e => e.stopPropagation()} style={{ cursor: 'grab', color: '#4f5d7a', fontSize: 14, touchAction: 'none', padding: '2px 3px', borderRadius: 4, flexShrink: 0 }} title="Drag">⋮⋮</div>
-                    <span style={{ fontSize: 13, flexShrink: 0 }}>{typeIcon}</span>
+                    <div {...attributes} {...listeners} onClick={e => e.stopPropagation()} style={{ cursor: 'grab', color: '#3d4f6e', fontSize: 15, touchAction: 'none', flexShrink: 0, lineHeight: 1 }} title="Drag">⠿</div>
+                    <span style={{ fontSize: 14, flexShrink: 0 }}>{typeIcon}</span>
 
-                    {/* Title — static text or editable input */}
                     {editingLessonTitle ? (
                         <input
                             autoFocus
@@ -97,24 +96,23 @@ function SortableLessonCard({
                                 if (e.key === 'Escape') { setEditingLessonTitle(false); setLessonTitleVal(lesson.title); }
                             }}
                             onClick={e => e.stopPropagation()}
-                            style={{ flex: 1, minWidth: 60, padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(99,102,241,0.5)', background: 'rgba(0,0,0,0.4)', color: '#e2e8f0', fontSize: 13 }}
+                            style={{ flex: 1, minWidth: 60, padding: '5px 10px', borderRadius: 7, border: '1px solid rgba(99,102,241,0.55)', background: 'rgba(99,102,241,0.08)', color: '#e2e8f0', fontSize: 13, outline: 'none' }}
                         />
                     ) : (
                         <span
                             onDoubleClick={e => { e.stopPropagation(); setEditingLessonTitle(true); setLessonTitleVal(lesson.title); }}
-                            style={{ flex: 1, fontSize: 13, color: '#c9d5e8', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                            style={{ flex: 1, fontSize: 13, color: '#dde4f0', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                             title="Double-click to rename"
                         >
                             {lesson.title || 'Untitled lesson'}
                         </span>
                     )}
 
-                    {/* Type selector */}
                     <select
                         value={lesson.lesson_type}
                         onChange={e => onUpdate(lesson.id, { lesson_type: e.target.value as LessonType })}
                         onClick={e => e.stopPropagation()}
-                        style={{ padding: '4px 6px', borderRadius: 6, border: '1px solid rgba(99,102,241,0.25)', background: '#1a1730', color: '#a5b4fc', fontSize: 11, colorScheme: 'dark', flexShrink: 0 }}
+                        style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(99,102,241,0.28)', background: '#1e1a38', color: '#a5b4fc', fontSize: 11, colorScheme: 'dark', flexShrink: 0, fontWeight: 600 }}
                     >
                         <option value="text">Text</option>
                         <option value="video">Video</option>
@@ -122,18 +120,15 @@ function SortableLessonCard({
                         <option value="image">Image</option>
                     </select>
 
-                    {/* Edit btn */}
                     {!editingLessonTitle && (
                         <button type="button" onClick={e => { e.stopPropagation(); setEditingLessonTitle(true); setLessonTitleVal(lesson.title); }}
-                            style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: '#a5b4fc', cursor: 'pointer', fontSize: 11, borderRadius: 5, padding: '3px 7px', flexShrink: 0 }} title="Rename">✏️</button>
+                            style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.35)', color: '#818cf8', cursor: 'pointer', fontSize: 12, borderRadius: 6, padding: '4px 9px', flexShrink: 0, lineHeight: 1 }} title="Rename">✏️</button>
                     )}
 
-                    {/* Expand chevron */}
-                    <span style={{ color: '#4f5d7a', fontSize: 12, transition: 'transform 0.2s', transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)', display: 'inline-block', flexShrink: 0, pointerEvents: 'none' }}>▼</span>
+                    <span style={{ color: '#3d4f6e', fontSize: 11, transition: 'transform 0.2s', transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)', display: 'inline-block', flexShrink: 0, pointerEvents: 'none' }}>▼</span>
 
-                    {/* Delete btn */}
                     <button type="button" onClick={e => { e.stopPropagation(); onDelete(lesson.id); }}
-                        style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)', color: '#fca5a5', cursor: 'pointer', fontSize: 12, borderRadius: 5, padding: '3px 8px', flexShrink: 0, fontWeight: 700 }} title="Delete lesson">✕</button>
+                        style={{ background: '#2a1018', border: '1px solid rgba(239,68,68,0.5)', color: '#f87171', cursor: 'pointer', fontSize: 12, borderRadius: 6, padding: '4px 9px', flexShrink: 0, fontWeight: 700, lineHeight: 1 }} title="Delete">✕</button>
                 </div>
                 {/* Expanded */}
                 {expanded && (
@@ -335,11 +330,11 @@ function SortableTopicCard({
 
     return (
         <div ref={setNodeRef} style={dragStyle}>
-            <div style={{ background: '#10101e', borderRadius: 13, border: '1px solid rgba(99,102,241,0.35)', overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
-                {/* Topic header — click anywhere to expand/collapse */}
+            <div style={{ background: '#0e0e1c', borderRadius: 14, border: '1px solid rgba(99,102,241,0.4)', overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
+                {/* Topic header */}
                 <div
                     onClick={!editingTitle ? onToggleExpand : undefined}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 14px', background: 'rgba(99,102,241,0.13)', borderBottom: '1px solid rgba(99,102,241,0.18)', cursor: editingTitle ? 'default' : 'pointer', userSelect: 'none' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px', background: 'linear-gradient(90deg, rgba(99,102,241,0.18) 0%, rgba(99,102,241,0.06) 100%)', borderBottom: '1px solid rgba(99,102,241,0.2)', cursor: editingTitle ? 'default' : 'pointer', userSelect: 'none' }}
                 >
                     <div {...attributes} {...listeners} onClick={e => e.stopPropagation()} style={{ cursor: 'grab', color: '#475569', fontSize: 16, touchAction: 'none', padding: '2px 3px', flexShrink: 0 }} title="Drag topic">⠿</div>
                     {editingTitle ? (
@@ -360,11 +355,11 @@ function SortableTopicCard({
                             {topic.title}
                         </span>
                     )}
-                    <span style={{ fontSize: 11, color: '#475569', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                    <span style={{ fontSize: 11, color: '#4b5a7a', whiteSpace: 'nowrap', flexShrink: 0, fontWeight: 600, letterSpacing: '0.04em' }}>
                         {itemCount} item{itemCount !== 1 ? 's' : ''}
                     </span>
-                    <button type="button" onClick={(e) => { e.stopPropagation(); setEditingTitle(true); setTitleVal(topic.title); }} style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', color: '#a5b4fc', cursor: 'pointer', fontSize: 13, padding: '4px 9px', borderRadius: 6, flexShrink: 0 }} title="Rename">✏️</button>
-                    <button type="button" onClick={(e) => { e.stopPropagation(); onDeleteTopic(topic.id); }} style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.45)', color: '#fca5a5', cursor: 'pointer', fontSize: 13, padding: '4px 9px', borderRadius: 6, flexShrink: 0, fontWeight: 700 }} title="Delete topic">🗑</button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setEditingTitle(true); setTitleVal(topic.title); }} style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.38)', color: '#818cf8', cursor: 'pointer', fontSize: 13, padding: '5px 10px', borderRadius: 7, flexShrink: 0, lineHeight: 1 }} title="Rename">✏️</button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); onDeleteTopic(topic.id); }} style={{ background: '#2a1018', border: '1px solid rgba(239,68,68,0.5)', color: '#f87171', cursor: 'pointer', fontSize: 13, padding: '5px 10px', borderRadius: 7, flexShrink: 0, fontWeight: 700, lineHeight: 1 }} title="Delete topic">🗑</button>
                     <span style={{ color: '#64748b', fontSize: 13, padding: '3px 5px', flexShrink: 0, transition: 'transform 0.2s', transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)', display: 'inline-block' }}>▼</span>
                 </div>
 
@@ -375,9 +370,8 @@ function SortableTopicCard({
                     transition: 'grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 }}>
                     <div style={{ overflow: 'hidden' }}>
-                        <div style={{ padding: 14, opacity: expanded ? 1 : 0, transition: 'opacity 0.22s ease', background: '#0a0a14' }}>
-                        {/* Unified items list: lessons + quizzes + assignments */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                        <div style={{ padding: '14px 16px', background: '#090912', opacity: expanded ? 1 : 0, transition: 'opacity 0.22s ease' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                             {/* Sortable lessons */}
                             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleLessonDragEnd}>
                                 <SortableContext items={topic.lessons.map(l => l.id)} strategy={verticalListSortingStrategy}>
@@ -398,17 +392,17 @@ function SortableTopicCard({
 
                             {/* Attached quizzes */}
                             {topic.quizzes.map(quiz => (
-                                <div key={quiz.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(139,92,246,0.3)', background: 'rgba(139,92,246,0.07)', borderLeft: '3px solid rgba(139,92,246,0.55)' }}>
-                                    <span style={{ fontSize: 14, flexShrink: 0 }}>📝</span>
-                                    <span style={{ flex: 1, fontSize: 13, color: '#c4b5fd', fontWeight: 500 }}>{quiz.title}</span>
-                                    <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 20, background: quiz.status === 'published' ? 'rgba(34,197,94,0.15)' : 'rgba(100,116,139,0.2)', color: quiz.status === 'published' ? '#4ade80' : '#94a3b8', flexShrink: 0 }}>{quiz.status}</span>
-                                    <button type="button" onClick={() => handleDetachQuiz(quiz.id)} style={{ background: 'rgba(239,68,68,0.18)', border: '1px solid rgba(239,68,68,0.4)', color: '#fca5a5', cursor: 'pointer', fontSize: 11, borderRadius: 5, padding: '3px 8px', flexShrink: 0, fontWeight: 700 }} title="Remove">✕</button>
+                                <div key={quiz.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 9, border: '1px solid rgba(139,92,246,0.32)', borderLeft: '3px solid rgba(139,92,246,0.7)', background: 'linear-gradient(90deg,rgba(139,92,246,0.1) 0%,rgba(139,92,246,0.04) 100%)' }}>
+                                    <span style={{ fontSize: 15, flexShrink: 0 }}>📝</span>
+                                    <span style={{ flex: 1, fontSize: 13, color: '#c4b5fd', fontWeight: 600 }}>{quiz.title}</span>
+                                    <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 20, fontWeight: 700, letterSpacing: '0.05em', background: quiz.status === 'published' ? 'rgba(34,197,94,0.15)' : 'rgba(100,116,139,0.2)', color: quiz.status === 'published' ? '#4ade80' : '#94a3b8', flexShrink: 0, textTransform: 'uppercase' }}>{quiz.status}</span>
+                                    <button type="button" onClick={() => handleDetachQuiz(quiz.id)} style={{ background: '#2a1018', border: '1px solid rgba(239,68,68,0.5)', color: '#f87171', cursor: 'pointer', fontSize: 11, borderRadius: 6, padding: '4px 9px', flexShrink: 0, fontWeight: 700, lineHeight: 1 }} title="Remove">✕</button>
                                 </div>
                             ))}
 
                             {/* Attached assignments */}
                             {topic.assignments.map(a => (
-                                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(251,191,36,0.25)', background: 'rgba(251,191,36,0.05)', borderLeft: '3px solid rgba(251,191,36,0.5)' }}>
+                                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 9, border: '1px solid rgba(251,191,36,0.28)', borderLeft: '3px solid rgba(251,191,36,0.65)', background: 'linear-gradient(90deg,rgba(251,191,36,0.09) 0%,rgba(251,191,36,0.03) 100%)' }}>
                                     <span style={{ fontSize: 14, flexShrink: 0 }}>
                                         {a.assignment_type === 'link' ? '🔗' : a.assignment_type === 'file' ? '📎' : a.assignment_type === 'quiz' ? '📝' : '📋'}
                                     </span>
@@ -417,34 +411,35 @@ function SortableTopicCard({
                                         {a.description && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stripHtml(a.description)}</div>}
                                     </div>
                                     {a.file_url && (
-                                        <a href={a.file_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: '#818cf8', flexShrink: 0 }}>Open ↗</a>
+                                        <a href={a.file_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: '#818cf8', flexShrink: 0, fontWeight: 600 }}>Open ↗</a>
                                     )}
-                                    <button type="button" onClick={() => handleDeleteAssignment(a.id)} style={{ background: 'rgba(239,68,68,0.18)', border: '1px solid rgba(239,68,68,0.4)', color: '#fca5a5', cursor: 'pointer', fontSize: 11, borderRadius: 5, padding: '3px 8px', flexShrink: 0, fontWeight: 700 }} title="Delete">✕</button>
+                                    <button type="button" onClick={() => handleDeleteAssignment(a.id)} style={{ background: '#2a1018', border: '1px solid rgba(239,68,68,0.5)', color: '#f87171', cursor: 'pointer', fontSize: 11, borderRadius: 6, padding: '4px 9px', flexShrink: 0, fontWeight: 700, lineHeight: 1 }} title="Delete">✕</button>
                                 </div>
                             ))}
                         </div>
 
                         {/* Action bar */}
-                        <div style={{ display: 'flex', gap: 6, marginTop: itemCount > 0 ? 12 : 4, flexWrap: 'wrap' }}>
-                            <button type="button" onClick={handleAddLesson} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: '1px solid rgba(99,102,241,0.3)', background: 'rgba(99,102,241,0.1)', color: '#a5b4fc', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', gap: 8, marginTop: itemCount > 0 ? 14 : 4, flexWrap: 'wrap' }}>
+                            <button type="button" onClick={handleAddLesson} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 20, border: '1px solid rgba(99,102,241,0.45)', background: 'linear-gradient(135deg,rgba(99,102,241,0.18),rgba(99,102,241,0.08))', color: '#a5b4fc', fontSize: 12, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.02em' }}>
                                 + Lesson
                             </button>
-                            <button type="button" onClick={() => setShowQuizPicker(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: '1px solid rgba(139,92,246,0.3)', background: 'rgba(139,92,246,0.1)', color: '#c4b5fd', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                            <button type="button" onClick={() => setShowQuizPicker(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 20, border: '1px solid rgba(139,92,246,0.45)', background: 'linear-gradient(135deg,rgba(139,92,246,0.18),rgba(139,92,246,0.08))', color: '#c4b5fd', fontSize: 12, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.02em' }}>
                                 + Quiz
                             </button>
-                            <button type="button" onClick={() => setShowAssignmentForm(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: '1px solid rgba(251,191,36,0.3)', background: 'rgba(251,191,36,0.07)', color: '#fcd34d', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                            <button type="button" onClick={() => setShowAssignmentForm(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 20, border: '1px solid rgba(251,191,36,0.45)', background: 'linear-gradient(135deg,rgba(251,191,36,0.16),rgba(251,191,36,0.06))', color: '#fcd34d', fontSize: 12, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.02em' }}>
                                 + Assignment
                             </button>
                         </div>
 
                         {/* Assignment inline form */}
                         {showAssignmentForm && (
-                            <div style={{ marginTop: 10, padding: '12px 14px', borderRadius: 10, border: '1px solid rgba(251,191,36,0.2)', background: 'rgba(251,191,36,0.04)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                {/* Type selector */}
+                            <div style={{ marginTop: 12, padding: '16px 18px', borderRadius: 12, border: '1px solid rgba(251,191,36,0.25)', background: 'linear-gradient(135deg,rgba(251,191,36,0.06) 0%,rgba(20,17,0,0.6) 100%)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 2 }}>New Assignment</div>
+                                {/* Type pills */}
                                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                                     {(['text', 'link', 'file', 'quiz'] as const).map(t => (
                                         <button key={t} type="button" onClick={() => { setAssignmentType(t); setAssignmentTitle(''); setAssignmentDesc(''); setAssignmentUrl(''); setAssignmentQuizId(''); }}
-                                            style={{ padding: '5px 12px', borderRadius: 6, border: `1px solid ${assignmentType === t ? 'rgba(251,191,36,0.6)' : 'rgba(255,255,255,0.08)'}`, background: assignmentType === t ? 'rgba(251,191,36,0.15)' : 'transparent', color: assignmentType === t ? '#fcd34d' : '#64748b', fontSize: 12, fontWeight: assignmentType === t ? 700 : 500, cursor: 'pointer', textTransform: 'capitalize' }}>
+                                            style={{ padding: '5px 14px', borderRadius: 20, border: `1px solid ${assignmentType === t ? 'rgba(251,191,36,0.7)' : 'rgba(255,255,255,0.1)'}`, background: assignmentType === t ? 'rgba(251,191,36,0.18)' : 'rgba(255,255,255,0.04)', color: assignmentType === t ? '#fcd34d' : '#6b7fa3', fontSize: 12, fontWeight: assignmentType === t ? 700 : 500, cursor: 'pointer' }}>
                                             {t === 'text' ? '📄 Text' : t === 'link' ? '🔗 Link' : t === 'file' ? '📎 File' : '📝 Quiz'}
                                         </button>
                                     ))}
@@ -454,7 +449,7 @@ function SortableTopicCard({
                                     onChange={e => setAssignmentTitle(e.target.value)}
                                     placeholder="Assignment title *"
                                     autoFocus
-                                    style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#e2e8f0', fontSize: 13, boxSizing: 'border-box', width: '100%' }}
+                                    style={{ padding: '9px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: '#e2e8f0', fontSize: 13, boxSizing: 'border-box', width: '100%', outline: 'none' }}
                                 />
                                 <RichEditor
                                     value={assignmentDesc}
@@ -467,8 +462,8 @@ function SortableTopicCard({
                                     <input
                                         value={assignmentUrl}
                                         onChange={e => setAssignmentUrl(e.target.value)}
-                                        placeholder={assignmentType === 'link' ? 'URL (e.g. https://...)' : 'File URL'}
-                                        style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#e2e8f0', fontSize: 13, boxSizing: 'border-box', width: '100%' }}
+                                        placeholder={assignmentType === 'link' ? 'https://...' : 'File URL'}
+                                        style={{ padding: '9px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: '#e2e8f0', fontSize: 13, boxSizing: 'border-box', width: '100%', outline: 'none' }}
                                     />
                                 )}
                                 {assignmentType === 'quiz' && (
@@ -491,11 +486,11 @@ function SortableTopicCard({
                                         ))}
                                     </select>
                                 )}
-                                <div style={{ display: 'flex', gap: 6 }}>
+                                <div style={{ display: 'flex', gap: 8, paddingTop: 2 }}>
                                     <button type="button" onClick={handleAddAssignment}
                                         disabled={!assignmentTitle.trim() || (assignmentType === 'quiz' && !assignmentQuizId)}
-                                        style={{ padding: '6px 14px', borderRadius: 7, border: 'none', background: (assignmentTitle.trim() && (assignmentType !== 'quiz' || assignmentQuizId)) ? '#fbbf24' : 'rgba(251,191,36,0.3)', color: '#0a0a0f', fontSize: 12, fontWeight: 700, cursor: (assignmentTitle.trim() && (assignmentType !== 'quiz' || assignmentQuizId)) ? 'pointer' : 'not-allowed' }}>Add</button>
-                                    <button type="button" onClick={() => { setShowAssignmentForm(false); setAssignmentTitle(''); setAssignmentDesc(''); setAssignmentUrl(''); setAssignmentType('text'); setAssignmentQuizId(''); }} style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
+                                        style={{ padding: '8px 20px', borderRadius: 20, border: 'none', background: (assignmentTitle.trim() && (assignmentType !== 'quiz' || assignmentQuizId)) ? 'linear-gradient(135deg,#f59e0b,#d97706)' : 'rgba(251,191,36,0.2)', color: (assignmentTitle.trim() && (assignmentType !== 'quiz' || assignmentQuizId)) ? '#0a0500' : '#6b5a2a', fontSize: 12, fontWeight: 700, cursor: (assignmentTitle.trim() && (assignmentType !== 'quiz' || assignmentQuizId)) ? 'pointer' : 'not-allowed', letterSpacing: '0.03em' }}>Add</button>
+                                    <button type="button" onClick={() => { setShowAssignmentForm(false); setAssignmentTitle(''); setAssignmentDesc(''); setAssignmentUrl(''); setAssignmentType('text'); setAssignmentQuizId(''); }} style={{ padding: '8px 18px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: '#6b7fa3', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
                                 </div>
                             </div>
                         )}

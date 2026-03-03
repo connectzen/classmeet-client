@@ -411,86 +411,107 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
     return (
         <div style={{
             position: 'fixed', inset: 0, zIndex: 999999,
-            background: 'rgba(0,0,0,0.8)',
+            background: 'rgba(0,0,0,0.85)',
+            backdropFilter: 'blur(4px)',
             display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-            padding: '80px 20px 40px', overflowY: 'auto',
+            padding: '60px 20px 40px', overflowY: 'auto',
         }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
             <div style={{
-                background: 'var(--surface-2, #18181f)',
-                borderRadius: 16,
+                background: 'linear-gradient(160deg,#13131f 0%,#0f0f1c 100%)',
+                borderRadius: 18,
                 width: '100%',
-                maxWidth: step === 2 ? 1000 : 900,
-                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
-                border: '1px solid rgba(99,102,241,0.2)',
-                transition: 'max-width 0.25s ease',
+                maxWidth: step === 2 ? 1060 : 580,
+                boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.25)',
+                border: '1px solid rgba(99,102,241,0.25)',
+                transition: 'max-width 0.3s cubic-bezier(0.4,0,0.2,1)',
             }} onClick={e => e.stopPropagation()}>
-                <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>
-                        {isEdit ? 'Edit Course' : step === 1 ? 'New Course' : 'Add Lessons'}
-                    </h2>
-                    <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 22, cursor: 'pointer', padding: '2px 6px' }}>×</button>
+                {/* Header */}
+                <div style={{ padding: '18px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(99,102,241,0.06)', borderRadius: '18px 18px 0 0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                        <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#e4e8f5' }}>
+                            {isEdit ? 'Edit Course' : step === 1 ? 'New Course' : 'Build Curriculum'}
+                        </h2>
+                        {!isEdit && (
+                            <div style={{ display: 'flex', gap: 4 }}>
+                                {[1, 2].map(s => (
+                                    <div key={s} style={{ width: 28, height: 5, borderRadius: 3, background: step >= s ? '#6366f1' : 'rgba(99,102,241,0.2)', transition: 'background 0.3s' }} />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <button type="button" onClick={onClose} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', fontSize: 18, cursor: 'pointer', padding: '4px 10px', borderRadius: 8, lineHeight: 1, fontWeight: 700 }}>×</button>
                 </div>
 
-                <div style={{ padding: 24 }}>
+                <div style={{ padding: '24px 26px' }}>
                     {step === 1 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                             <div>
-                                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>Course title</label>
-                                <RichEditor
-                                    value={title}
-                                    onChange={setTitle}
-                                    placeholder="e.g. Introduction to Algebra"
-                                    minHeight={44}
-                                />
+                                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#6366f1', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Course Title</label>
+                                <div style={{ borderRadius: 10, border: '1px solid rgba(99,102,241,0.3)', background: 'rgba(99,102,241,0.05)', overflow: 'hidden' }}>
+                                    <RichEditor
+                                        value={title}
+                                        onChange={setTitle}
+                                        placeholder="e.g. Introduction to Algebra"
+                                        minHeight={44}
+                                    />
+                                </div>
                             </div>
                             <div>
-                                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>Description (optional)</label>
-                                <RichEditor
-                                    value={description}
-                                    onChange={setDescription}
-                                    placeholder="Brief overview of the course…"
-                                    minHeight={90}
-                                />
+                                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#6366f1', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Description <span style={{ color: '#4b5a7a', fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
+                                <div style={{ borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', overflow: 'hidden' }}>
+                                    <RichEditor
+                                        value={description}
+                                        onChange={setDescription}
+                                        placeholder="Brief overview of the course…"
+                                        minHeight={90}
+                                    />
+                                </div>
                             </div>
-                            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                                <button type="button" onClick={onClose} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: 'var(--text-muted)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
-                                <button type="button" onClick={handleCreateCourse} disabled={saving || isRichEmpty(title)} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: !isRichEmpty(title) && !saving ? '#6366f1' : 'rgba(99,102,241,0.4)', color: '#fff', fontSize: 14, fontWeight: 600, cursor: !isRichEmpty(title) && !saving ? 'pointer' : 'not-allowed' }}>{saving ? 'Creating…' : 'Create & Add Lessons'}</button>
+                            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
+                                <button type="button" onClick={onClose} style={{ padding: '10px 20px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: '#6b7fa3', fontSize: 13, fontWeight: 600, cursor: 'pointer', letterSpacing: '0.02em' }}>Cancel</button>
+                                <button type="button" onClick={handleCreateCourse} disabled={saving || isRichEmpty(title)} style={{ padding: '10px 22px', borderRadius: 10, border: 'none', background: !isRichEmpty(title) && !saving ? 'linear-gradient(135deg,#6366f1,#4f46e5)' : 'rgba(99,102,241,0.3)', color: !isRichEmpty(title) && !saving ? '#fff' : '#5a5d8a', fontSize: 13, fontWeight: 700, cursor: !isRichEmpty(title) && !saving ? 'pointer' : 'not-allowed', letterSpacing: '0.02em', boxShadow: !isRichEmpty(title) && !saving ? '0 4px 14px rgba(99,102,241,0.35)' : 'none' }}>{saving ? 'Creating…' : 'Create & Build Curriculum →'}</button>
                             </div>
                         </div>
                     )}
 
                     {step === 2 && courseId && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                             {/* Course title / description quick edit */}
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', paddingBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                                <div style={{ flex: 1, minWidth: 160 }}>
-                                    <RichEditor
-                                        value={title}
-                                        onChange={setTitle}
-                                        onBlur={() => { if (isEdit) handleUpdateCourse(); }}
-                                        placeholder="Course title"
-                                        minHeight={44}
-                                        compact
-                                    />
+                            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap', paddingBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                                <div style={{ flex: 1, minWidth: 180 }}>
+                                    <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#6366f1', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Title</label>
+                                    <div style={{ borderRadius: 9, border: '1px solid rgba(99,102,241,0.25)', background: 'rgba(99,102,241,0.05)', overflow: 'hidden' }}>
+                                        <RichEditor
+                                            value={title}
+                                            onChange={setTitle}
+                                            onBlur={() => { if (isEdit) handleUpdateCourse(); }}
+                                            placeholder="Course title"
+                                            minHeight={44}
+                                            compact
+                                        />
+                                    </div>
                                 </div>
-                                <div style={{ flex: 1, minWidth: 160 }}>
-                                    <RichEditor
-                                        value={description}
-                                        onChange={setDescription}
-                                        onBlur={() => { if (isEdit) handleUpdateCourse(); }}
-                                        placeholder="Description (optional)"
-                                        minHeight={56}
-                                        compact
-                                    />
+                                <div style={{ flex: 2, minWidth: 220 }}>
+                                    <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#6366f1', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Description</label>
+                                    <div style={{ borderRadius: 9, border: '1px solid rgba(255,255,255,0.09)', background: 'rgba(255,255,255,0.02)', overflow: 'hidden' }}>
+                                        <RichEditor
+                                            value={description}
+                                            onChange={setDescription}
+                                            onBlur={() => { if (isEdit) handleUpdateCourse(); }}
+                                            placeholder="Description (optional)"
+                                            minHeight={56}
+                                            compact
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Curriculum editor */}
                             <CurriculumEditor courseId={courseId} userId={userId} onCoursesChange={onSaved} />
 
-                            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                                {!isEdit && <button type="button" onClick={() => setStep(1)} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: 'var(--text-muted)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>← Back</button>}
-                                <button type="button" onClick={() => { onSaved(); onClose(); }} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: '#6366f1', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Done</button>
+                            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                                {!isEdit && <button type="button" onClick={() => setStep(1)} style={{ padding: '10px 20px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: '#6b7fa3', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>← Back</button>}
+                                <button type="button" onClick={() => { onSaved(); onClose(); }} style={{ padding: '10px 28px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.02em', boxShadow: '0 4px 14px rgba(99,102,241,0.4)' }}>Done ✓</button>
                             </div>
                         </div>
                     )}
