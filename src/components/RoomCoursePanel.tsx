@@ -50,21 +50,22 @@ interface Props {
     snapshotDataUrl?: string | null;
 }
 
-type DrawTool = 'pen' | 'highlight' | 'eraser' | 'text' | 'circle' | 'rect' | 'square' | 'arrow';
+type DrawTool = 'pen' | 'highlight' | 'eraser' | 'text' | 'circle' | 'rect' | 'square' | 'arrow' | 'line';
 
 const DRAW_COLORS = ['#ff4444', '#ff9900', '#ffdd00', '#44ff88', '#00ccff', '#ffffff'];
 const TOOL_SIZES: Record<string, number> = { S: 0.6, M: 1, L: 2 };
-const SHAPE_TOOLS = ['circle', 'rect', 'square', 'arrow'];
+const SHAPE_TOOLS = ['circle', 'rect', 'square', 'arrow', 'line'];
 
 const TOOL_DEFS: { id: DrawTool; icon: string; tip: string; cursor: string }[] = [
     { id: 'pen',       icon: '✏',  tip: 'Pen',        cursor: 'crosshair' },
     { id: 'highlight', icon: '▌',  tip: 'Highlight',  cursor: 'crosshair' },
     { id: 'text',      icon: 'T',  tip: 'Text',       cursor: 'text'      },
+    { id: 'eraser',    icon: '◻',  tip: 'Eraser',     cursor: 'cell'      },
     { id: 'arrow',     icon: '↗',  tip: 'Arrow',      cursor: 'crosshair' },
+    { id: 'line',      icon: '/',  tip: 'Line',       cursor: 'crosshair' },
     { id: 'circle',    icon: '○',  tip: 'Circle',     cursor: 'crosshair' },
     { id: 'rect',      icon: '▭',  tip: 'Rectangle',  cursor: 'crosshair' },
     { id: 'square',    icon: '□',  tip: 'Square',     cursor: 'crosshair' },
-    { id: 'eraser',    icon: '◻',  tip: 'Eraser',     cursor: 'cell'      },
 ];
 
 // ── Canvas drawing helper ──────────────────────────────────────────────────
@@ -84,6 +85,10 @@ function drawOnCanvas(ctx: CanvasRenderingContext2D, seg: DrawSeg, w: number, h:
     } else if (seg.mode === 'highlight') {
         ctx.globalCompositeOperation = 'source-over';
         ctx.globalAlpha = 0.35; ctx.strokeStyle = seg.color; ctx.lineWidth = seg.size * 20;
+        ctx.beginPath(); ctx.moveTo(seg.x1 * w, seg.y1 * h); ctx.lineTo(seg.x2 * w, seg.y2 * h); ctx.stroke();
+    } else if (seg.mode === 'line') {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1; ctx.strokeStyle = seg.color; ctx.lineWidth = seg.size * 2.5;
         ctx.beginPath(); ctx.moveTo(seg.x1 * w, seg.y1 * h); ctx.lineTo(seg.x2 * w, seg.y2 * h); ctx.stroke();
     } else if (seg.mode === 'circle') {
         ctx.globalCompositeOperation = 'source-over';
@@ -709,51 +714,78 @@ export default function RoomCoursePanel({
                         </>
                     )}
 
-                    {/* Annotation toolbar — teacher only, draggable, hover to expand */}
+                    {/* Annotation toolbar — teacher only, always visible, 2-column grid */}
                     {isTeacher && (
-                        <div
-                            ref={toolbarRef}
-                            onMouseEnter={() => setToolbarExpanded(true)}
-                            onMouseLeave={() => setToolbarExpanded(false)}
-                            style={{ position: 'absolute', ...(toolbarPos ? { left: toolbarPos.x, top: toolbarPos.y } : { right: 6, top: '50%', transform: 'translateY(-50%)' }), zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'rgba(10,10,20,0.92)', backdropFilter: 'blur(10px)', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 14, padding: toolbarExpanded ? '7px 5px' : '5px 5px', boxShadow: '0 6px 24px rgba(0,0,0,0.5)', overflow: 'hidden', transition: 'padding 0.18s', maxHeight: toolbarExpanded ? 'calc(100% - 24px)' : 'auto', overflowY: toolbarExpanded ? 'auto' : 'hidden', overflowX: 'hidden' }}>
-                            <div onMouseDown={onBarDragStart} title="Drag toolbar" style={{ cursor: 'grab', color: 'rgba(255,255,255,0.3)', fontSize: 13, padding: '2px 4px', userSelect: 'none', lineHeight: 1, letterSpacing: 1 }}>⠿</div>
-                            {/* Collapsed indicator: active color dot + ephemeral indicator */}
-                            {!toolbarExpanded && (
-                                <>
-                                    <div style={{ width: 14, height: 14, borderRadius: '50%', background: drawColor, border: '2px solid rgba(255,255,255,0.3)', marginBottom: 2, flexShrink: 0 }} />
-                                    {ephemeralMode && <div style={{ fontSize: 11, lineHeight: 1 }}>💨</div>}
-                                </>
-                            )}
-                            {/* Expanded: full toolbar */}
-                            {toolbarExpanded && (<>
-                            <div style={{ width: 20, height: 1, background: 'rgba(255,255,255,0.12)' }} />
-                            <button onMouseDown={e => { e.preventDefault(); setEphemeralMode(v => !v); }} title={ephemeralMode ? 'Ephemeral ON — strokes vanish' : 'Ephemeral OFF — strokes persist'}
-                                style={{ width: 30, height: 30, borderRadius: 7, border: 'none', background: ephemeralMode ? 'rgba(251,146,60,0.35)' : 'transparent', color: ephemeralMode ? '#fb923c' : 'var(--text-muted)', fontSize: 14, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: ephemeralMode ? '0 0 0 1.5px #fb923c' : 'none', transition: 'all 0.15s' }}
-                                onMouseEnter={e => { if (!ephemeralMode) e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
-                                onMouseLeave={e => { if (!ephemeralMode) e.currentTarget.style.background = 'transparent'; }}>💨</button>
-                            <div style={{ width: 20, height: 1, background: 'rgba(255,255,255,0.12)' }} />
-                            {TOOL_DEFS.map(({ id, icon, tip }) => (
-                                <button key={id} onClick={() => setDrawTool(drawTool === id ? null : id)} title={tip}
-                                    style={{ width: 30, height: 30, borderRadius: 7, border: 'none', background: drawTool === id ? 'rgba(99,102,241,0.6)' : 'transparent', color: drawTool === id ? '#a5b4fc' : 'var(--text-muted)', fontSize: id === 'text' ? 12 : 14, fontWeight: id === 'text' ? 700 : 400, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s', flexShrink: 0 }}
-                                    onMouseEnter={e => { if (drawTool !== id) e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
-                                    onMouseLeave={e => { if (drawTool !== id) e.currentTarget.style.background = 'transparent'; }}>{icon}</button>
-                            ))}
-                            <div style={{ width: 20, height: 1, background: 'rgba(255,255,255,0.12)' }} />
-                            {DRAW_COLORS.map(c => (
-                                <button key={c} onClick={() => setDrawColor(c)} title={c}
-                                    style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${drawColor === c ? '#fff' : 'transparent'}`, background: c, cursor: 'pointer', padding: 0, flexShrink: 0, transition: 'border-color 0.15s' }} />
-                            ))}
-                            <div style={{ width: 20, height: 1, background: 'rgba(255,255,255,0.12)' }} />
-                            {(['S', 'M', 'L'] as const).map(s => (
-                                <button key={s} onClick={() => setDrawSizeKey(s)} title={s === 'S' ? 'Small' : s === 'M' ? 'Medium' : 'Large'}
-                                    style={{ width: 26, height: 20, borderRadius: 5, border: 'none', background: drawSizeKey === s ? 'rgba(99,102,241,0.5)' : 'transparent', color: drawSizeKey === s ? '#a5b4fc' : 'var(--text-muted)', fontSize: 10, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>{s}</button>
-                            ))}
-                            <div style={{ width: 20, height: 1, background: 'rgba(255,255,255,0.12)' }} />
-                            <button onClick={handleClear} title="Clear annotations"
-                                style={{ width: 30, height: 30, borderRadius: 7, border: 'none', background: 'transparent', color: '#f87171', fontSize: 14, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s' }}
-                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(248,113,113,0.18)'; }}
-                                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>🗑</button>
-                            </>)}
+                        <div ref={toolbarRef} style={{
+                            position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+                            zIndex: 20, background: 'rgba(10,10,20,0.92)', backdropFilter: 'blur(10px)',
+                            border: '1px solid rgba(99,102,241,0.35)', borderRadius: 14,
+                            padding: '8px 6px', boxShadow: '0 6px 24px rgba(0,0,0,0.5)',
+                            display: 'flex', flexDirection: 'column', gap: 6,
+                        }}>
+                            {/* ── Tools: 2-column grid ── */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 30px)', gap: 4 }}>
+                                {TOOL_DEFS.map(({ id, icon, tip }) => (
+                                    <button key={id} onClick={() => setDrawTool(drawTool === id ? null : id)} title={tip}
+                                        style={{ width: 30, height: 30, borderRadius: 7, border: 'none',
+                                            background: drawTool === id ? 'rgba(99,102,241,0.6)' : 'transparent',
+                                            color: drawTool === id ? '#a5b4fc' : 'var(--text-muted)',
+                                            fontSize: id === 'text' ? 12 : 14, fontWeight: id === 'text' ? 700 : 400,
+                                            cursor: 'pointer', display: 'flex', alignItems: 'center',
+                                            justifyContent: 'center', transition: 'background 0.15s' }}
+                                        onMouseEnter={e => { if (drawTool !== id) e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+                                        onMouseLeave={e => { if (drawTool !== id) e.currentTarget.style.background = 'transparent'; }}>{icon}</button>
+                                ))}
+                            </div>
+
+                            <div style={{ height: 1, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />
+
+                            {/* ── Colors: 2-column grid ── */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 5, justifyItems: 'center' }}>
+                                {DRAW_COLORS.map(c => (
+                                    <button key={c} onClick={() => setDrawColor(c)} title={c}
+                                        style={{ width: 18, height: 18, borderRadius: '50%',
+                                            border: `2px solid ${drawColor === c ? '#fff' : 'transparent'}`,
+                                            background: c, cursor: 'pointer', padding: 0, transition: 'border-color 0.15s',
+                                            boxShadow: drawColor === c ? `0 0 0 1px ${c}` : 'none' }} />
+                                ))}
+                            </div>
+
+                            <div style={{ height: 1, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />
+
+                            {/* ── Sizes: row of 3 ── */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3 }}>
+                                {(['S', 'M', 'L'] as const).map(s => (
+                                    <button key={s} onClick={() => setDrawSizeKey(s)} title={s === 'S' ? 'Small' : s === 'M' ? 'Medium' : 'Large'}
+                                        style={{ height: 22, borderRadius: 5, border: 'none',
+                                            background: drawSizeKey === s ? 'rgba(99,102,241,0.5)' : 'transparent',
+                                            color: drawSizeKey === s ? '#a5b4fc' : 'var(--text-muted)',
+                                            fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{s}</button>
+                                ))}
+                            </div>
+
+                            <div style={{ height: 1, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />
+
+                            {/* ── Ephemeral + Clear: 2-column ── */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 30px)', gap: 4 }}>
+                                <button onMouseDown={e => { e.preventDefault(); setEphemeralMode(v => !v); }}
+                                    title={ephemeralMode ? 'Laser mode ON (strokes vanish)' : 'Laser mode OFF'}
+                                    style={{ width: 30, height: 30, borderRadius: 7, border: 'none',
+                                        background: ephemeralMode ? 'rgba(251,146,60,0.35)' : 'transparent',
+                                        color: ephemeralMode ? '#fb923c' : 'var(--text-muted)',
+                                        fontSize: 14, cursor: 'pointer', display: 'flex',
+                                        alignItems: 'center', justifyContent: 'center',
+                                        boxShadow: ephemeralMode ? '0 0 0 1.5px #fb923c' : 'none', transition: 'all 0.15s' }}
+                                    onMouseEnter={e => { if (!ephemeralMode) e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+                                    onMouseLeave={e => { if (!ephemeralMode) e.currentTarget.style.background = 'transparent'; }}>💨</button>
+                                <button onClick={handleClear} title="Clear all annotations"
+                                    style={{ width: 30, height: 30, borderRadius: 7, border: 'none',
+                                        background: 'transparent', color: '#f87171', fontSize: 14,
+                                        cursor: 'pointer', display: 'flex', alignItems: 'center',
+                                        justifyContent: 'center', transition: 'background 0.15s' }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(248,113,113,0.18)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>🗑</button>
+                            </div>
                         </div>
                     )}
                 </div>
