@@ -208,7 +208,7 @@ function QuizModal({ quizId, userId, userName, onClose }: {
                     {phase === 'taking' && quiz && currentQ && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                             {/* Single question card with slide animation */}
-                            <div key={animKey} style={{ padding: '20px 22px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.09)', background: 'rgba(255,255,255,0.03)', animation: `${slideDir === 'right' ? 'slideInRight' : 'slideInLeft'} 0.3s cubic-bezier(0.22,1,0.36,1) both` }}>
+                            <div key={animKey} style={{ padding: '20px 22px', borderRadius: 14, border: '1px solid rgba(34,197,94,0.4)', background: 'linear-gradient(135deg, #1e1b4b 0%, #1e3a5f 50%, #1d2e5e 100%)', boxShadow: '0 4px 20px rgba(99,102,241,0.18), 0 2px 6px rgba(0,0,0,0.2)', animation: `${slideDir === 'right' ? 'slideInRight' : 'slideInLeft'} 0.3s cubic-bezier(0.22,1,0.36,1) both` }}>
                                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 16 }}>
                                     <span style={{ minWidth: 28, height: 28, borderRadius: '50%', background: 'rgba(99,102,241,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#a5b4fc', flexShrink: 0 }}>{currentQIdx + 1}</span>
                                     <div style={{ fontSize: 15, color: '#e2e8f0', lineHeight: 1.65, fontWeight: 500 }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(currentQ.question_text) }} />
@@ -378,7 +378,7 @@ export default function CourseViewer({ course, userId, userName, onClose }: Prop
                                     const isOpen = expandedTopics.has(topic.id);
                                     const count = topic.lessons.length + topic.quizzes.length + topic.assignments.length;
                                     return (
-                                        <div key={topic.id} style={{ background: '#1c1f30', borderRadius: 12, border: '1px solid rgba(99,102,241,0.2)', overflow: 'hidden' }}>
+                                        <div key={topic.id} className="hover-card" style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #1e3a5f 50%, #1d2e5e 100%)', borderRadius: 14, border: '1px solid rgba(34,197,94,0.4)', boxShadow: '0 4px 20px rgba(99,102,241,0.18), 0 2px 6px rgba(0,0,0,0.2)', overflow: 'hidden' }}>
                                             {/* Topic header */}
                                             <button type="button" onClick={() => toggleTopic(topic.id)}
                                                 style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px', background: 'rgba(99,102,241,0.07)', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
@@ -402,7 +402,7 @@ export default function CourseViewer({ course, userId, userName, onClose }: Prop
                                                                         const isLOpen = expandedLessonId === lesson.id;
                                                                         const icon = lesson.lesson_type === 'video' ? '🎬' : lesson.lesson_type === 'audio' ? '🎵' : lesson.lesson_type === 'image' ? '🖼️' : '📄';
                                                                         return (
-                                                                            <div key={lesson.id} style={{ borderRadius: 9, border: '1px solid rgba(255,255,255,0.07)', overflow: 'hidden', background: 'rgba(255,255,255,0.02)' }}>
+                                                                            <div key={lesson.id} className="hover-card" style={{ borderRadius: 12, border: '1px solid rgba(34,197,94,0.25)', overflow: 'hidden', background: 'rgba(30,27,75,0.5)', boxShadow: '0 2px 10px rgba(99,102,241,0.10)' }}>
                                                                                 <button type="button" onClick={() => setExpandedLessonId(isLOpen ? null : lesson.id)}
                                                                                     style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '10px 13px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
                                                                                     <span style={{ fontSize: 13 }}>{icon}</span>

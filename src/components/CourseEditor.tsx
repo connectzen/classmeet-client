@@ -114,9 +114,9 @@ function SortableLessonCard({
 
     return (
         <div ref={setNodeRef} style={style} className="lesson-card" data-lesson-id={lesson.id}>
-            <div style={{
-                padding: 14, background: 'rgba(255,255,255,0.04)', borderRadius: 12,
-                border: '1px solid rgba(255,255,255,0.08)',
+            <div className="hover-card" style={{
+                padding: 14, background: 'linear-gradient(135deg, #1e1b4b 0%, #1e3a5f 50%, #1d2e5e 100%)', borderRadius: 14,
+                border: '1px solid rgba(34,197,94,0.4)', boxShadow: '0 4px 20px rgba(99,102,241,0.18), 0 2px 6px rgba(0,0,0,0.2)',
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <div
