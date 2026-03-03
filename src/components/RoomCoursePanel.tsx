@@ -126,7 +126,10 @@ function drawOnCanvas(ctx: CanvasRenderingContext2D, seg: DrawSeg, w: number, h:
         ctx.globalCompositeOperation = 'source-over';
         ctx.globalAlpha = 1; ctx.fillStyle = seg.color;
         ctx.font = `bold ${Math.round(15 * seg.size)}px sans-serif`;
-        ctx.fillText(seg.text || '', seg.x1 * w, seg.y1 * h);
+        ctx.textBaseline = 'top';
+        const lines = (seg.text || '').split('\n');
+        const lineH = Math.round(15 * seg.size) * 1.4;
+        lines.forEach((line, i) => ctx.fillText(line, seg.x1 * w, seg.y1 * h + i * lineH));
     }
     ctx.restore();
 }
@@ -567,7 +570,7 @@ export default function RoomCoursePanel({
         const c = canvasRef.current;
         if (!c) return;
         const r = c.getBoundingClientRect();
-        setTextInput({ vx: e.clientX, vy: e.clientY, cx: (e.clientX - r.left) / c.width, cy: (e.clientY - r.top) / c.height });
+        setTextInput({ vx: e.clientX, vy: e.clientY, cx: (e.clientX - r.left) / r.width, cy: (e.clientY - r.top) / r.height });
     }, [drawTool]);
 
     const commitText = useCallback((text: string, cx: number, cy: number) => {
