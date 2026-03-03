@@ -845,7 +845,7 @@ export default function RoomCoursePanel({
 
                             <div style={{ height: 1, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />
 
-                            {/* ── Sizes: row of 3 ── */
+                            {/* ── Sizes: row of 3 ── */}
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3 }}>
                                 {(['S', 'M', 'L'] as const).map(s => (
                                     <button key={s} onClick={() => setDrawSizeKey(s)} title={s === 'S' ? 'Small' : s === 'M' ? 'Medium' : 'Large'}
