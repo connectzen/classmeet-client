@@ -661,9 +661,9 @@ export default function RoomCoursePanel({
                             attached to the document content and scroll with it. */}
                         <canvas ref={canvasRef}
                             onClick={drawActive ? onCanvasClick : undefined}
-                            style={{ position: 'absolute', top: 0, left: 0, pointerEvents: drawActive ? 'auto' : 'none', cursor: drawActive ? cursor : 'default', zIndex: 5 }} />
+                            style={{ position: 'absolute', top: 0, left: 0, pointerEvents: drawActive ? 'auto' : 'none', cursor: drawActive ? cursor : 'default', zIndex: 15 }} />
                         <canvas ref={previewRef}
-                            style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 6 }} />
+                            style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 16 }} />
 
                         {/* Teacher cursor dot — visible to students in real time */}
                         {!isTeacher && teacherCursor && (

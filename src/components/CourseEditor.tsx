@@ -419,7 +419,7 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
                 background: 'var(--surface-2, #18181f)',
                 borderRadius: 16,
                 width: '100%',
-                maxWidth: step === 2 ? 760 : 560,
+                maxWidth: step === 2 ? 1000 : 900,
                 boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
                 border: '1px solid rgba(99,102,241,0.2)',
                 transition: 'max-width 0.25s ease',

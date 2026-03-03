@@ -801,19 +801,18 @@ export function RoomQuizHost({
                             return (
                                 <button
                                     key={q.id}
-                                    onClick={() => { if (!isDone) setQueueIndex(i); }}
-                                    disabled={isDone}
+                                    onClick={() => setQueueIndex(i)}
                                     style={{
                                         padding: '10px 14px', borderRadius: 10, border: 'none', textAlign: 'left',
                                         background: isDone ? 'rgba(34,197,94,0.08)' : isCurrent ? 'rgba(99,102,241,0.18)' : 'var(--surface-3)',
                                         outline: isCurrent ? '1px solid rgba(99,102,241,0.5)' : '1px solid var(--border)',
-                                        opacity: isDone ? 0.55 : 1,
+                                        opacity: 1,
                                         display: 'flex', alignItems: 'center', gap: 10,
-                                        cursor: isDone ? 'default' : 'pointer',
+                                        cursor: 'pointer',
                                         transition: 'background 0.15s, outline 0.15s',
                                     }}
-                                    onMouseEnter={e => { if (!isDone && !isCurrent) (e.currentTarget as HTMLElement).style.background = 'rgba(99,102,241,0.1)'; }}
-                                    onMouseLeave={e => { if (!isDone && !isCurrent) (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; }}
+                                    onMouseEnter={e => { if (!isCurrent) (e.currentTarget as HTMLElement).style.background = isDone ? 'rgba(34,197,94,0.14)' : 'rgba(99,102,241,0.1)'; }}
+                                    onMouseLeave={e => { if (!isCurrent) (e.currentTarget as HTMLElement).style.background = isDone ? 'rgba(34,197,94,0.08)' : 'var(--surface-3)'; }}
                                 >
                                     <span style={{ fontSize: 14, minWidth: 20, flexShrink: 0 }}>
                                         {isDone ? '✓' : isCurrent ? '▶' : `${i + 1}.`}

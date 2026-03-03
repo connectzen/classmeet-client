@@ -1290,9 +1290,9 @@ function QuizProgressTile({ entry, questions, onClick }: {
                     {answer}
                 </div>
             ) : currentQ?.type === 'recording' ? (
-                <div style={{ fontSize: 12, color: '#f59e0b', background: 'rgba(245,158,11,0.08)', borderRadius: 6, padding: '4px 8px' }}>🎙️ Recording in progress…</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic', borderRadius: 6, padding: '4px 8px' }}>⌛ Awaiting recording…</div>
             ) : currentQ?.type === 'upload' || currentQ?.type === 'video' ? (
-                <div style={{ fontSize: 12, color: '#f59e0b', background: 'rgba(245,158,11,0.08)', borderRadius: 6, padding: '4px 8px' }}>📎 File upload in progress…</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic', borderRadius: 6, padding: '4px 8px' }}>⌛ Awaiting file upload…</div>
             ) : (
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>No answer yet…</div>
             )}
@@ -1349,7 +1349,7 @@ function QuizProgressFull({ entry, questions, onClose }: {
                                 <div style={{ fontSize: 12, color: answered ? '#a5b4fc' : 'var(--text-muted)', background: answered ? 'rgba(99,102,241,0.12)' : 'transparent', borderRadius: 5, padding: '3px 8px', marginLeft: 30, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{answerDisplay}</div>
                             ) : isCurrent && isMediaType ? (
                                 <div style={{ fontSize: 12, color: '#f59e0b', background: 'rgba(245,158,11,0.1)', borderRadius: 5, padding: '3px 8px', marginLeft: 30 }}>
-                                    {q.type === 'recording' ? '🎙️ Recording in progress…' : '📎 Uploading file…'}
+                                    {q.type === 'recording' ? '⌛ Awaiting recording…' : '⌛ Awaiting file upload…'}
                                 </div>
                             ) : (
                                 <div style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', marginLeft: 30 }}>No answer yet</div>

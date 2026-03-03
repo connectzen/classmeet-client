@@ -1012,7 +1012,7 @@ function QuestionForm({ quizId, question, parentQuestionId, onSaved, onCancel }:
                             padding: '6px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
                             border: '1.5px solid', cursor: 'pointer',
                             borderColor: type === t ? 'var(--primary)' : 'var(--border)',
-                            background: type === t ? 'rgba(99,102,241,0.15)' : 'var(--surface-3)',
+                            background: type === t ? 'rgba(99,102,241,0.15)' : 'transparent',
                             color: type === t ? 'var(--primary)' : 'var(--text-muted)',
                         }}
                     >
