@@ -76,7 +76,7 @@ function SortableLessonCard({
 
     return (
         <div ref={setNodeRef} style={dragStyle}>
-            <div style={expanded ? { background: 'transparent', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden', boxShadow: 'none' } : { background: 'linear-gradient(135deg, #13123a 0%, #1e1c52 50%, #161445 100%)', borderRadius: 12, border: '1px solid rgba(99,102,241,0.55)', overflow: 'hidden', boxShadow: '0 2px 14px rgba(99,102,241,0.22)' }}>
+            <div style={expanded ? { background: 'transparent', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden', boxShadow: 'none' } : { background: 'linear-gradient(135deg, #1f1508 0%, #2e1f0a 60%, #1a1206 100%)', borderRadius: 12, border: '1px solid #fb923c', overflow: 'hidden', boxShadow: '0 2px 16px rgba(251,146,60,0.25)' }}>
                 {/* Row */}
                 <div
                     onClick={!editingLessonTitle ? onToggleExpand : undefined}
