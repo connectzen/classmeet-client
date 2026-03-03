@@ -873,13 +873,13 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
 
                     {user && (
                         <>
-                        {userRole !== 'teacher' && (
+                        {userRole !== 'teacher' && userRole !== 'student' && (
                             <p className="hero-subtitle">
                                 {userRole === 'member'
                                     ? 'Manage your courses, quizzes, and invite links below.'
                                     : userRole === 'pending'
                                     ? 'Your account is pending admin approval.'
-                                    : 'Your enrolled classes are below. Join any live class or enter a code.'}
+                                    : ''}
                             </p>
                         )}
                         {/* Resume session banner */}
