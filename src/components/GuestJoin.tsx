@@ -67,7 +67,7 @@ export default function GuestJoin({ code, onJoin }: Props) {
     };
 
     return (
-        <div style={{ minHeight: '100vh', background: 'var(--bg, #0a0a0f)', display: 'flex', flexDirection: 'column', fontFamily: 'inherit' }}>
+        <div style={{ minHeight: '100vh', background: 'var(--bg, #13151f)', display: 'flex', flexDirection: 'column', fontFamily: 'inherit' }}>
 
             {/* ── Decorative orbs ── */}
             <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
@@ -111,7 +111,7 @@ export default function GuestJoin({ code, onJoin }: Props) {
                 )}
 
                 {!loading && (error || !session) && (
-                    <div style={{ maxWidth: 400, width: '100%', background: 'var(--surface-2, #13131a)', borderRadius: 20, border: '1px solid rgba(239,68,68,0.3)', padding: 40, textAlign: 'center', boxShadow: '0 8px 40px rgba(0,0,0,0.4)' }}>
+                    <div style={{ maxWidth: 400, width: '100%', background: 'var(--surface-2, #242840)', borderRadius: 20, border: '1px solid rgba(239,68,68,0.3)', padding: 40, textAlign: 'center', boxShadow: '0 8px 40px rgba(0,0,0,0.3)' }}>
                         <div style={{ fontSize: 52, marginBottom: 16 }}>⚠️</div>
                         <h2 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 800, color: 'var(--text, #e8e8f0)' }}>Invalid or expired link</h2>
                         <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted, #64748b)' }}>{error || 'This session link is no longer valid.'}</p>
@@ -129,7 +129,7 @@ export default function GuestJoin({ code, onJoin }: Props) {
                         </div>
 
                         {/* Name input */}
-                        <div style={{ background: 'var(--surface, #13131a)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: '20px 24px', boxShadow: '0 4px 24px rgba(0,0,0,0.3)' }}>
+                        <div style={{ background: 'var(--surface, #1c1f2e)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 16, padding: '20px 24px', boxShadow: '0 4px 24px rgba(0,0,0,0.2)' }}>
                             <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#94a3b8', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
                                 Your name
                             </label>

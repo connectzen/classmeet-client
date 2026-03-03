@@ -203,7 +203,7 @@ export default function QuizDrawer({ userId, userName, userRole, open, onClose, 
                 transform: open ? 'translate(-50%, -50%) scale(1)' : 'translate(-50%, -50%) scale(0.95)',
                 width: 'min(720px, 94vw)',
                 maxHeight: '90vh',
-                background: 'linear-gradient(180deg, #1e1b4b 0%, #0f172a 100%)',
+                background: 'linear-gradient(180deg, #2c2b5c 0%,#1a1f38 100%)',
                 border: '1px solid rgba(99,102,241,0.3)',
                 borderRadius: 16,
                 zIndex: 1000,
@@ -1938,7 +1938,7 @@ function QuizDone({ quiz, score, onBack }: { quiz: Quiz; score: number | null; o
     return (
         <div style={{
             position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 9999,
-            background: '#0f172a', display: 'flex', flexDirection: 'column',
+            background: '#1a1f38', display: 'flex', flexDirection: 'column',
             alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 32,
             boxSizing: 'border-box',
         }}>

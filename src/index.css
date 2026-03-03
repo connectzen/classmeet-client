@@ -6,15 +6,15 @@
    DESIGN TOKENS
 ───────────────────────────────────────────── */
 :root {
-  --bg: #0a0a0f;
-  --surface: #111118;
-  --surface-2: #18181f;
-  --surface-3: #1e1e28;
-  --surface-hover: #1a1a24;
-  --border: rgba(255, 255, 255, 0.07);
-  --border-hover: rgba(255, 255, 255, 0.14);
-  --text: #e8e8f0;
-  --text-muted: #7b7b99;
+  --bg: #13151f;
+  --surface: #1c1f2e;
+  --surface-2: #242840;
+  --surface-3: #2c3050;
+  --surface-hover: #202438;
+  --border: rgba(255, 255, 255, 0.10);
+  --border-hover: rgba(255, 255, 255, 0.18);
+  --text: #eaeaf5;
+  --text-muted: #8b92b8;
   --primary: #6366f1;
   --primary-hover: #4f52d9;
   --secondary: #8b5cf6;
@@ -31,11 +31,11 @@
   --r-lg: 20px;
   --r-xl: 28px;
   --r: var(--r-md);
-  --shadow-card: 0 8px 40px rgba(0, 0, 0, 0.6);
-  --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.2);
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 8px 40px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.25);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.45);
   --shadow-primary: 0 4px 20px rgba(99, 102, 241, 0.35);
   --shadow-primary-lg: 0 8px 30px rgba(99, 102, 241, 0.5);
   --t: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
