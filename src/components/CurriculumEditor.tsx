@@ -96,7 +96,7 @@ function SortableLessonCard({
                                 if (e.key === 'Escape') { setEditingLessonTitle(false); setLessonTitleVal(lesson.title); }
                             }}
                             onClick={e => e.stopPropagation()}
-                            style={{ flex: 1, minWidth: 60, padding: '5px 10px', borderRadius: 7, border: '1px solid rgba(99,102,241,0.55)', background: 'rgba(99,102,241,0.08)', color: '#e2e8f0', fontSize: 13, outline: 'none' }}
+                            style={{ flex: 1, minWidth: 60, padding: '5px 10px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.12)', background: '#000', color: '#e2e8f0', fontSize: 13, outline: 'none' }}
                         />
                     ) : (
                         <span
