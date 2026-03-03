@@ -284,7 +284,7 @@ function SizeDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
             </button>
             {open && (
                 <div onMouseLeave={onLeave} onWheel={e => e.stopPropagation()}
-                    style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9001, background: '#241530', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 72, padding: '4px 0', maxHeight: 280, overflowY: 'auto' }}>
+                    style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9001, background: '#1e2132', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 72, padding: '4px 0', maxHeight: 280, overflowY: 'auto' }}>
                     <div onMouseDown={e => e.preventDefault()} onMouseEnter={() => onHover('')} onClick={() => onSelect('')}
                         style={{ padding: '5px 16px', cursor: 'pointer', fontSize: 12, color: !current ? '#a5b4fc' : '#64748b', fontWeight: !current ? 600 : 400 }}>Default</div>
                     {SIZES.map(size => (
@@ -341,7 +341,7 @@ function FontDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
             </button>
             {open && (
                 <div onMouseLeave={onLeave} onWheel={e => e.stopPropagation()}
-                    style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9001, background: '#241530', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 190, padding: '4px 0', maxHeight: 300, overflowY: 'auto' }}>
+                    style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9001, background: '#1e2132', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 190, padding: '4px 0', maxHeight: 300, overflowY: 'auto' }}>
                     {FONTS.map(font => (
                         <div key={font.value} onMouseDown={e => e.preventDefault()} onMouseEnter={() => onHover(font.value)} onClick={() => onSelect(font.value)}
                             style={{ padding: '8px 16px', cursor: 'pointer', fontFamily: font.value || 'inherit', fontSize: 13, color: currentFont === font.value ? '#a5b4fc' : '#e2e8f0', background: currentFont === font.value ? 'rgba(99,102,241,0.12)' : 'transparent', fontWeight: currentFont === font.value ? 600 : 400 }}>

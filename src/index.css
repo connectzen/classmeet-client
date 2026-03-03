@@ -7,14 +7,14 @@
 ───────────────────────────────────────────── */
 :root {
   --bg: #1c1020;
-  --surface: #241628;
-  --surface-2: #2e1d35;
-  --surface-3: #3a2244;
-  --surface-hover: #2a1b30;
-  --border: rgba(255, 200, 220, 0.10);
-  --border-hover: rgba(255, 200, 220, 0.20);
+  --surface: #1c1f2e;
+  --surface-2: #242840;
+  --surface-3: #2c3050;
+  --surface-hover: #202438;
+  --border: rgba(255, 255, 255, 0.10);
+  --border-hover: rgba(255, 255, 255, 0.18);
   --text: #f0eaf5;
-  --text-muted: #a888b8;
+  --text-muted: #8b92b8;
   --primary: #6366f1;
   --primary-hover: #4f52d9;
   --secondary: #8b5cf6;
