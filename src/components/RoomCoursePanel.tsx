@@ -626,7 +626,7 @@ export default function RoomCoursePanel({
                         overflowX:auto lets small screens scroll horizontally to see the
                         full 640px content — this is what keeps the layout consistent. */}
                     <div ref={contentRef} onScroll={isTeacher ? handleScroll : undefined}
-                        style={{ width: '100%', height: '100%', overflowY: isTeacher ? 'auto' : 'hidden', overflowX: 'auto', position: 'relative', userSelect: drawActive ? 'none' : 'text' }}>
+                        style={{ width: '100%', maxWidth: CANVAS_W, height: '100%', overflowY: isTeacher ? 'auto' : 'hidden', overflowX: 'auto', position: 'relative', userSelect: drawActive ? 'none' : 'text' }}>
 
                         {/* Lesson content — fixed at exactly CANVAS_W (640 px).
                             Teacher on 1400px panel and student on 360px phone both
@@ -746,16 +746,11 @@ export default function RoomCoursePanel({
                 </div>
             </div>
 
-            {/* Floating text input */}
+            {/* Floating text input — minimal, no background, just a cursor */}
             {textInput && (
-                <div style={{ position: 'fixed', left: Math.min(textInput.vx, window.innerWidth - 280), top: Math.min(textInput.vy, window.innerHeight - 140), zIndex: 9999, width: 260, background: 'rgba(10,10,22,0.97)', border: `2px solid ${drawColor}`, borderRadius: 12, boxShadow: `0 0 0 1px ${drawColor}40, 0 8px 32px rgba(0,0,0,0.7)`, backdropFilter: 'blur(16px)', overflow: 'hidden' }}>
-                    <div style={{ padding: '6px 12px', borderBottom: `1px solid ${drawColor}40`, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: drawColor, display: 'inline-block', flexShrink: 0 }} />
-                        <span style={{ fontSize: 10, fontWeight: 700, color: drawColor, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Text Annotation</span>
-                        <span style={{ marginLeft: 'auto', fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>Enter ↵ to place</span>
-                    </div>
-                    <textarea autoFocus rows={3} placeholder="Type your annotation…"
-                    style={{ display: 'block', width: '100%', background: 'transparent', color: drawColor, border: 'none', padding: '10px 12px', fontSize: Math.round(14 * TOOL_SIZES[drawSizeKey]), fontFamily: 'sans-serif', fontWeight: 700, outline: 'none', resize: 'none', boxSizing: 'border-box', lineHeight: 1.5, caretColor: drawColor }}
+                <div style={{ position: 'fixed', left: Math.min(textInput.vx, window.innerWidth - 260), top: Math.min(textInput.vy, window.innerHeight - 60), zIndex: 9999, width: 240, background: 'transparent', border: 'none', padding: 0 }}>
+                    <textarea autoFocus rows={2} placeholder=""
+                    style={{ display: 'block', width: '100%', background: 'transparent', color: drawColor, border: 'none', borderBottom: `1.5px solid ${drawColor}80`, padding: '2px 0', fontSize: Math.round(14 * TOOL_SIZES[drawSizeKey]), fontFamily: 'sans-serif', fontWeight: 700, outline: 'none', resize: 'none', boxSizing: 'border-box', lineHeight: 1.4, caretColor: drawColor, letterSpacing: '0.01em' }}
                     onChange={e => {
                         // Stream typed text to students in real time
                         const { drawSizeKey: sk, drawColor: dc } = drawState.current;
