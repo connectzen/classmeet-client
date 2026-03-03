@@ -21,7 +21,7 @@ interface CourseData {
 export interface DrawSeg {
     x1: number; y1: number; x2: number; y2: number;
     color: string; size: number;
-    mode: 'pen' | 'highlight' | 'eraser' | 'circle' | 'rect' | 'square' | 'text' | 'arrow';
+    mode: 'pen' | 'highlight' | 'eraser' | 'circle' | 'rect' | 'square' | 'text' | 'arrow' | 'line';
     text?: string;
 }
 
