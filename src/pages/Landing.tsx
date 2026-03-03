@@ -1485,35 +1485,14 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
 
                                     {/* ── Published Courses from Teachers ── */}
                                     {(loadingStudentCourses || studentPublishedCourses.length > 0) && (
-                                        <div style={{ marginTop: 24 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                                                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em' }}>📚 Courses from Your Teachers</span>
-                                                {!loadingStudentCourses && <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 20, height: 18, borderRadius: 100, padding: '0 6px', fontSize: 11, fontWeight: 700, background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.35)', color: '#4ade80' }}>{studentPublishedCourses.length}</span>}
-                                            </div>
-                                            {loadingStudentCourses ? (
-                                                <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading courses…</div>
-                                            ) : (
-                                                <div style={{ display: 'grid', gap: 12 }}>
-                                                    {studentPublishedCourses.map(c => (
-                                                        <div key={c.id} style={{ padding: '18px 14px', background: 'linear-gradient(135deg, #1e1b4b 0%, #1e3a5f 50%, #1d2e5e 100%)', borderRadius: 14, border: '1px solid rgba(34,197,94,0.4)', boxShadow: '0 4px 20px rgba(99,102,241,0.18), 0 2px 6px rgba(0,0,0,0.2)', overflow: 'hidden', position: 'relative' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                                    <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--text)', marginBottom: 6 }}>{stripHtml(c.title)}</div>
-                                                                    {c.description && <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stripHtml(c.description)}</div>}
-                                                                </div>
-                                                                <div style={{ display: 'flex', flexShrink: 0 }}>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => setViewingStudentCourse(c)}
-                                                                        style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(34,197,94,0.4)', background: 'rgba(34,197,94,0.12)', color: '#4ade80', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                                                                    >Start Course →</button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
+                                        <MemberCoursesSection
+                                            userId={user!.id}
+                                            userName={displayName}
+                                            studentView
+                                            externalCourses={studentPublishedCourses}
+                                            loadingExternal={loadingStudentCourses}
+                                            onStartCourse={c => setViewingStudentCourse(c)}
+                                        />
                                     )}
                                 </div>
                             </div>

@@ -8,7 +8,18 @@ const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
 interface Course { id: string; title: string; description?: string | null; created_at?: string; status?: 'draft' | 'published'; }
 
-export default function MemberCoursesSection({ userId, userName, onCoursesChange }: { userId: string; userName?: string; onCoursesChange?: () => void }) {
+interface Props {
+    userId: string;
+    userName?: string;
+    onCoursesChange?: () => void;
+    // Student view mode – bypasses internal fetch, uses pre-loaded courses
+    studentView?: boolean;
+    externalCourses?: Course[];
+    loadingExternal?: boolean;
+    onStartCourse?: (c: Course) => void;
+}
+
+export default function MemberCoursesSection({ userId, userName, onCoursesChange, studentView, externalCourses, loadingExternal, onStartCourse }: Props) {
     const [courses, setCourses] = useState<Course[]>([]);
     const [loading, setLoading] = useState(false);
     const [editingCourse, setEditingCourse] = useState<Course | null>(null);
@@ -58,36 +69,51 @@ export default function MemberCoursesSection({ userId, userName, onCoursesChange
         }
     }
 
+    const displayCourses = studentView ? (externalCourses ?? []) : courses;
+    const isLoading = studentView ? !!loadingExternal : loading;
+
+    // In student view only render if there's something to show
+    if (studentView && !isLoading && displayCourses.length === 0) return null;
+
     return (
-        <div style={{ marginTop: 20, marginBottom: 16 }}>
+        <div style={{ marginTop: studentView ? 24 : 20, marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Courses</h3>
-                <button
-                    type="button"
-                    onClick={() => setShowCreate(true)}
-                    style={{
-                        padding: '6px 14px',
-                        borderRadius: 8,
-                        border: '1px solid var(--primary, #6366f1)',
-                        background: 'transparent',
-                        color: 'var(--primary, #6366f1)',
-                        fontSize: 13,
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                    }}
-                >
-                    + New Course
-                </button>
+                {studentView ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em' }}>📚 Courses from Your Teachers</span>
+                        {!isLoading && <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 20, height: 18, borderRadius: 100, padding: '0 6px', fontSize: 11, fontWeight: 700, background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.35)', color: '#4ade80' }}>{displayCourses.length}</span>}
+                    </div>
+                ) : (
+                    <>
+                        <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Courses</h3>
+                        <button
+                            type="button"
+                            onClick={() => setShowCreate(true)}
+                            style={{
+                                padding: '6px 14px',
+                                borderRadius: 8,
+                                border: '1px solid var(--primary, #6366f1)',
+                                background: 'transparent',
+                                color: 'var(--primary, #6366f1)',
+                                fontSize: 13,
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                            }}
+                        >
+                            + New Course
+                        </button>
+                    </>
+                )}
             </div>
-            {loading ? <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading courses…</p> : courses.length === 0 ? (
+            {isLoading ? <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading courses…</p> : displayCourses.length === 0 && !studentView ? (
                 <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No courses yet. Create one to add lessons and quizzes.</p>
             ) : (
                 <div style={{ display: 'grid', gap: 12 }}>
-                    {courses.map(c => (
+                    {displayCourses.map(c => (
                         <div
                             key={c.id}
                             style={{
-                                padding: '12px 14px',
+                                padding: studentView ? '18px 14px' : '12px 14px',
                                 background: 'linear-gradient(135deg, #1e1b4b 0%, #1e3a5f 50%, #1d2e5e 100%)',
                                 borderRadius: 14,
                                 border: '1px solid rgba(34,197,94,0.4)',
@@ -101,92 +127,104 @@ export default function MemberCoursesSection({ userId, userName, onCoursesChange
                         >
                             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: studentView ? 6 : 0 }}>
                                         <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--text)' }}><RichContent html={c.title} /></div>
-                                        <span style={{
-                                            display: 'inline-flex', alignItems: 'center', gap: 4,
-                                            padding: '2px 9px', borderRadius: 20, fontSize: 11, fontWeight: 700, flexShrink: 0,
-                                            background: c.status === 'published' ? 'rgba(34,197,94,0.13)' : 'rgba(100,116,139,0.18)',
-                                            color: c.status === 'published' ? '#4ade80' : '#94a3b8',
-                                        }}>
-                                            {c.status === 'published' ? '● Published' : '○ Draft'}
-                                        </span>
+                                        {!studentView && (
+                                            <span style={{
+                                                display: 'inline-flex', alignItems: 'center', gap: 4,
+                                                padding: '2px 9px', borderRadius: 20, fontSize: 11, fontWeight: 700, flexShrink: 0,
+                                                background: c.status === 'published' ? 'rgba(34,197,94,0.13)' : 'rgba(100,116,139,0.18)',
+                                                color: c.status === 'published' ? '#4ade80' : '#94a3b8',
+                                            }}>
+                                                {c.status === 'published' ? '● Published' : '○ Draft'}
+                                            </span>
+                                        )}
                                     </div>
                                     {c.description && (
-                                        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: studentView ? 0 : 4, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                                             <RichContent html={c.description} />
                                         </div>
                                     )}
                                 </div>
                                 <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleTogglePublish(c)}
-                                        style={{
-                                            padding: '6px 12px',
-                                            borderRadius: 8,
-                                            border: c.status === 'published'
-                                                ? '1px solid rgba(100,116,139,0.4)'
-                                                : '1px solid rgba(34,197,94,0.4)',
-                                            background: c.status === 'published'
-                                                ? 'rgba(100,116,139,0.1)'
-                                                : 'rgba(34,197,94,0.1)',
-                                            color: c.status === 'published' ? '#94a3b8' : '#4ade80',
-                                            fontSize: 12,
-                                            fontWeight: 600,
-                                            cursor: 'pointer',
-                                        }}
-                                    >
-                                        {c.status === 'published' ? 'Unpublish' : 'Publish'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setViewingCourse(c)}
-                                        style={{
-                                            padding: '6px 12px',
-                                            borderRadius: 8,
-                                            border: '1px solid rgba(99,102,241,0.4)',
-                                            background: 'rgba(99,102,241,0.15)',
-                                            color: '#a5b4fc',
-                                            fontSize: 12,
-                                            fontWeight: 600,
-                                            cursor: 'pointer',
-                                        }}
-                                    >
-                                        Preview Course
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setEditingCourse(c)}
-                                        style={{
-                                            padding: '6px 12px',
-                                            borderRadius: 8,
-                                            border: '1px solid rgba(255,255,255,0.2)',
-                                            background: 'transparent',
-                                            color: 'var(--text-muted)',
-                                            fontSize: 12,
-                                            fontWeight: 600,
-                                            cursor: 'pointer',
-                                        }}
-                                    >
-                                        Edit
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setDeleteConfirm(c)}
-                                        style={{
-                                            padding: '6px 12px',
-                                            borderRadius: 8,
-                                            border: '1px solid rgba(239,68,68,0.4)',
-                                            background: 'rgba(239,68,68,0.1)',
-                                            color: '#f87171',
-                                            fontSize: 12,
-                                            fontWeight: 600,
-                                            cursor: 'pointer',
-                                        }}
-                                    >
-                                        Delete
-                                    </button>
+                                    {studentView ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => onStartCourse?.(c)}
+                                            style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(34,197,94,0.4)', background: 'rgba(34,197,94,0.12)', color: '#4ade80', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                                        >Start Course →</button>
+                                    ) : (
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleTogglePublish(c)}
+                                                style={{
+                                                    padding: '6px 12px',
+                                                    borderRadius: 8,
+                                                    border: c.status === 'published'
+                                                        ? '1px solid rgba(100,116,139,0.4)'
+                                                        : '1px solid rgba(34,197,94,0.4)',
+                                                    background: c.status === 'published'
+                                                        ? 'rgba(100,116,139,0.1)'
+                                                        : 'rgba(34,197,94,0.1)',
+                                                    color: c.status === 'published' ? '#94a3b8' : '#4ade80',
+                                                    fontSize: 12,
+                                                    fontWeight: 600,
+                                                    cursor: 'pointer',
+                                                }}
+                                            >
+                                                {c.status === 'published' ? 'Unpublish' : 'Publish'}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setViewingCourse(c)}
+                                                style={{
+                                                    padding: '6px 12px',
+                                                    borderRadius: 8,
+                                                    border: '1px solid rgba(99,102,241,0.4)',
+                                                    background: 'rgba(99,102,241,0.15)',
+                                                    color: '#a5b4fc',
+                                                    fontSize: 12,
+                                                    fontWeight: 600,
+                                                    cursor: 'pointer',
+                                                }}
+                                            >
+                                                Preview Course
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setEditingCourse(c)}
+                                                style={{
+                                                    padding: '6px 12px',
+                                                    borderRadius: 8,
+                                                    border: '1px solid rgba(255,255,255,0.2)',
+                                                    background: 'transparent',
+                                                    color: 'var(--text-muted)',
+                                                    fontSize: 12,
+                                                    fontWeight: 600,
+                                                    cursor: 'pointer',
+                                                }}
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setDeleteConfirm(c)}
+                                                style={{
+                                                    padding: '6px 12px',
+                                                    borderRadius: 8,
+                                                    border: '1px solid rgba(239,68,68,0.4)',
+                                                    background: 'rgba(239,68,68,0.1)',
+                                                    color: '#f87171',
+                                                    fontSize: 12,
+                                                    fontWeight: 600,
+                                                    cursor: 'pointer',
+                                                }}
+                                            >
+                                                Delete
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </div>
