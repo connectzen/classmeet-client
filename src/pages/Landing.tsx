@@ -1163,7 +1163,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                             </div>
                                         </div>
                                     )}
-                                    <MemberCoursesSection userId={user!.id} onCoursesChange={fetchMemberCoursesCount} />
+                                    <MemberCoursesSection userId={user!.id} userName={displayName} onCoursesChange={fetchMemberCoursesCount} />
                                 </div>
                             </div>
                         </div>
@@ -1371,7 +1371,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                             </div>
                                         </div>
                                     )}
-                                    <MemberCoursesSection userId={user!.id} onCoursesChange={fetchTeacherCoursesCount} />
+                                    <MemberCoursesSection userId={user!.id} userName={displayName} onCoursesChange={fetchTeacherCoursesCount} />
                                 </div>
                             </div>
                         </div>

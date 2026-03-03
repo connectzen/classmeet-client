@@ -8,7 +8,7 @@ const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
 interface Course { id: string; title: string; description?: string | null; created_at?: string; status?: 'draft' | 'published'; }
 
-export default function MemberCoursesSection({ userId, onCoursesChange }: { userId: string; onCoursesChange?: () => void }) {
+export default function MemberCoursesSection({ userId, userName, onCoursesChange }: { userId: string; userName?: string; onCoursesChange?: () => void }) {
     const [courses, setCourses] = useState<Course[]>([]);
     const [loading, setLoading] = useState(false);
     const [editingCourse, setEditingCourse] = useState<Course | null>(null);
@@ -208,6 +208,8 @@ export default function MemberCoursesSection({ userId, onCoursesChange }: { user
             {viewingCourse && (
                 <CourseViewer
                     course={viewingCourse}
+                    userId={userId}
+                    userName={userName || ''}
                     onClose={() => setViewingCourse(null)}
                 />
             )}
