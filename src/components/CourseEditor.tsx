@@ -417,7 +417,7 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
             padding: '60px 20px 40px', overflowY: 'auto',
         }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
             <div style={{
-                background: 'linear-gradient(160deg,#1e2130 0%,#181c2a 100%)',
+                background: 'linear-gradient(160deg,#241530 0%,#1c1028 100%)',
                 borderRadius: 18,
                 width: '100%',
                 maxWidth: step === 2 ? 1060 : 580,

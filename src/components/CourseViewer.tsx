@@ -170,7 +170,7 @@ function QuizModal({ quizId, userId, userName, onClose }: {
             onClick={onClose}
         >
             <div
-                style={{ background: 'linear-gradient(160deg,#1e2130 0%,#181c2a 100%)', borderRadius: 18, width: '100%', maxWidth: 620, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.1)', display: 'flex', flexDirection: 'column' }}
+                style={{ background: 'linear-gradient(160deg,#241530 0%,#1c1028 100%)', borderRadius: 18, width: '100%', maxWidth: 620, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.1)', display: 'flex', flexDirection: 'column' }}
                 onClick={e => e.stopPropagation()}
             >
                 {/* Quiz header */}
@@ -378,7 +378,7 @@ export default function CourseViewer({ course, userId, userName, onClose }: Prop
                                     const isOpen = expandedTopics.has(topic.id);
                                     const count = topic.lessons.length + topic.quizzes.length + topic.assignments.length;
                                     return (
-                                        <div key={topic.id} style={{ background: '#1c1f30', borderRadius: 12, border: '1px solid rgba(99,102,241,0.2)', overflow: 'hidden' }}>
+                                        <div key={topic.id} style={{ background: '#20142a', borderRadius: 12, border: '1px solid rgba(99,102,241,0.2)', overflow: 'hidden' }}>
                                             {/* Topic header */}
                                             <button type="button" onClick={() => toggleTopic(topic.id)}
                                                 style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px', background: 'rgba(99,102,241,0.07)', border: 'none', cursor: 'pointer', textAlign: 'left' }}>

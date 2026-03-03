@@ -76,7 +76,7 @@ function SortableLessonCard({
 
     return (
         <div ref={setNodeRef} style={dragStyle}>
-            <div style={{ background: 'linear-gradient(135deg,#22253a 0%,#1e2134 100%)', borderRadius: 10, border: '1px solid rgba(99,102,241,0.28)', borderLeft: '3px solid rgba(99,102,241,0.65)', overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.25)' }}>
+            <div style={{ background: 'linear-gradient(135deg,#2a1e30 0%,#221629 100%)', borderRadius: 10, border: '1px solid rgba(99,102,241,0.28)', borderLeft: '3px solid rgba(99,102,241,0.65)', overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.25)' }}>
                 {/* Row */}
                 <div
                     onClick={!editingLessonTitle ? onToggleExpand : undefined}
@@ -330,7 +330,7 @@ function SortableTopicCard({
 
     return (
         <div ref={setNodeRef} style={dragStyle}>
-            <div style={{ background: '#1a1e2e', borderRadius: 14, border: '1px solid rgba(99,102,241,0.4)', overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.35)' }}>
+            <div style={{ background: '#20142a', borderRadius: 14, border: '1px solid rgba(99,102,241,0.4)', overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.35)' }}>
                 {/* Topic header */}
                 <div
                     onClick={!editingTitle ? onToggleExpand : undefined}
@@ -370,7 +370,7 @@ function SortableTopicCard({
                     transition: 'grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 }}>
                     <div style={{ overflow: 'hidden' }}>
-                        <div style={{ padding: '14px 16px', background: '#161929', opacity: expanded ? 1 : 0, transition: 'opacity 0.22s ease' }}>
+                        <div style={{ padding: '14px 16px', background: '#180e22', opacity: expanded ? 1 : 0, transition: 'opacity 0.22s ease' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                             {/* Sortable lessons */}
                             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleLessonDragEnd}>
@@ -478,11 +478,11 @@ function SortableTopicCard({
                                                 if (picked) setAssignmentTitle(stripHtml(picked.title));
                                             }
                                         }}
-                                        style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: '#1e2132', color: assignmentQuizId ? '#e2e8f0' : '#64748b', fontSize: 13, boxSizing: 'border-box', width: '100%', cursor: 'pointer', colorScheme: 'dark' }}
+                                        style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: '#241530', color: assignmentQuizId ? '#e2e8f0' : '#64748b', fontSize: 13, boxSizing: 'border-box', width: '100%', cursor: 'pointer', colorScheme: 'dark' }}
                                     >
-                                        <option value="" style={{ background: '#1e2132', color: '#64748b' }}>— Select a quiz —</option>
+                                        <option value="" style={{ background: '#241530', color: '#64748b' }}>— Select a quiz —</option>
                                         {availableQuizzes.map(q => (
-                                            <option key={q.id} value={q.id} style={{ background: '#1e2132', color: '#e2e8f0' }}>{stripHtml(q.title)}{q.status !== 'published' ? ' (draft)' : ''}</option>
+                                            <option key={q.id} value={q.id} style={{ background: '#241530', color: '#e2e8f0' }}>{stripHtml(q.title)}{q.status !== 'published' ? ' (draft)' : ''}</option>
                                         ))}
                                     </select>
                                 )}
@@ -502,7 +502,7 @@ function SortableTopicCard({
             {/* Quiz picker modal */}
             {showQuizPicker && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 1000010, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setShowQuizPicker(false)}>
-                    <div style={{ background: '#1e2132', borderRadius: 14, border: '1px solid rgba(139,92,246,0.3)', width: '100%', maxWidth: 400, maxHeight: '70vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }} onClick={e => e.stopPropagation()}>
+                    <div style={{ background: '#241530', borderRadius: 14, border: '1px solid rgba(139,92,246,0.3)', width: '100%', maxWidth: 400, maxHeight: '70vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }} onClick={e => e.stopPropagation()}>
                         <div style={{ padding: '15px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
                             <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#e2e8f0' }}>Select a Quiz</h3>
                             <button type="button" onClick={() => setShowQuizPicker(false)} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 20, cursor: 'pointer', padding: '2px 6px' }}>×</button>
