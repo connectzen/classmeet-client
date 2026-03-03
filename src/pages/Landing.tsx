@@ -1495,7 +1495,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                             ) : (
                                                 <div style={{ display: 'grid', gap: 10 }}>
                                                     {studentPublishedCourses.map(c => (
-                                                        <div key={c.id} style={{ padding: '12px 14px', background: 'linear-gradient(135deg, #1e1b4b 0%, #1e3a5f 50%, #1d2e5e 100%)', borderRadius: 12, border: '1px solid rgba(34,197,94,0.4)', boxShadow: '0 4px 20px rgba(99,102,241,0.18), 0 2px 6px rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', gap: 12 }}>
+                                                        <div key={c.id} style={{ padding: '12px 14px', background: 'linear-gradient(135deg, #1e1b4b 0%, #1e3a5f 50%, #1d2e5e 100%)', borderRadius: 14, border: '1px solid rgba(34,197,94,0.4)', boxShadow: '0 4px 20px rgba(99,102,241,0.18), 0 2px 6px rgba(0,0,0,0.2)', overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', gap: 12 }}>
                                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                                 <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)', marginBottom: 2 }}>{stripHtml(c.title)}</div>
                                                                 {c.description && <div style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stripHtml(c.description)}</div>}
