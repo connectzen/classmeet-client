@@ -1495,16 +1495,20 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                             ) : (
                                                 <div style={{ display: 'grid', gap: 12 }}>
                                                     {studentPublishedCourses.map(c => (
-                                                        <div key={c.id} style={{ padding: '12px 14px', background: 'linear-gradient(135deg, #1e1b4b 0%, #1e3a5f 50%, #1d2e5e 100%)', borderRadius: 14, border: '1px solid rgba(34,197,94,0.4)', boxShadow: '0 4px 20px rgba(99,102,241,0.18), 0 2px 6px rgba(0,0,0,0.2)', overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', gap: 12 }}>
-                                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                                <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--text)', marginBottom: 2 }}>{stripHtml(c.title)}</div>
-                                                                {c.description && <div style={{ fontSize: 13, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stripHtml(c.description)}</div>}
+                                                        <div key={c.id} style={{ padding: '12px 14px', background: 'linear-gradient(135deg, #1e1b4b 0%, #1e3a5f 50%, #1d2e5e 100%)', borderRadius: 14, border: '1px solid rgba(34,197,94,0.4)', boxShadow: '0 4px 20px rgba(99,102,241,0.18), 0 2px 6px rgba(0,0,0,0.2)', overflow: 'hidden', position: 'relative' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                                    <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--text)' }}>{stripHtml(c.title)}</div>
+                                                                    {c.description && <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stripHtml(c.description)}</div>}
+                                                                </div>
+                                                                <div style={{ display: 'flex', flexShrink: 0 }}>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setViewingStudentCourse(c)}
+                                                                        style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(34,197,94,0.4)', background: 'rgba(34,197,94,0.12)', color: '#4ade80', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                                                                    >Start Course →</button>
+                                                                </div>
                                                             </div>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setViewingStudentCourse(c)}
-                                                                style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(34,197,94,0.4)', background: 'rgba(34,197,94,0.12)', color: '#4ade80', fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}
-                                                            >Start Course →</button>
                                                         </div>
                                                     ))}
                                                 </div>
