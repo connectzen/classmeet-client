@@ -152,10 +152,13 @@ export default function RoomCoursePanel({
 
     // ── Refs ─────────────────────────────────────────────────────────────────
     const contentRef      = useRef<HTMLDivElement>(null);    // scrollable area
+    const scaleRef        = useRef<HTMLDivElement>(null);    // zoom wrapper — scales content to fit panel
     const innerContentRef = useRef<HTMLDivElement>(null);    // fixed-640px inner div
     const canvasRef       = useRef<HTMLCanvasElement>(null); // annotation layer — INSIDE scrollable div
     const previewRef      = useRef<HTMLCanvasElement>(null); // shape preview
     const wrapperRef      = useRef<HTMLDivElement>(null);    // outer non-scrolling wrapper
+
+    const [contentScale, setContentScale] = useState(1);
 
     // Canvas pixel width is always exactly this — must match the inner content
     // div width so normalized draw coords map to identical positions on every device.
@@ -265,6 +268,11 @@ export default function RoomCoursePanel({
         if (!content || !inner || !canvas || !preview) return;
 
         const sync = () => {
+            // Compute scale so content fits the available panel width
+            const availW = wrapperRef.current?.clientWidth ?? CANVAS_W;
+            const scale  = Math.min(1, availW / CANVAS_W);
+            setContentScale(scale);
+
             // Collapse canvas height so it doesn't inflate inner.scrollHeight
             canvas.style.height  = '0px';
             preview.style.height = '0px';
@@ -291,9 +299,10 @@ export default function RoomCoursePanel({
         };
 
         sync();
-        // Observe inner div — reflects text reflow when courses/lessons change
+        // Observe inner div (content changes) AND wrapper div (panel resize)
         const ro = new ResizeObserver(sync);
         ro.observe(inner);
+        if (wrapperRef.current) ro.observe(wrapperRef.current);
         return () => ro.disconnect();
     }, [CANVAS_W]);
 
@@ -310,12 +319,13 @@ export default function RoomCoursePanel({
         const content = contentRef.current;
         if (!canvas || !content) return;
 
-        // Normalize mouse position to canvas coordinates (0–1), accounting for scroll
+        // Normalize mouse position to canvas coordinates (0–1).
+        // Use r.width / r.height (CSS visual size) so zoom scaling is accounted for.
         const pt = (e: MouseEvent) => {
             const r = canvas.getBoundingClientRect();
             return {
-                x: (e.clientX - r.left) / canvas.width,
-                y: (e.clientY - r.top)  / canvas.height,
+                x: (e.clientX - r.left) / r.width,
+                y: (e.clientY - r.top)  / r.height,
             };
         };
         const isShape = (t: string) => SHAPE_TOOLS.includes(t);
@@ -339,8 +349,8 @@ export default function RoomCoursePanel({
                                && e.clientY >= wrRect.top  && e.clientY <= wrRect.bottom;
                 if (inBounds || isDrawing.current) {
                     const r = canvas.getBoundingClientRect();
-                    const cx = (e.clientX - r.left) / canvas.width;
-                    const cy = (e.clientY - r.top)  / canvas.height;
+                    const cx = (e.clientX - r.left) / r.width;
+                    const cy = (e.clientY - r.top)  / r.height;
                     if (!cursorThrottle.current) {
                         cursorThrottle.current = setTimeout(() => {
                             cursorThrottle.current = null;
@@ -622,64 +632,67 @@ export default function RoomCoursePanel({
                 {/* Content wrapper */}
                 <div ref={wrapperRef} style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
 
-                    {/* Scrollable area
-                        overflowX:auto lets small screens scroll horizontally to see the
-                        full 640px content — this is what keeps the layout consistent. */}
+                    {/* Scrollable area — overflowX hidden because content scales via zoom */}
                     <div ref={contentRef} onScroll={isTeacher ? handleScroll : undefined}
-                        style={{ width: '100%', height: '100%', overflowY: isTeacher ? 'auto' : 'hidden', overflowX: 'auto', position: 'relative', userSelect: drawActive ? 'none' : 'text' }}>
+                        style={{ width: '100%', height: '100%', overflowY: isTeacher ? 'auto' : 'hidden', overflowX: 'hidden', position: 'relative', userSelect: drawActive ? 'none' : 'text' }}>
 
-                        {/* Lesson content — fixed at exactly CANVAS_W (640 px).
-                            Teacher on 1400px panel and student on 360px phone both
-                            render this div at 640px → same line breaks → same
-                            scrollHeight → canvas coords map to the same words. */}
-                        <div ref={innerContentRef} style={{ padding: '20px', boxSizing: 'border-box', width: CANVAS_W, minWidth: CANVAS_W }}>
-                            {loading ? (
-                                <div style={{ color: 'var(--text-muted)', padding: 40, textAlign: 'center' }}>Loading course…</div>
-                            ) : !course ? (
-                                <div style={{ color: 'var(--text-muted)', padding: 40, textAlign: 'center' }}>No courses loaded.</div>
-                            ) : !lesson ? (
-                                <p style={{ color: 'var(--text-muted)' }}>Select a lesson from the list.</p>
-                            ) : (
-                                <div key={lessonKey} className="lesson-slide-in">
-                                    <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{lesson.title}</h3>
-                                    {lesson.lesson_type === 'image' && lesson.image_url && (
-                                        <img src={lesson.image_url} alt={lesson.title} style={{ width: '100%', borderRadius: 10, marginBottom: 16, display: 'block' }} />
-                                    )}
-                                    {lesson.lesson_type === 'video' && lesson.video_url
-                                        ? <video src={lesson.video_url} controls style={{ width: '100%', borderRadius: 10, marginBottom: 16, background: '#000' }} />
-                                        : null}
-                                    {lesson.content
-                                        ? <RichContent html={lesson.content} style={{ fontSize: 14, lineHeight: 1.7, color: 'var(--text-muted)' }} />
-                                        : <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No content for this lesson.</p>}
-                                    {/* Bottom padding so teacher can annotate near the last line */}
-                                    <div style={{ height: 80 }} />
-                                </div>
+                        {/* Scale wrapper — shrinks all content + canvas proportionally
+                            so the panel is fully visible on narrow screens without
+                            horizontal scroll. zoom affects layout too, so scrollHeight
+                            stays proportional and teacher/student scroll stays in sync. */}
+                        <div ref={scaleRef} style={{ width: CANVAS_W, position: 'relative', zoom: contentScale }}>
+
+                            {/* Lesson content — fixed at exactly CANVAS_W (640 px).
+                                Teacher and student both render at 640px → same text wrap
+                                → same scrollHeight → canvas coords map identically. */}
+                            <div ref={innerContentRef} style={{ padding: '20px', boxSizing: 'border-box', width: CANVAS_W, minWidth: CANVAS_W }}>
+                                {loading ? (
+                                    <div style={{ color: 'var(--text-muted)', padding: 40, textAlign: 'center' }}>Loading course…</div>
+                                ) : !course ? (
+                                    <div style={{ color: 'var(--text-muted)', padding: 40, textAlign: 'center' }}>No courses loaded.</div>
+                                ) : !lesson ? (
+                                    <p style={{ color: 'var(--text-muted)' }}>Select a lesson from the list.</p>
+                                ) : (
+                                    <div key={lessonKey} className="lesson-slide-in">
+                                        <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{lesson.title}</h3>
+                                        {lesson.lesson_type === 'image' && lesson.image_url && (
+                                            <img src={lesson.image_url} alt={lesson.title} style={{ width: '100%', borderRadius: 10, marginBottom: 16, display: 'block' }} />
+                                        )}
+                                        {lesson.lesson_type === 'video' && lesson.video_url
+                                            ? <video src={lesson.video_url} controls style={{ width: '100%', borderRadius: 10, marginBottom: 16, background: '#000' }} />
+                                            : null}
+                                        {lesson.content
+                                            ? <RichContent html={lesson.content} style={{ fontSize: 14, lineHeight: 1.7, color: 'var(--text-muted)' }} />
+                                            : <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No content for this lesson.</p>}
+                                        {/* Bottom padding so teacher can annotate near the last line */}
+                                        <div style={{ height: 80 }} />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Annotation canvas — inside scale wrapper so it scales too */}
+                            <canvas ref={canvasRef}
+                                onClick={drawActive ? onCanvasClick : undefined}
+                                style={{ position: 'absolute', top: 0, left: 0, pointerEvents: drawActive ? 'auto' : 'none', cursor: drawActive ? cursor : 'default', zIndex: 15 }} />
+                            <canvas ref={previewRef}
+                                style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 16 }} />
+
+                            {/* Teacher cursor dot — visible to students in real time */}
+                            {!isTeacher && teacherCursor && (
+                                <div style={{
+                                    position: 'absolute',
+                                    left: teacherCursor.x * CANVAS_W - 8,
+                                    top: teacherCursor.y * (canvasRef.current?.height ?? 0) - 8,
+                                    width: 16, height: 16, borderRadius: '50%',
+                                    background: 'rgba(99,102,241,0.9)',
+                                    border: '2px solid #fff',
+                                    boxShadow: '0 0 8px rgba(99,102,241,0.8)',
+                                    pointerEvents: 'none',
+                                    zIndex: 10,
+                                    transition: 'left 0.05s linear, top 0.05s linear',
+                                }} />
                             )}
                         </div>
-
-                        {/* Annotation canvas — inside the scrollable div so drawings stay
-                            attached to the document content and scroll with it. */}
-                        <canvas ref={canvasRef}
-                            onClick={drawActive ? onCanvasClick : undefined}
-                            style={{ position: 'absolute', top: 0, left: 0, pointerEvents: drawActive ? 'auto' : 'none', cursor: drawActive ? cursor : 'default', zIndex: 15 }} />
-                        <canvas ref={previewRef}
-                            style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 16 }} />
-
-                        {/* Teacher cursor dot — visible to students in real time */}
-                        {!isTeacher && teacherCursor && (
-                            <div style={{
-                                position: 'absolute',
-                                left: teacherCursor.x * CANVAS_W - 8,
-                                top: teacherCursor.y * (canvasRef.current?.height ?? 0) - 8,
-                                width: 16, height: 16, borderRadius: '50%',
-                                background: 'rgba(99,102,241,0.9)',
-                                border: '2px solid #fff',
-                                boxShadow: '0 0 8px rgba(99,102,241,0.8)',
-                                pointerEvents: 'none',
-                                zIndex: 10,
-                                transition: 'left 0.05s linear, top 0.05s linear',
-                            }} />
-                        )}
                     </div>
 
                     {/* Prev / Next arrows */}
