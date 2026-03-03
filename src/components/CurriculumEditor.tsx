@@ -27,7 +27,7 @@ interface Lesson {
     lesson_type: LessonType; video_url: string | null; audio_url: string | null; image_url: string | null; order_index: number;
 }
 interface Quiz { id: string; title: string; status: string; }
-interface Assignment { id: string; title: string; description: string; order_index: number; assignment_type?: string; file_url?: string | null; }
+interface Assignment { id: string; title: string; description: string; order_index: number; assignment_type?: string; file_url?: string | null; quiz_id?: string | null; }
 interface Topic { id: string; title: string; order_index: number; lessons: Lesson[]; quizzes: Quiz[]; assignments: Assignment[]; }
 
 interface Props {
@@ -170,8 +170,9 @@ function SortableTopicCard({
     const [showAssignmentForm, setShowAssignmentForm] = useState(false);
     const [assignmentTitle, setAssignmentTitle] = useState('');
     const [assignmentDesc, setAssignmentDesc] = useState('');
-    const [assignmentType, setAssignmentType] = useState<'text' | 'link' | 'file'>('text');
+    const [assignmentType, setAssignmentType] = useState<'text' | 'link' | 'file' | 'quiz'>('text');
     const [assignmentUrl, setAssignmentUrl] = useState('');
+    const [assignmentQuizId, setAssignmentQuizId] = useState<string>('');
     const [expandedLessonId, setExpandedLessonId] = useState<string | null>(null);
 
     const sensors = useSensors(
@@ -224,6 +225,7 @@ function SortableTopicCard({
 
     async function handleAddAssignment() {
         if (!assignmentTitle.trim()) return;
+        if (assignmentType === 'quiz' && !assignmentQuizId) return;
         const r = await fetch(`${SERVER}/api/topics/${topic.id}/assignments`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -233,7 +235,8 @@ function SortableTopicCard({
                 courseId,
                 createdBy: userId,
                 assignmentType,
-                fileUrl: assignmentType !== 'text' ? assignmentUrl.trim() || null : null,
+                fileUrl: assignmentType !== 'text' && assignmentType !== 'quiz' ? assignmentUrl.trim() || null : null,
+                quizId: assignmentType === 'quiz' ? assignmentQuizId || null : null,
             }),
         });
         if (r.ok) {
@@ -244,10 +247,11 @@ function SortableTopicCard({
                     order_index: a.order_index ?? 0,
                     assignment_type: a.assignment_type || 'text',
                     file_url: a.file_url || null,
+                    quiz_id: a.quiz_id || null,
                 }],
             });
             setAssignmentTitle(''); setAssignmentDesc(''); setAssignmentUrl('');
-            setAssignmentType('text'); setShowAssignmentForm(false);
+            setAssignmentType('text'); setAssignmentQuizId(''); setShowAssignmentForm(false);
         }
     }
 
@@ -377,7 +381,7 @@ function SortableTopicCard({
                                 {topic.assignments.map(a => (
                                     <div key={a.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(251,191,36,0.2)', background: 'rgba(251,191,36,0.05)' }}>
                                         <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>
-                                            {a.assignment_type === 'link' ? '🔗' : a.assignment_type === 'file' ? '📎' : '📋'}
+                                            {a.assignment_type === 'link' ? '🔗' : a.assignment_type === 'file' ? '📎' : a.assignment_type === 'quiz' ? '📝' : '📋'}
                                         </span>
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <div style={{ fontSize: 13, color: '#fcd34d', fontWeight: 600 }}>{a.title}</div>
@@ -411,11 +415,11 @@ function SortableTopicCard({
                         {showAssignmentForm && (
                             <div style={{ marginTop: 10, padding: '12px 14px', borderRadius: 10, border: '1px solid rgba(251,191,36,0.2)', background: 'rgba(251,191,36,0.04)', display: 'flex', flexDirection: 'column', gap: 8 }}>
                                 {/* Type selector */}
-                                <div style={{ display: 'flex', gap: 6 }}>
-                                    {(['text', 'link', 'file'] as const).map(t => (
+                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                    {(['text', 'link', 'file', 'quiz'] as const).map(t => (
                                         <button key={t} type="button" onClick={() => setAssignmentType(t)}
                                             style={{ padding: '5px 12px', borderRadius: 6, border: `1px solid ${assignmentType === t ? 'rgba(251,191,36,0.6)' : 'rgba(255,255,255,0.08)'}`, background: assignmentType === t ? 'rgba(251,191,36,0.15)' : 'transparent', color: assignmentType === t ? '#fcd34d' : '#64748b', fontSize: 12, fontWeight: assignmentType === t ? 700 : 500, cursor: 'pointer', textTransform: 'capitalize' }}>
-                                            {t === 'text' ? '📄 Text' : t === 'link' ? '🔗 Link' : '📎 File'}
+                                            {t === 'text' ? '📄 Text' : t === 'link' ? '🔗 Link' : t === 'file' ? '📎 File' : '📝 Quiz'}
                                         </button>
                                     ))}
                                 </div>
@@ -433,7 +437,7 @@ function SortableTopicCard({
                                     minHeight={70}
                                     compact
                                 />
-                                {assignmentType !== 'text' && (
+                                {(assignmentType === 'link' || assignmentType === 'file') && (
                                     <input
                                         value={assignmentUrl}
                                         onChange={e => setAssignmentUrl(e.target.value)}
@@ -441,9 +445,23 @@ function SortableTopicCard({
                                         style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#e2e8f0', fontSize: 13, boxSizing: 'border-box', width: '100%' }}
                                     />
                                 )}
+                                {assignmentType === 'quiz' && (
+                                    <select
+                                        value={assignmentQuizId}
+                                        onChange={e => setAssignmentQuizId(e.target.value)}
+                                        style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.3)', color: assignmentQuizId ? '#e2e8f0' : '#64748b', fontSize: 13, boxSizing: 'border-box', width: '100%', cursor: 'pointer' }}
+                                    >
+                                        <option value="">— Select a quiz —</option>
+                                        {availableQuizzes.map(q => (
+                                            <option key={q.id} value={q.id}>{q.title}{q.status !== 'published' ? ' (draft)' : ''}</option>
+                                        ))}
+                                    </select>
+                                )}
                                 <div style={{ display: 'flex', gap: 6 }}>
-                                    <button type="button" onClick={handleAddAssignment} disabled={!assignmentTitle.trim()} style={{ padding: '6px 14px', borderRadius: 7, border: 'none', background: assignmentTitle.trim() ? '#fbbf24' : 'rgba(251,191,36,0.3)', color: '#0a0a0f', fontSize: 12, fontWeight: 700, cursor: assignmentTitle.trim() ? 'pointer' : 'not-allowed' }}>Add</button>
-                                    <button type="button" onClick={() => { setShowAssignmentForm(false); setAssignmentTitle(''); setAssignmentDesc(''); setAssignmentUrl(''); setAssignmentType('text'); }} style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
+                                    <button type="button" onClick={handleAddAssignment}
+                                        disabled={!assignmentTitle.trim() || (assignmentType === 'quiz' && !assignmentQuizId)}
+                                        style={{ padding: '6px 14px', borderRadius: 7, border: 'none', background: (assignmentTitle.trim() && (assignmentType !== 'quiz' || assignmentQuizId)) ? '#fbbf24' : 'rgba(251,191,36,0.3)', color: '#0a0a0f', fontSize: 12, fontWeight: 700, cursor: (assignmentTitle.trim() && (assignmentType !== 'quiz' || assignmentQuizId)) ? 'pointer' : 'not-allowed' }}>Add</button>
+                                    <button type="button" onClick={() => { setShowAssignmentForm(false); setAssignmentTitle(''); setAssignmentDesc(''); setAssignmentUrl(''); setAssignmentType('text'); setAssignmentQuizId(''); }} style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
                                 </div>
                             </div>
                         )}

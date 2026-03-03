@@ -6,7 +6,7 @@ import { RichContent } from './RichEditor';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
-interface Course { id: string; title: string; description?: string | null; created_at?: string; }
+interface Course { id: string; title: string; description?: string | null; created_at?: string; status?: 'draft' | 'published'; }
 
 export default function MemberCoursesSection({ userId, onCoursesChange }: { userId: string; onCoursesChange?: () => void }) {
     const [courses, setCourses] = useState<Course[]>([]);
@@ -41,6 +41,20 @@ export default function MemberCoursesSection({ userId, onCoursesChange }: { user
             }
         } finally {
             setDeleting(false);
+        }
+    }
+
+    async function handleTogglePublish(c: Course) {
+        const newStatus = c.status === 'published' ? 'draft' : 'published';
+        const r = await fetch(`${SERVER}/api/courses/${c.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus }),
+        });
+        if (r.ok) {
+            const updated = await r.json();
+            setCourses(prev => prev.map(x => x.id === c.id ? { ...x, status: updated.status } : x));
+            onCoursesChange?.();
         }
     }
 
@@ -84,14 +98,44 @@ export default function MemberCoursesSection({ userId, onCoursesChange }: { user
                         >
                             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--text)' }}><RichContent html={c.title} /></div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                        <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--text)' }}><RichContent html={c.title} /></div>
+                                        <span style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                                            padding: '2px 9px', borderRadius: 20, fontSize: 11, fontWeight: 700, flexShrink: 0,
+                                            background: c.status === 'published' ? 'rgba(34,197,94,0.13)' : 'rgba(100,116,139,0.18)',
+                                            color: c.status === 'published' ? '#4ade80' : '#94a3b8',
+                                        }}>
+                                            {c.status === 'published' ? '● Published' : '○ Draft'}
+                                        </span>
+                                    </div>
                                     {c.description && (
                                         <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                                             <RichContent html={c.description} />
                                         </div>
                                     )}
                                 </div>
-                                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                                <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleTogglePublish(c)}
+                                        style={{
+                                            padding: '6px 12px',
+                                            borderRadius: 8,
+                                            border: c.status === 'published'
+                                                ? '1px solid rgba(100,116,139,0.4)'
+                                                : '1px solid rgba(34,197,94,0.4)',
+                                            background: c.status === 'published'
+                                                ? 'rgba(100,116,139,0.1)'
+                                                : 'rgba(34,197,94,0.1)',
+                                            color: c.status === 'published' ? '#94a3b8' : '#4ade80',
+                                            fontSize: 12,
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        {c.status === 'published' ? 'Unpublish' : 'Publish'}
+                                    </button>
                                     <button
                                         type="button"
                                         onClick={() => setViewingCourse(c)}

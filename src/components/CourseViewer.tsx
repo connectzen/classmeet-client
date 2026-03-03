@@ -69,9 +69,10 @@ export default function CourseViewer({ course, onClose }: Props) {
                 zIndex: 99999,
                 background: 'rgba(0,0,0,0.85)',
                 display: 'flex',
-                alignItems: 'center',
+                alignItems: 'flex-start',
                 justifyContent: 'center',
-                padding: 24,
+                padding: '60px 24px 40px',
+                overflowY: 'auto',
             }}
             onClick={onClose}
         >
@@ -81,7 +82,7 @@ export default function CourseViewer({ course, onClose }: Props) {
                     borderRadius: 16,
                     width: '100%',
                     maxWidth: 720,
-                    maxHeight: '90vh',
+                    maxHeight: 'calc(100vh - 120px)',
                     display: 'flex',
                     flexDirection: 'column',
                     boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
