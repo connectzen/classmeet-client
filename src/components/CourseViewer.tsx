@@ -217,7 +217,7 @@ function QuizModal({ quizId, userId, userName, onClose }: {
 
                                 {currentQ.type === 'text' && (
                                     <textarea value={answers[currentQ.id]?.text || ''} onChange={e => setAnswers(prev => ({ ...prev, [currentQ.id]: { ...prev[currentQ.id], text: e.target.value } }))} placeholder="Type your answer here…" rows={4}
-                                        style={{ width: '100%', padding: '11px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(0,0,0,0.25)', color: '#e2e8f0', fontSize: 14, resize: 'vertical', boxSizing: 'border-box', outline: 'none', lineHeight: 1.6 }} />
+                                        style={{ width: '100%', padding: '11px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: '#000', color: '#e2e8f0', fontSize: 14, resize: 'vertical', boxSizing: 'border-box', outline: 'none', lineHeight: 1.6 }} />
                                 )}
                                 {currentQ.type === 'select' && currentQ.options && (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

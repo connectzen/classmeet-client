@@ -728,8 +728,8 @@ button:active:not(:disabled),
   display: block;
   width: 100%;
   padding: 11px 14px;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(99,102,241,0.25);
+  background: #000;
+  border: 1px solid rgba(255,255,255,0.12);
   border-radius: 10px;
   color: #f1f5f9;
   font-size: 14px;
@@ -737,11 +737,9 @@ button:active:not(:disabled),
   outline: none;
   margin-bottom: 4px;
   box-sizing: border-box;
-  transition: border-color 0.2s, background 0.2s;
-  transition-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
-.quiz-input:focus { border-color: #6366f1; background: rgba(15, 23, 42, 0.8); }
-.quiz-input option { background: #1e1b4b; }
+.quiz-input:focus { border-color: rgba(255,255,255,0.25); background: #000; }
+.quiz-input option { background: #000; }
 .cd-icon-btn {
   display: flex;
   align-items: center;

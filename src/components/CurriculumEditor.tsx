@@ -152,7 +152,7 @@ function SortableLessonCard({
                         )}
                         {lesson.lesson_type === 'video' && (
                             <input type="url" value={lesson.video_url || ''} onChange={e => onUpdate(lesson.id, { video_url: e.target.value })} placeholder="Paste YouTube or video URL…"
-                                style={{ width: '100%', padding: '8px 12px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#e2e8f0', fontSize: 13, boxSizing: 'border-box' }} />
+                                style={{ width: '100%', padding: '8px 12px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.12)', background: '#000', color: '#e2e8f0', fontSize: 13, boxSizing: 'border-box' }} />
                         )}
                         {lesson.lesson_type === 'audio' && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -348,7 +348,7 @@ function SortableTopicCard({
                                 if (e.key === 'Escape') { setEditingTitle(false); setTitleVal(topic.title); }
                             }}
                             onClick={e => e.stopPropagation()}
-                            style={{ flex: 1, padding: '5px 8px', borderRadius: 6, border: '1px solid rgba(99,102,241,0.5)', background: 'rgba(0,0,0,0.3)', color: '#e2e8f0', fontSize: 14, fontWeight: 600 }}
+                            style={{ flex: 1, padding: '5px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.12)', background: '#000', color: '#e2e8f0', fontSize: 14, fontWeight: 600 }}
                         />
                     ) : (
                         <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: '#e2e8f0' }}>
