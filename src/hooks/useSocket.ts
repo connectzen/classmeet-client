@@ -47,6 +47,7 @@ interface UseSocketOptions {
     onDrawCursor?: (x: number, y: number) => void;
     onDrawClear?: () => void;
     onDrawSnapshot?: (dataUrl: string) => void;
+    onDrawHistory?: (segs: DrawSeg[]) => void;
     // Quiz monitoring — teacher notified when students start/finish the quiz
     onQuizStudentStarted?: (data: { socketId: string; name: string }) => void;
     onQuizStudentInactive?: (socketId: string) => void;
@@ -87,6 +88,7 @@ export function useSocket(options: UseSocketOptions) {
     const onDrawCursorRef  = useRef(onDrawCursor);
     const onDrawClearRef = useRef(onDrawClear);
     const onDrawSnapshotRef = useRef(onDrawSnapshot);
+    const onDrawHistoryRef = useRef(options.onDrawHistory);
 
     onAdminRefreshRef.current = onAdminRefresh;
     onParticipantJoinedRef.current = onParticipantJoined;
@@ -110,6 +112,7 @@ export function useSocket(options: UseSocketOptions) {
     onDrawCursorRef.current  = onDrawCursor;
     onDrawClearRef.current = onDrawClear;
     onDrawSnapshotRef.current = onDrawSnapshot;
+    onDrawHistoryRef.current = options.onDrawHistory;
 
     const onQuizStudentStartedRef = useRef(options.onQuizStudentStarted);
     const onQuizStudentInactiveRef = useRef(options.onQuizStudentInactive);
@@ -143,6 +146,7 @@ export function useSocket(options: UseSocketOptions) {
                 existingParticipants?: Participant[];
                 currentSpotlight?: string | null;
                 roomQuiz?: { quizId: string; quiz: unknown } | null;
+                drawHistory?: DrawSeg[];
             }) => {
                 if (res.error) setJoinError(res.error);
                 else {
@@ -150,6 +154,9 @@ export function useSocket(options: UseSocketOptions) {
                     setCurrentSpotlight(res.currentSpotlight || null);
                     setRoomQuiz(res.roomQuiz || null);
                     setRoomQuizSubmissions([]);
+                    if (res.drawHistory && res.drawHistory.length > 0) {
+                        onDrawHistoryRef.current?.(res.drawHistory);
+                    }
                 }
             });
         });

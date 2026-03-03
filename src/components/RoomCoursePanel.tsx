@@ -48,6 +48,7 @@ interface Props {
     externalDrawPreview?: DrawSeg | null;     // student receives live preview
     externalCursor?: { x: number; y: number } | null; // student sees teacher cursor
     drawClearSignal?: number;
+    externalDrawHistory?: DrawSeg[] | null;   // full history for late-joining students
     onSnapshot?: (dataUrl: string) => void;
     snapshotRequest?: number;
     snapshotDataUrl?: string | null;
@@ -146,7 +147,7 @@ export default function RoomCoursePanel({
     onScrollSync, externalScroll,
     sidebarOpen, onSidebarToggle,
     onDrawSegment, onDrawPreview, onDrawCursor, onDrawClear,
-    externalDrawSeg, externalDrawPreview, externalCursor, drawClearSignal,
+    externalDrawSeg, externalDrawPreview, externalCursor, drawClearSignal, externalDrawHistory,
     onSnapshot, snapshotRequest,
     snapshotDataUrl,
 }: Props) {
@@ -463,6 +464,18 @@ export default function RoomCoursePanel({
         const c = canvasRef.current;
         if (c) { const ctx = c.getContext('2d'); if (ctx) drawOnCanvas(ctx, externalDrawSeg, c.width, c.height); }
     }, [externalDrawSeg]);
+
+    // ── Replay full draw history for late-joining students ────────────────────
+    useEffect(() => {
+        if (!externalDrawHistory || externalDrawHistory.length === 0) return;
+        const c = canvasRef.current;
+        if (!c) return;
+        const ctx = c.getContext('2d');
+        if (!ctx) return;
+        for (const seg of externalDrawHistory) {
+            drawOnCanvas(ctx, seg, c.width, c.height);
+        }
+    }, [externalDrawHistory]);
 
     // ── Receive live preview from teacher (student) ───────────────────────────
     useEffect(() => {
