@@ -428,8 +428,9 @@ function QuizList({
 
             {!loading && quizzes.map((quiz) => (
                 <div key={quiz.id} style={{
-                    background: 'var(--surface-2)', borderRadius: 14, padding: 14,
-                    marginBottom: 10, border: '1px solid var(--border)',
+                    background: 'linear-gradient(135deg, #1e1b4b 0%, #1e3a5f 50%, #1d2e5e 100%)', borderRadius: 14, padding: 14,
+                    marginBottom: 10, border: '1px solid rgba(34,197,94,0.4)',
+                    boxShadow: '0 4px 20px rgba(99,102,241,0.18), 0 2px 6px rgba(0,0,0,0.2)',
                 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                         <div style={{ fontWeight: 600, fontSize: 15, flex: 1 }}><RichContent html={quiz.title} /></div>
