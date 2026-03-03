@@ -71,34 +71,69 @@ function SortableLessonCard({
     }
 
     const typeIcon = lesson.lesson_type === 'video' ? '🎬' : lesson.lesson_type === 'audio' ? '🎵' : lesson.lesson_type === 'image' ? '🖼️' : '📄';
+    const [editingLessonTitle, setEditingLessonTitle] = useState(false);
+    const [lessonTitleVal, setLessonTitleVal] = useState(lesson.title);
 
     return (
         <div ref={setNodeRef} style={dragStyle}>
-            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 9, border: '1px solid rgba(255,255,255,0.07)', overflow: 'hidden' }}>
-                {/* Row */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 11px' }}>
-                    <div {...attributes} {...listeners} style={{ cursor: 'grab', color: '#475569', fontSize: 14, touchAction: 'none', padding: '2px 3px', borderRadius: 4, flexShrink: 0 }} title="Drag">⋮⋮</div>
+            <div style={{ background: '#0d0d18', borderRadius: 9, border: '1px solid rgba(99,102,241,0.22)', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.35)' }}>
+                {/* Row — click to expand, dbl-click title or edit btn to edit */}
+                <div
+                    onClick={!editingLessonTitle ? onToggleExpand : undefined}
+                    style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 11px', cursor: editingLessonTitle ? 'default' : 'pointer', userSelect: 'none' }}
+                >
+                    <div {...attributes} {...listeners} onClick={e => e.stopPropagation()} style={{ cursor: 'grab', color: '#4f5d7a', fontSize: 14, touchAction: 'none', padding: '2px 3px', borderRadius: 4, flexShrink: 0 }} title="Drag">⋮⋮</div>
                     <span style={{ fontSize: 13, flexShrink: 0 }}>{typeIcon}</span>
-                    <input
-                        value={lesson.title}
-                        onChange={e => onUpdate(lesson.id, { title: e.target.value })}
-                        placeholder="Lesson title"
-                        style={{ flex: 1, minWidth: 60, padding: '5px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.09)', background: 'transparent', color: '#e2e8f0', fontSize: 13 }}
-                    />
+
+                    {/* Title — static text or editable input */}
+                    {editingLessonTitle ? (
+                        <input
+                            autoFocus
+                            value={lessonTitleVal}
+                            onChange={e => setLessonTitleVal(e.target.value)}
+                            onBlur={() => { setEditingLessonTitle(false); if (lessonTitleVal.trim()) onUpdate(lesson.id, { title: lessonTitleVal.trim() }); else setLessonTitleVal(lesson.title); }}
+                            onKeyDown={e => {
+                                if (e.key === 'Enter') { setEditingLessonTitle(false); if (lessonTitleVal.trim()) onUpdate(lesson.id, { title: lessonTitleVal.trim() }); }
+                                if (e.key === 'Escape') { setEditingLessonTitle(false); setLessonTitleVal(lesson.title); }
+                            }}
+                            onClick={e => e.stopPropagation()}
+                            style={{ flex: 1, minWidth: 60, padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(99,102,241,0.5)', background: 'rgba(0,0,0,0.4)', color: '#e2e8f0', fontSize: 13 }}
+                        />
+                    ) : (
+                        <span
+                            onDoubleClick={e => { e.stopPropagation(); setEditingLessonTitle(true); setLessonTitleVal(lesson.title); }}
+                            style={{ flex: 1, fontSize: 13, color: '#c9d5e8', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                            title="Double-click to rename"
+                        >
+                            {lesson.title || 'Untitled lesson'}
+                        </span>
+                    )}
+
+                    {/* Type selector */}
                     <select
                         value={lesson.lesson_type}
                         onChange={e => onUpdate(lesson.id, { lesson_type: e.target.value as LessonType })}
-                        style={{ padding: '5px 7px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.09)', background: '#1e1b4b', color: '#e2e8f0', fontSize: 12, colorScheme: 'dark', flexShrink: 0 }}
+                        onClick={e => e.stopPropagation()}
+                        style={{ padding: '4px 6px', borderRadius: 6, border: '1px solid rgba(99,102,241,0.25)', background: '#1a1730', color: '#a5b4fc', fontSize: 11, colorScheme: 'dark', flexShrink: 0 }}
                     >
                         <option value="text">Text</option>
                         <option value="video">Video</option>
                         <option value="audio">Audio</option>
                         <option value="image">Image</option>
                     </select>
-                    <button type="button" onClick={onToggleExpand} style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 12, padding: '3px 5px', flexShrink: 0 }}>
-                        {expanded ? '▼' : '▶'}
-                    </button>
-                    <button type="button" onClick={() => onDelete(lesson.id)} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: 11, borderRadius: 5, padding: '3px 7px', flexShrink: 0 }}>✕</button>
+
+                    {/* Edit btn */}
+                    {!editingLessonTitle && (
+                        <button type="button" onClick={e => { e.stopPropagation(); setEditingLessonTitle(true); setLessonTitleVal(lesson.title); }}
+                            style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: '#a5b4fc', cursor: 'pointer', fontSize: 11, borderRadius: 5, padding: '3px 7px', flexShrink: 0 }} title="Rename">✏️</button>
+                    )}
+
+                    {/* Expand chevron */}
+                    <span style={{ color: '#4f5d7a', fontSize: 12, transition: 'transform 0.2s', transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)', display: 'inline-block', flexShrink: 0, pointerEvents: 'none' }}>▼</span>
+
+                    {/* Delete btn */}
+                    <button type="button" onClick={e => { e.stopPropagation(); onDelete(lesson.id); }}
+                        style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)', color: '#fca5a5', cursor: 'pointer', fontSize: 12, borderRadius: 5, padding: '3px 8px', flexShrink: 0, fontWeight: 700 }} title="Delete lesson">✕</button>
                 </div>
                 {/* Expanded */}
                 {expanded && (
@@ -300,11 +335,11 @@ function SortableTopicCard({
 
     return (
         <div ref={setNodeRef} style={dragStyle}>
-            <div style={{ background: 'var(--surface-2, #13131a)', borderRadius: 13, border: '1px solid rgba(99,102,241,0.2)', overflow: 'hidden' }}>
+            <div style={{ background: '#10101e', borderRadius: 13, border: '1px solid rgba(99,102,241,0.35)', overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
                 {/* Topic header — click anywhere to expand/collapse */}
                 <div
                     onClick={!editingTitle ? onToggleExpand : undefined}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 14px', background: 'rgba(99,102,241,0.07)', borderBottom: '1px solid rgba(255,255,255,0.05)', cursor: editingTitle ? 'default' : 'pointer', userSelect: 'none' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 14px', background: 'rgba(99,102,241,0.13)', borderBottom: '1px solid rgba(99,102,241,0.18)', cursor: editingTitle ? 'default' : 'pointer', userSelect: 'none' }}
                 >
                     <div {...attributes} {...listeners} onClick={e => e.stopPropagation()} style={{ cursor: 'grab', color: '#475569', fontSize: 16, touchAction: 'none', padding: '2px 3px', flexShrink: 0 }} title="Drag topic">⠿</div>
                     {editingTitle ? (
@@ -328,8 +363,8 @@ function SortableTopicCard({
                     <span style={{ fontSize: 11, color: '#475569', whiteSpace: 'nowrap', flexShrink: 0 }}>
                         {itemCount} item{itemCount !== 1 ? 's' : ''}
                     </span>
-                    <button type="button" onClick={(e) => { e.stopPropagation(); setEditingTitle(true); setTitleVal(topic.title); }} style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 14, padding: '3px 5px', borderRadius: 5, flexShrink: 0 }} title="Rename">✏️</button>
-                    <button type="button" onClick={(e) => { e.stopPropagation(); onDeleteTopic(topic.id); }} style={{ background: 'rgba(239,68,68,0.12)', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: 13, padding: '4px 8px', borderRadius: 5, flexShrink: 0 }} title="Delete topic">🗑</button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setEditingTitle(true); setTitleVal(topic.title); }} style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', color: '#a5b4fc', cursor: 'pointer', fontSize: 13, padding: '4px 9px', borderRadius: 6, flexShrink: 0 }} title="Rename">✏️</button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); onDeleteTopic(topic.id); }} style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.45)', color: '#fca5a5', cursor: 'pointer', fontSize: 13, padding: '4px 9px', borderRadius: 6, flexShrink: 0, fontWeight: 700 }} title="Delete topic">🗑</button>
                     <span style={{ color: '#64748b', fontSize: 13, padding: '3px 5px', flexShrink: 0, transition: 'transform 0.2s', transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)', display: 'inline-block' }}>▼</span>
                 </div>
 
@@ -340,7 +375,7 @@ function SortableTopicCard({
                     transition: 'grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 }}>
                     <div style={{ overflow: 'hidden' }}>
-                        <div style={{ padding: 14, opacity: expanded ? 1 : 0, transition: 'opacity 0.22s ease' }}>
+                        <div style={{ padding: 14, opacity: expanded ? 1 : 0, transition: 'opacity 0.22s ease', background: '#0a0a14' }}>
                         {/* Unified items list: lessons + quizzes + assignments */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                             {/* Sortable lessons */}
@@ -361,19 +396,19 @@ function SortableTopicCard({
                                 </SortableContext>
                             </DndContext>
 
-                            {/* Attached quizzes — same row style */}
+                            {/* Attached quizzes */}
                             {topic.quizzes.map(quiz => (
-                                <div key={quiz.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)' }}>
+                                <div key={quiz.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(139,92,246,0.3)', background: 'rgba(139,92,246,0.07)', borderLeft: '3px solid rgba(139,92,246,0.55)' }}>
                                     <span style={{ fontSize: 14, flexShrink: 0 }}>📝</span>
                                     <span style={{ flex: 1, fontSize: 13, color: '#c4b5fd', fontWeight: 500 }}>{quiz.title}</span>
                                     <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 20, background: quiz.status === 'published' ? 'rgba(34,197,94,0.15)' : 'rgba(100,116,139,0.2)', color: quiz.status === 'published' ? '#4ade80' : '#94a3b8', flexShrink: 0 }}>{quiz.status}</span>
-                                    <button type="button" onClick={() => handleDetachQuiz(quiz.id)} style={{ background: 'transparent', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 12, padding: '2px 5px', flexShrink: 0 }} title="Remove">✕</button>
+                                    <button type="button" onClick={() => handleDetachQuiz(quiz.id)} style={{ background: 'rgba(239,68,68,0.18)', border: '1px solid rgba(239,68,68,0.4)', color: '#fca5a5', cursor: 'pointer', fontSize: 11, borderRadius: 5, padding: '3px 8px', flexShrink: 0, fontWeight: 700 }} title="Remove">✕</button>
                                 </div>
                             ))}
 
-                            {/* Attached assignments — same row style */}
+                            {/* Attached assignments */}
                             {topic.assignments.map(a => (
-                                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)' }}>
+                                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(251,191,36,0.25)', background: 'rgba(251,191,36,0.05)', borderLeft: '3px solid rgba(251,191,36,0.5)' }}>
                                     <span style={{ fontSize: 14, flexShrink: 0 }}>
                                         {a.assignment_type === 'link' ? '🔗' : a.assignment_type === 'file' ? '📎' : a.assignment_type === 'quiz' ? '📝' : '📋'}
                                     </span>
@@ -384,7 +419,7 @@ function SortableTopicCard({
                                     {a.file_url && (
                                         <a href={a.file_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: '#818cf8', flexShrink: 0 }}>Open ↗</a>
                                     )}
-                                    <button type="button" onClick={() => handleDeleteAssignment(a.id)} style={{ background: 'transparent', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 12, padding: '2px 5px', flexShrink: 0 }} title="Delete">✕</button>
+                                    <button type="button" onClick={() => handleDeleteAssignment(a.id)} style={{ background: 'rgba(239,68,68,0.18)', border: '1px solid rgba(239,68,68,0.4)', color: '#fca5a5', cursor: 'pointer', fontSize: 11, borderRadius: 5, padding: '3px 8px', flexShrink: 0, fontWeight: 700 }} title="Delete">✕</button>
                                 </div>
                             ))}
                         </div>
