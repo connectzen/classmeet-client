@@ -12,10 +12,18 @@ interface Lesson {
     order_index: number;
 }
 
+interface Topic {
+    id: string;
+    title: string;
+    order_index: number;
+    lessons: Lesson[];
+}
+
 interface CourseData {
     id: string;
     title: string;
-    lessons: Lesson[];
+    topics: Topic[];
+    lessons: Lesson[]; // flattened for nav
 }
 
 export interface DrawSeg {
@@ -216,14 +224,19 @@ export default function RoomCoursePanel({
             courseIds.map(id =>
                 Promise.all([
                     fetch(`${serverUrl}/api/courses/${id}`).then(r => r.ok ? r.json() : { id, title: '' }),
-                    fetch(`${serverUrl}/api/courses/${id}/lessons`).then(r => r.ok ? r.json() : []),
-                ]).then(([course, lessons]) => ({
-                    id,
-                    title: (course as { title?: string }).title || '',
-                    lessons: Array.isArray(lessons)
-                        ? (lessons as Lesson[]).sort((a, b) => a.order_index - b.order_index)
-                        : [],
-                }))
+                    fetch(`${serverUrl}/api/courses/${id}/topics`).then(r => r.ok ? r.json() : []),
+                ]).then(([course, topics]) => {
+                    const sortedTopics = (Array.isArray(topics) ? topics : []) as Topic[];
+                    sortedTopics.sort((a, b) => a.order_index - b.order_index);
+                    sortedTopics.forEach(t => t.lessons?.sort((a, b) => a.order_index - b.order_index));
+                    const flatLessons = sortedTopics.flatMap(t => t.lessons || []);
+                    return {
+                        id,
+                        title: (course as { title?: string }).title || '',
+                        topics: sortedTopics,
+                        lessons: flatLessons,
+                    };
+                })
             )
         ).then(setCourses).finally(() => setLoading(false));
     }, [courseIds, serverUrl]);
@@ -609,6 +622,8 @@ export default function RoomCoursePanel({
     const totalLessons = course?.lessons.length ?? 0;
     const canPrev      = activeLessonIdx > 0;
     const canNext      = activeLessonIdx < totalLessons - 1;
+    // Find active topic for current lesson
+    const activeTopic  = lesson ? (course?.topics ?? []).find(t => t.lessons?.some(l => l.id === lesson.id)) ?? null : null;
 
     // ── Render ────────────────────────────────────────────────────────────────
     return (
@@ -627,8 +642,9 @@ export default function RoomCoursePanel({
                     </button>
                 ))}
                 {totalLessons > 0 && (
-                    <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', paddingRight: 4 }}>
-                        Lesson {activeLessonIdx + 1} / {totalLessons}
+                    <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', paddingRight: 4, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                        {activeTopic && <span style={{ fontSize: 10, color: 'rgba(99,102,241,0.8)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{activeTopic.title}</span>}
+                        <span>Lesson {activeLessonIdx + 1} / {totalLessons}</span>
                     </span>
                 )}
             </div>
@@ -636,15 +652,39 @@ export default function RoomCoursePanel({
             {/* ── Body ── */}
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
-                {/* Sidebar */}
-                <div style={{ width: sidebarOpen ? 200 : 0, flexShrink: 0, borderRight: sidebarOpen ? '1px solid var(--border)' : 'none', overflowY: sidebarOpen ? 'auto' : 'hidden', overflowX: 'hidden', transition: 'width 0.2s ease' }}>
-                    {(course?.lessons ?? []).map((l, i) => (
-                        <button key={l.id} onClick={() => isTeacher ? onNav(activeCourseIdx, i) : undefined} disabled={!isTeacher}
-                            style={{ display: 'flex', alignItems: 'flex-start', gap: 8, width: '100%', padding: '10px 12px', border: 'none', textAlign: 'left', background: activeLessonIdx === i ? 'rgba(99,102,241,0.18)' : 'transparent', borderLeft: activeLessonIdx === i ? '3px solid #6366f1' : '3px solid transparent', borderBottom: '1px solid var(--border)', cursor: isTeacher ? 'pointer' : 'default', pointerEvents: isTeacher ? 'auto' : 'none' }}>
-                            <span style={{ fontSize: 11, color: activeLessonIdx === i ? '#818cf8' : 'var(--text-muted)', fontWeight: 700, minWidth: 18, marginTop: 2 }}>{i + 1}.</span>
-                            <span style={{ fontSize: 12, color: activeLessonIdx === i ? '#e2e8f0' : 'var(--text-muted)', lineHeight: 1.4, wordBreak: 'break-word' }}>{l.title}</span>
-                        </button>
-                    ))}
+                {/* Sidebar — topics + lessons */}
+                <div style={{ width: sidebarOpen ? 220 : 0, flexShrink: 0, borderRight: sidebarOpen ? '1px solid var(--border)' : 'none', overflowY: sidebarOpen ? 'auto' : 'hidden', overflowX: 'hidden', transition: 'width 0.2s ease' }}>
+                    {(course?.topics ?? []).length > 0 ? (
+                        (course!.topics).map((topic) => (
+                            <div key={topic.id}>
+                                {/* Topic header */}
+                                <div style={{ padding: '8px 10px 4px', fontSize: 10, fontWeight: 800, color: 'rgba(99,102,241,0.9)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--border)', background: 'rgba(99,102,241,0.07)' }}>
+                                    {topic.title}
+                                </div>
+                                {/* Topic lessons */}
+                                {(topic.lessons ?? []).map((l) => {
+                                    const flatIdx = course!.lessons.findIndex(x => x.id === l.id);
+                                    const isActive = activeLessonIdx === flatIdx;
+                                    return (
+                                        <button key={l.id} onClick={() => isTeacher ? onNav(activeCourseIdx, flatIdx) : undefined} disabled={!isTeacher}
+                                            style={{ display: 'flex', alignItems: 'flex-start', gap: 8, width: '100%', padding: '9px 10px 9px 16px', border: 'none', textAlign: 'left', background: isActive ? 'rgba(99,102,241,0.18)' : 'transparent', borderLeft: isActive ? '3px solid #6366f1' : '3px solid transparent', borderBottom: '1px solid var(--border)', cursor: isTeacher ? 'pointer' : 'default', pointerEvents: isTeacher ? 'auto' : 'none' }}>
+                                            <span style={{ fontSize: 11, color: isActive ? '#818cf8' : 'var(--text-muted)', fontWeight: 700, minWidth: 14, marginTop: 1 }}>{flatIdx + 1}.</span>
+                                            <span style={{ fontSize: 12, color: isActive ? '#e2e8f0' : 'var(--text-muted)', lineHeight: 1.4, wordBreak: 'break-word' }}>{l.title}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        ))
+                    ) : (
+                        /* Fallback: flat lesson list if no topics */
+                        (course?.lessons ?? []).map((l, i) => (
+                            <button key={l.id} onClick={() => isTeacher ? onNav(activeCourseIdx, i) : undefined} disabled={!isTeacher}
+                                style={{ display: 'flex', alignItems: 'flex-start', gap: 8, width: '100%', padding: '10px 12px', border: 'none', textAlign: 'left', background: activeLessonIdx === i ? 'rgba(99,102,241,0.18)' : 'transparent', borderLeft: activeLessonIdx === i ? '3px solid #6366f1' : '3px solid transparent', borderBottom: '1px solid var(--border)', cursor: isTeacher ? 'pointer' : 'default', pointerEvents: isTeacher ? 'auto' : 'none' }}>
+                                <span style={{ fontSize: 11, color: activeLessonIdx === i ? '#818cf8' : 'var(--text-muted)', fontWeight: 700, minWidth: 18, marginTop: 2 }}>{i + 1}.</span>
+                                <span style={{ fontSize: 12, color: activeLessonIdx === i ? '#e2e8f0' : 'var(--text-muted)', lineHeight: 1.4, wordBreak: 'break-word' }}>{l.title}</span>
+                            </button>
+                        ))
+                    )}
                 </div>
 
                 {/* Content wrapper */}

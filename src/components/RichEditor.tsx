@@ -214,7 +214,14 @@ export function isRichEmpty(html: string) {
 }
 
 export function stripHtml(html: string): string {
-    return html.replace(/<[^>]*>/g, '').trim();
+    if (!html) return '';
+    try {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        return (tmp.textContent || tmp.innerText || '').trim();
+    } catch {
+        return html.replace(/<[^>]*>/g, '').trim();
+    }
 }
 
 // ── Toolbar button ────────────────────────────────────────────────────────────
