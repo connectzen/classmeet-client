@@ -76,7 +76,7 @@ function SortableLessonCard({
 
     return (
         <div ref={setNodeRef} style={dragStyle}>
-            <div style={{ background: 'linear-gradient(135deg,#22253a 0%,#1e2134 100%)', borderRadius: 10, border: '1px solid rgba(99,102,241,0.28)', borderLeft: '3px solid rgba(99,102,241,0.65)', overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.25)' }}>
+            <div className="hover-card" style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #1e3a5f 50%, #1d2e5e 100%)', borderRadius: 12, border: '1px solid rgba(34,197,94,0.35)', overflow: 'hidden', boxShadow: '0 2px 10px rgba(99,102,241,0.12)' }}>
                 {/* Row */}
                 <div
                     onClick={!editingLessonTitle ? onToggleExpand : undefined}
@@ -330,11 +330,11 @@ function SortableTopicCard({
 
     return (
         <div ref={setNodeRef} style={dragStyle}>
-            <div style={{ background: '#1a1e2e', borderRadius: 14, border: '1px solid rgba(99,102,241,0.4)', overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.35)' }}>
+            <div className="hover-card" style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #1e3a5f 50%, #1d2e5e 100%)', borderRadius: 14, border: '1px solid rgba(34,197,94,0.4)', overflow: 'hidden', boxShadow: '0 4px 20px rgba(99,102,241,0.18), 0 2px 6px rgba(0,0,0,0.2)' }}>
                 {/* Topic header */}
                 <div
                     onClick={!editingTitle ? onToggleExpand : undefined}
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px', background: 'linear-gradient(90deg, rgba(99,102,241,0.18) 0%, rgba(99,102,241,0.06) 100%)', borderBottom: '1px solid rgba(99,102,241,0.2)', cursor: editingTitle ? 'default' : 'pointer', userSelect: 'none' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px', background: 'rgba(34,197,94,0.07)', borderBottom: '1px solid rgba(34,197,94,0.2)', cursor: editingTitle ? 'default' : 'pointer', userSelect: 'none' }}
                 >
                     <div {...attributes} {...listeners} onClick={e => e.stopPropagation()} style={{ cursor: 'grab', color: '#475569', fontSize: 16, touchAction: 'none', padding: '2px 3px', flexShrink: 0 }} title="Drag topic">⠿</div>
                     {editingTitle ? (
