@@ -1527,6 +1527,8 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             {viewingStudentCourse && (
                 <CourseViewer
                     course={viewingStudentCourse}
+                    userId={user?.id || ''}
+                    userName={displayName}
                     onClose={() => setViewingStudentCourse(null)}
                 />
             )}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import DOMPurify from 'dompurify';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
@@ -9,220 +9,457 @@ function stripHtml(html: string): string {
     return tmp.textContent || tmp.innerText || '';
 }
 
+// ─── Types ─────────────────────────────────────────────────────────────────
 type LessonType = 'text' | 'video' | 'audio' | 'image';
 
 interface Lesson {
-    id: string;
-    title: string;
-    content: string;
-    order_index: number;
-    lesson_type: LessonType;
-    video_url: string | null;
-    audio_url: string | null;
-    image_url: string | null;
+    id: string; title: string; content: string; order_index: number;
+    lesson_type: LessonType; video_url: string | null; audio_url: string | null; image_url: string | null;
 }
-
+interface TopicQuiz {
+    id: string; title: string; status: string; time_limit_minutes: number | null;
+}
 interface Assignment {
-    id: string;
-    title: string;
-    description: string;
-    assignment_type: string;
-    file_url?: string | null;
-    quiz_id?: string | null;
+    id: string; title: string; description: string; assignment_type: string;
+    file_url?: string | null; quiz_id?: string | null;
 }
-
 interface Topic {
-    id: string;
-    title: string;
-    assignments: Assignment[];
+    id: string; title: string; order_index: number;
+    lessons: Lesson[]; quizzes: TopicQuiz[]; assignments: Assignment[];
 }
-
-interface Course {
-    id: string;
-    title: string;
-    description?: string | null;
-}
-
+interface Course { id: string; title: string; description?: string | null; }
 interface Props {
     course: Course;
+    userId: string;
+    userName: string;
     onClose: () => void;
 }
 
-export default function CourseViewer({ course, onClose }: Props) {
-    const [tab, setTab] = useState<'lessons' | 'assignments'>('lessons');
-    const [lessons, setLessons] = useState<Lesson[]>([]);
-    const [topics, setTopics] = useState<Topic[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [activeLessonIdx, setActiveLessonIdx] = useState(0);
+// ─── Question types for quiz taking ────────────────────────────────────────
+type QType = 'text' | 'select' | 'multi-select' | 'recording' | 'video' | 'upload';
+interface Question {
+    id: string; type: QType; question_text: string;
+    options?: string[] | null; video_url?: string | null;
+    order_index: number; points: number;
+    parent_question_id?: string | null; children?: Question[];
+}
+interface QuizFull {
+    id: string; title: string; status: string; time_limit_minutes: number | null; questions: Question[];
+}
 
-    const fetchData = useCallback(async () => {
-        setLoading(true);
+// ─── Inline Quiz Modal ──────────────────────────────────────────────────────
+function QuizModal({ quizId, userId, userName, onClose }: {
+    quizId: string; userId: string; userName: string; onClose: () => void;
+}) {
+    const [quiz, setQuiz] = useState<QuizFull | null>(null);
+    const [submissionId, setSubmissionId] = useState<string | null>(null);
+    const [answers, setAnswers] = useState<Record<string, { text?: string; selected?: string[] }>>({});
+    const [phase, setPhase] = useState<'loading' | 'taking' | 'done'>('loading');
+    const [score, setScore] = useState<number | null>(null);
+    const [hasPending, setHasPending] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [timeLeft, setTimeLeft] = useState<number | null>(null);
+    const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    const handleSubmit = useCallback(async () => {
+        if (!submissionId || submitting) return;
+        setSubmitting(true);
+        if (timerRef.current) clearInterval(timerRef.current);
         try {
-            const [lRes, tRes] = await Promise.all([
-                fetch(`${SERVER}/api/courses/${course.id}/lessons`),
-                fetch(`${SERVER}/api/courses/${course.id}/topics`),
-            ]);
-            if (lRes.ok) {
-                const data = await lRes.json();
-                setLessons((data as { id: string; title: string; content: string | null; order_index: number; lesson_type?: string; video_url?: string | null; audio_url?: string | null; image_url?: string | null }[])
-                    .sort((a, b) => a.order_index - b.order_index)
-                    .map(l => ({
-                        id: l.id,
-                        title: l.title,
-                        content: l.content || '',
-                        order_index: l.order_index,
-                        lesson_type: (l.lesson_type || 'text') as LessonType,
-                        video_url: l.video_url || null,
-                        audio_url: l.audio_url || null,
-                        image_url: l.image_url || null,
-                    })));
+            const ansArr = Object.entries(answers).map(([questionId, a]) => ({
+                questionId, answerText: a.text || null, selectedOptions: a.selected || null,
+            }));
+            await fetch(`${SERVER}/api/submissions/${submissionId}/answers`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ answers: ansArr }),
+            });
+            const res = await fetch(`${SERVER}/api/submissions/${submissionId}/submit`, { method: 'POST' });
+            if (res.ok) {
+                const data = await res.json();
+                setScore(data.score);
+                setHasPending(data.hasPendingManual);
             }
-            if (tRes.ok) {
-                const tdata = await tRes.json() as Topic[];
-                setTopics(tdata);
-            }
-        } catch { /* ignore */ } finally {
-            setLoading(false);
-        }
-    }, [course.id]);
+            setPhase('done');
+        } finally { setSubmitting(false); }
+    }, [submissionId, submitting, answers]);
 
-    useEffect(() => { fetchData(); }, [fetchData]);
+    useEffect(() => {
+        (async () => {
+            try {
+                const [qRes, subRes] = await Promise.all([
+                    fetch(`${SERVER}/api/quizzes/${quizId}`),
+                    fetch(`${SERVER}/api/quizzes/${quizId}/my-submission?studentId=${encodeURIComponent(userId)}`),
+                ]);
+                if (!qRes.ok) { onClose(); return; }
+                const qData: QuizFull = await qRes.json();
+                setQuiz(qData);
+                const existing = subRes.ok ? await subRes.json() : null;
+                if (existing && existing.submitted_at) {
+                    setScore(existing.score);
+                    setPhase('done');
+                    return;
+                }
+                const startRes = await fetch(`${SERVER}/api/quizzes/${quizId}/start`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ studentId: userId, studentName: userName }),
+                });
+                if (startRes.ok) {
+                    const sub = await startRes.json();
+                    setSubmissionId(sub.id);
+                    if (existing && Array.isArray(existing.answers)) {
+                        const pre: Record<string, { text?: string; selected?: string[] }> = {};
+                        for (const a of existing.answers) {
+                            pre[a.question_id] = {
+                                text: a.answer_text || undefined,
+                                selected: a.selected_options
+                                    ? (Array.isArray(a.selected_options) ? a.selected_options : JSON.parse(a.selected_options))
+                                    : undefined,
+                            };
+                        }
+                        setAnswers(pre);
+                    }
+                    if (qData.time_limit_minutes) setTimeLeft(qData.time_limit_minutes * 60);
+                    setPhase('taking');
+                }
+            } catch { onClose(); }
+        })();
+        return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [quizId, userId, userName]);
 
-    const lesson = lessons[activeLessonIdx];
-    const allAssignments: { topic: string; assignment: Assignment }[] = topics.flatMap(t =>
-        (t.assignments || []).map(a => ({ topic: stripHtml(t.title), assignment: a }))
+    useEffect(() => {
+        if (phase !== 'taking' || timeLeft === null) return;
+        timerRef.current = setInterval(() => {
+            setTimeLeft(t => {
+                if (t === null || t <= 1) { clearInterval(timerRef.current!); handleSubmit(); return 0; }
+                return t - 1;
+            });
+        }, 1000);
+        return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [phase]);
+
+    const flatQuestions = (quiz?.questions || []).flatMap(q =>
+        q.children?.length ? [q, ...q.children] : [q]
     );
-
-    const tabBtn = (key: 'lessons' | 'assignments', label: string, count?: number) => (
-        <button
-            type="button"
-            onClick={() => setTab(key)}
-            style={{
-                padding: '7px 18px',
-                borderRadius: 8,
-                border: 'none',
-                background: tab === key ? 'rgba(99,102,241,0.25)' : 'transparent',
-                color: tab === key ? '#a5b4fc' : 'var(--text-muted)',
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-            }}
-        >
-            {label}
-            {count !== undefined && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 18, height: 18, borderRadius: 100, padding: '0 5px', fontSize: 10, fontWeight: 700, background: tab === key ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.08)', color: tab === key ? '#c7d2fe' : 'var(--text-muted)' }}>
-                    {count}
-                </span>
-            )}
-        </button>
-    );
+    const fmtTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
     return (
         <div
-            style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '60px 24px 40px', overflowY: 'auto' }}
+            style={{ position: 'fixed', inset: 0, zIndex: 100001, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '60px 24px 40px', overflowY: 'auto' }}
             onClick={onClose}
         >
             <div
-                style={{ background: 'var(--surface-2, #18181f)', borderRadius: 16, width: '100%', maxWidth: 720, maxHeight: 'calc(100vh - 120px)', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.08)' }}
+                style={{ background: '#13131a', borderRadius: 16, width: '100%', maxWidth: 640, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 25px 60px -12px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column' }}
                 onClick={e => e.stopPropagation()}
             >
-                {/* Header */}
-                <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-                    <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text)' }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(course.title) }} />
-                    <button type="button" onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Close</button>
-                </div>
-
-                {/* Tabs */}
-                <div style={{ display: 'flex', gap: 4, padding: '10px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-                    {tabBtn('lessons', '📖 Lessons', lessons.length)}
-                    {tabBtn('assignments', '📋 Assignments', allAssignments.length)}
-                </div>
-
-                {loading ? (
-                    <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)' }}>Loading…</div>
-                ) : tab === 'lessons' ? (
-                    lessons.length === 0 ? (
-                        <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)' }}>No lessons in this course yet.</div>
-                    ) : (
-                        <>
-                            {/* Lesson tabs */}
-                            <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', overflowX: 'auto', padding: '12px 16px', gap: 8, flexShrink: 0 }}>
-                                {lessons.map((l, idx) => (
-                                    <button key={l.id} type="button" onClick={() => setActiveLessonIdx(idx)}
-                                        style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeLessonIdx === idx ? 'rgba(99,102,241,0.25)' : 'rgba(255,255,255,0.06)', color: activeLessonIdx === idx ? '#a5b4fc' : 'var(--text-muted)', fontSize: 13, fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                        {l.title || `Lesson ${idx + 1}`}
-                                    </button>
-                                ))}
+                {/* Quiz header */}
+                <div style={{ padding: '18px 22px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+                    <div>
+                        <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>📝 Quiz</div>
+                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#e2e8f0' }}>{quiz ? stripHtml(quiz.title) : 'Loading…'}</h3>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        {phase === 'taking' && timeLeft !== null && (
+                            <div style={{ fontSize: 14, fontWeight: 700, color: timeLeft < 60 ? '#f87171' : '#fcd34d', background: 'rgba(251,191,36,0.1)', padding: '5px 12px', borderRadius: 8, border: '1px solid rgba(251,191,36,0.2)' }}>
+                                ⏱ {fmtTime(timeLeft)}
                             </div>
-                            {/* Active lesson */}
-                            <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
-                                {lesson && (
-                                    <div key={lesson.id}>
-                                        <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 600, color: 'var(--text)' }}>{lesson.title || `Lesson ${activeLessonIdx + 1}`}</h3>
-                                        {lesson.lesson_type === 'image' && lesson.image_url && (
-                                            <div style={{ marginBottom: 16 }}><img src={lesson.image_url} alt={lesson.title} style={{ width: '100%', borderRadius: 12, display: 'block' }} /></div>
-                                        )}
-                                        {lesson.lesson_type === 'video' && lesson.video_url && (
-                                            <div style={{ marginBottom: 16 }}>
-                                                {lesson.video_url.includes('youtube') || lesson.video_url.includes('youtu.be') ? (
-                                                    <iframe src={lesson.video_url.replace('watch?v=', 'embed/').replace('youtu.be/', 'www.youtube.com/embed/')} style={{ width: '100%', aspectRatio: '16/9', borderRadius: 12, border: 'none' }} allow="accelerometer; autoplay; encrypted-media; gyroscope" allowFullScreen title={lesson.title} />
-                                                ) : (
-                                                    <video src={lesson.video_url} controls style={{ width: '100%', borderRadius: 12 }} />
-                                                )}
-                                            </div>
-                                        )}
-                                        {lesson.lesson_type === 'audio' && lesson.audio_url && (
-                                            <div style={{ marginBottom: 16 }}><audio src={lesson.audio_url} controls style={{ width: '100%', borderRadius: 8 }} /></div>
-                                        )}
-                                        {lesson.lesson_type === 'text' && (
-                                            lesson.content ? (
-                                                <>
-                                                    <style>{`.lesson-html-content p{margin:0 0 8px}.lesson-html-content ul,.lesson-html-content ol{padding-left:20px;margin:0 0 8px}.lesson-html-content blockquote{border-left:3px solid #6366f1;padding-left:12px;color:#94a3b8;margin:0 0 8px;font-style:italic}.lesson-html-content strong{color:#f1f5f9}.lesson-html-content em{color:#cbd5e1}.lesson-html-content a{color:#818cf8;text-decoration:underline}`}</style>
-                                                    <div className="lesson-html-content" style={{ color: 'var(--text)', lineHeight: 1.7, fontSize: 14 }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(lesson.content) }} />
-                                                </>
-                                            ) : (
-                                                <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>No content for this lesson.</p>
-                                            )
-                                        )}
-                                        {lesson.lesson_type === 'video' && !lesson.video_url && <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>No video URL for this lesson.</p>}
-                                        {lesson.lesson_type === 'audio' && !lesson.audio_url && <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>No audio for this lesson.</p>}
+                        )}
+                        <button type="button" onClick={onClose} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', color: '#94a3b8', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 13 }}>Close</button>
+                    </div>
+                </div>
+
+                <div style={{ flex: 1, overflowY: 'auto', padding: 22 }}>
+                    {phase === 'loading' && <div style={{ textAlign: 'center', color: '#64748b', padding: 40 }}>Loading quiz…</div>}
+
+                    {phase === 'taking' && quiz && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                            {flatQuestions.map((q, idx) => (
+                                <div key={q.id} style={{ padding: '16px 18px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
+                                        <span style={{ minWidth: 24, height: 24, borderRadius: '50%', background: 'rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#a5b4fc', flexShrink: 0 }}>{idx + 1}</span>
+                                        <div style={{ fontSize: 14, color: '#e2e8f0', lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(q.question_text) }} />
                                     </div>
-                                )}
-                            </div>
-                        </>
-                    )
-                ) : (
-                    /* Assignments tab */
-                    allAssignments.length === 0 ? (
-                        <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)' }}>No assignments in this course yet.</div>
-                    ) : (
-                        <div style={{ flex: 1, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                            {allAssignments.map(({ topic, assignment: a }) => (
-                                <div key={a.id} style={{ padding: '14px 16px', borderRadius: 12, border: '1px solid rgba(251,191,36,0.2)', background: 'rgba(251,191,36,0.04)' }}>
-                                    <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>{topic}</div>
-                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                                        <span style={{ fontSize: 20, flexShrink: 0 }}>
-                                            {a.assignment_type === 'link' ? '🔗' : a.assignment_type === 'file' ? '📎' : a.assignment_type === 'quiz' ? '📝' : '📋'}
-                                        </span>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ fontWeight: 600, fontSize: 14, color: '#fcd34d', marginBottom: 4 }}>{stripHtml(a.title)}</div>
-                                            {a.description && <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>{stripHtml(a.description)}</div>}
-                                            {a.file_url && (
-                                                <a href={a.file_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#818cf8', marginTop: 4, display: 'inline-block' }}>
-                                                    Open file ↗
-                                                </a>
-                                            )}
+                                    {q.video_url && <div style={{ marginBottom: 12 }}><video src={q.video_url} controls style={{ width: '100%', borderRadius: 8 }} /></div>}
+
+                                    {q.type === 'text' && (
+                                        <textarea value={answers[q.id]?.text || ''} onChange={e => setAnswers(prev => ({ ...prev, [q.id]: { ...prev[q.id], text: e.target.value } }))} placeholder="Your answer…" rows={3}
+                                            style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(0,0,0,0.3)', color: '#e2e8f0', fontSize: 13, resize: 'vertical', boxSizing: 'border-box' }} />
+                                    )}
+                                    {q.type === 'select' && q.options && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                                            {q.options.map(opt => {
+                                                const sel = answers[q.id]?.selected?.[0] === opt;
+                                                return (
+                                                    <button key={opt} type="button" onClick={() => setAnswers(prev => ({ ...prev, [q.id]: { ...prev[q.id], selected: [opt] } }))}
+                                                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, border: `1px solid ${sel ? 'rgba(99,102,241,0.6)' : 'rgba(255,255,255,0.08)'}`, background: sel ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)', color: sel ? '#c7d2fe' : '#94a3b8', cursor: 'pointer', textAlign: 'left', fontSize: 13 }}>
+                                                        <span style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${sel ? '#a5b4fc' : '#475569'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                            {sel && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#a5b4fc' }} />}
+                                                        </span>
+                                                        {opt}
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
-                                    </div>
+                                    )}
+                                    {q.type === 'multi-select' && q.options && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                                            {q.options.map(opt => {
+                                                const sel = answers[q.id]?.selected?.includes(opt) ?? false;
+                                                return (
+                                                    <button key={opt} type="button" onClick={() => setAnswers(prev => {
+                                                        const cur = prev[q.id]?.selected || [];
+                                                        return { ...prev, [q.id]: { ...prev[q.id], selected: sel ? cur.filter(x => x !== opt) : [...cur, opt] } };
+                                                    })}
+                                                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, border: `1px solid ${sel ? 'rgba(139,92,246,0.6)' : 'rgba(255,255,255,0.08)'}`, background: sel ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.03)', color: sel ? '#c4b5fd' : '#94a3b8', cursor: 'pointer', textAlign: 'left', fontSize: 13 }}>
+                                                        <span style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${sel ? '#a78bfa' : '#475569'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                            {sel && <span style={{ fontSize: 11, color: '#a78bfa', lineHeight: 1 }}>✓</span>}
+                                                        </span>
+                                                        {opt}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                    {(q.type === 'recording' || q.type === 'upload') && (
+                                        <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.15)', fontSize: 12, color: '#fcd34d' }}>
+                                            {q.type === 'recording' ? '🎙️ Voice recording — submit directly to your teacher.' : '📎 File upload — submit directly to your teacher.'}
+                                        </div>
+                                    )}
+                                    <div style={{ marginTop: 8, fontSize: 11, color: '#475569', textAlign: 'right' }}>{q.points} pt{q.points !== 1 ? 's' : ''}</div>
                                 </div>
                             ))}
+                            <button type="button" onClick={handleSubmit} disabled={submitting}
+                                style={{ padding: '12px 28px', borderRadius: 10, border: 'none', background: submitting ? 'rgba(99,102,241,0.3)' : '#6366f1', color: '#fff', fontSize: 14, fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', alignSelf: 'flex-end' }}>
+                                {submitting ? 'Submitting…' : 'Submit Quiz'}
+                            </button>
                         </div>
-                    )
-                )}
+                    )}
+
+                    {phase === 'done' && (
+                        <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                            <div style={{ fontSize: 56, marginBottom: 16 }}>{score !== null && score >= 70 ? '🎉' : '📋'}</div>
+                            <h3 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 700, color: '#e2e8f0' }}>Quiz Submitted!</h3>
+                            {score !== null ? (
+                                <div style={{ fontSize: 40, fontWeight: 800, color: score >= 70 ? '#4ade80' : score >= 50 ? '#fbbf24' : '#f87171', margin: '16px 0' }}>{score}%</div>
+                            ) : (
+                                <p style={{ color: '#64748b', fontSize: 14 }}>Pending manual grading by your teacher.</p>
+                            )}
+                            {hasPending && <p style={{ color: '#94a3b8', fontSize: 13, margin: '4px 0 0' }}>Some questions require manual grading — final score may change.</p>}
+                            <button type="button" onClick={onClose} style={{ marginTop: 20, padding: '10px 28px', borderRadius: 10, border: 'none', background: '#6366f1', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Done</button>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
 }
+
+// ─── Main CourseViewer ──────────────────────────────────────────────────────
+export default function CourseViewer({ course, userId, userName, onClose }: Props) {
+    const [topics, setTopics] = useState<Topic[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
+    const [expandedLessonId, setExpandedLessonId] = useState<string | null>(null);
+    const [activeQuizId, setActiveQuizId] = useState<string | null>(null);
+
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const r = await fetch(`${SERVER}/api/courses/${course.id}/topics`);
+            if (r.ok) {
+                const data = (await r.json()) as Topic[];
+                const sorted = data.sort((a, b) => a.order_index - b.order_index);
+                setTopics(sorted);
+                if (sorted.length > 0) setExpandedTopics(new Set([sorted[0].id]));
+            }
+        } catch { /* ignore */ } finally { setLoading(false); }
+    }, [course.id]);
+
+    useEffect(() => { fetchData(); }, [fetchData]);
+
+    const toggleTopic = (id: string) => setExpandedTopics(prev => {
+        if (prev.has(id)) { const s = new Set(prev); s.delete(id); return s; }
+        return new Set([id]);
+    });
+
+    const totalItems = topics.reduce((s, t) => s + t.lessons.length + t.quizzes.length + t.assignments.length, 0);
+
+    return (
+        <>
+            <div
+                style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '50px 20px 40px', overflowY: 'auto' }}
+                onClick={onClose}
+            >
+                <div
+                    style={{ background: 'var(--surface-2, #18181f)', borderRadius: 16, width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.08)' }}
+                    onClick={e => e.stopPropagation()}
+                >
+                    {/* Header */}
+                    <div style={{ padding: '18px 24px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div>
+                            <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700, color: '#e2e8f0' }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(course.title) }} />
+                            <div style={{ fontSize: 12, color: '#64748b' }}>{topics.length} topic{topics.length !== 1 ? 's' : ''} · {totalItems} item{totalItems !== 1 ? 's' : ''}</div>
+                        </div>
+                        <button type="button" onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#94a3b8', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Close</button>
+                    </div>
+
+                    {/* Body */}
+                    <div style={{ padding: 18, overflowY: 'auto', maxHeight: 'calc(100vh - 180px)' }}>
+                        {loading ? (
+                            <div style={{ padding: 48, textAlign: 'center', color: '#64748b' }}>Loading course…</div>
+                        ) : topics.length === 0 ? (
+                            <div style={{ padding: 48, textAlign: 'center', color: '#64748b' }}>
+                                <div style={{ fontSize: 36, marginBottom: 10 }}>📚</div>
+                                <div>No content available yet.</div>
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                {topics.map((topic, tIdx) => {
+                                    const isOpen = expandedTopics.has(topic.id);
+                                    const count = topic.lessons.length + topic.quizzes.length + topic.assignments.length;
+                                    return (
+                                        <div key={topic.id} style={{ background: '#13131a', borderRadius: 12, border: '1px solid rgba(99,102,241,0.2)', overflow: 'hidden' }}>
+                                            {/* Topic header */}
+                                            <button type="button" onClick={() => toggleTopic(topic.id)}
+                                                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px', background: 'rgba(99,102,241,0.07)', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 6, background: 'rgba(99,102,241,0.2)', fontSize: 11, fontWeight: 800, color: '#a5b4fc', flexShrink: 0 }}>{tIdx + 1}</span>
+                                                <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: '#e2e8f0' }}>{topic.title}</span>
+                                                <span style={{ fontSize: 11, color: '#475569', marginRight: 4 }}>{count} item{count !== 1 ? 's' : ''}</span>
+                                                <span style={{ color: '#64748b', fontSize: 13, transition: 'transform 0.2s', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)', display: 'inline-block' }}>▼</span>
+                                            </button>
+
+                                            {/* Animated content */}
+                                            <div style={{ display: 'grid', gridTemplateRows: isOpen ? '1fr' : '0fr', transition: 'grid-template-rows 0.28s cubic-bezier(0.4,0,0.2,1)' }}>
+                                                <div style={{ overflow: 'hidden' }}>
+                                                    <div style={{ padding: 14, opacity: isOpen ? 1 : 0, transition: 'opacity 0.2s ease', display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+                                                        {/* Lessons */}
+                                                        {topic.lessons.length > 0 && (
+                                                            <div>
+                                                                <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Lessons</div>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                                                    {topic.lessons.map((lesson, lIdx) => {
+                                                                        const isLOpen = expandedLessonId === lesson.id;
+                                                                        const icon = lesson.lesson_type === 'video' ? '🎬' : lesson.lesson_type === 'audio' ? '🎵' : lesson.lesson_type === 'image' ? '🖼️' : '📄';
+                                                                        return (
+                                                                            <div key={lesson.id} style={{ borderRadius: 9, border: '1px solid rgba(255,255,255,0.07)', overflow: 'hidden', background: 'rgba(255,255,255,0.02)' }}>
+                                                                                <button type="button" onClick={() => setExpandedLessonId(isLOpen ? null : lesson.id)}
+                                                                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '10px 13px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                                                                                    <span style={{ fontSize: 13 }}>{icon}</span>
+                                                                                    <span style={{ fontSize: 11, color: '#475569', flexShrink: 0 }}>L{lIdx + 1}</span>
+                                                                                    <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: '#cbd5e1' }}>{lesson.title || `Lesson ${lIdx + 1}`}</span>
+                                                                                    <span style={{ color: '#475569', fontSize: 11, transition: 'transform 0.2s', transform: isLOpen ? 'rotate(0deg)' : 'rotate(-90deg)', display: 'inline-block' }}>▼</span>
+                                                                                </button>
+                                                                                <div style={{ display: 'grid', gridTemplateRows: isLOpen ? '1fr' : '0fr', transition: 'grid-template-rows 0.25s cubic-bezier(0.4,0,0.2,1)' }}>
+                                                                                    <div style={{ overflow: 'hidden' }}>
+                                                                                        <div style={{ padding: '0 14px 14px', opacity: isLOpen ? 1 : 0, transition: 'opacity 0.2s ease' }}>
+                                                                                            {lesson.lesson_type === 'image' && lesson.image_url && (
+                                                                                                <img src={lesson.image_url} alt={lesson.title} style={{ width: '100%', borderRadius: 10, display: 'block', marginBottom: 8 }} />
+                                                                                            )}
+                                                                                            {lesson.lesson_type === 'video' && lesson.video_url && (
+                                                                                                lesson.video_url.includes('youtube') || lesson.video_url.includes('youtu.be') ? (
+                                                                                                    <iframe src={lesson.video_url.replace('watch?v=', 'embed/').replace('youtu.be/', 'www.youtube.com/embed/')} style={{ width: '100%', aspectRatio: '16/9', borderRadius: 10, border: 'none', display: 'block', marginBottom: 8 }} allow="accelerometer; autoplay; encrypted-media; gyroscope" allowFullScreen title={lesson.title} />
+                                                                                                ) : (
+                                                                                                    <video src={lesson.video_url} controls style={{ width: '100%', borderRadius: 10, display: 'block', marginBottom: 8 }} />
+                                                                                                )
+                                                                                            )}
+                                                                                            {lesson.lesson_type === 'audio' && lesson.audio_url && (
+                                                                                                <audio src={lesson.audio_url} controls style={{ width: '100%', borderRadius: 8, display: 'block', marginBottom: 8 }} />
+                                                                                            )}
+                                                                                            {lesson.lesson_type === 'text' && (
+                                                                                                lesson.content ? (
+                                                                                                    <>
+                                                                                                        <style>{`.cv-html p{margin:0 0 8px}.cv-html ul,.cv-html ol{padding-left:20px;margin:0 0 8px}.cv-html blockquote{border-left:3px solid #6366f1;padding-left:12px;color:#94a3b8;margin:0 0 8px;font-style:italic}.cv-html strong{color:#f1f5f9}.cv-html a{color:#818cf8;text-decoration:underline}`}</style>
+                                                                                                        <div className="cv-html" style={{ color: '#cbd5e1', lineHeight: 1.7, fontSize: 13 }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(lesson.content) }} />
+                                                                                                    </>
+                                                                                                ) : <p style={{ color: '#475569', fontSize: 13, margin: 0 }}>No content for this lesson.</p>
+                                                                                            )}
+                                                                                            {lesson.lesson_type === 'video' && !lesson.video_url && <p style={{ color: '#475569', fontSize: 13, margin: 0 }}>No video URL set.</p>}
+                                                                                            {lesson.lesson_type === 'audio' && !lesson.audio_url && <p style={{ color: '#475569', fontSize: 13, margin: 0 }}>No audio set.</p>}
+                                                                                            {lesson.lesson_type === 'image' && !lesson.image_url && <p style={{ color: '#475569', fontSize: 13, margin: 0 }}>No image set.</p>}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Quizzes attached to topic */}
+                                                        {topic.quizzes.length > 0 && (
+                                                            <div>
+                                                                <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Quizzes</div>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                                                    {topic.quizzes.map(q => (
+                                                                        <button key={q.id} type="button"
+                                                                            onClick={() => q.status === 'published' && setActiveQuizId(q.id)}
+                                                                            disabled={q.status !== 'published'}
+                                                                            style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '10px 13px', borderRadius: 9, border: `1px solid ${q.status === 'published' ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.06)'}`, background: q.status === 'published' ? 'rgba(139,92,246,0.08)' : 'rgba(255,255,255,0.02)', cursor: q.status === 'published' ? 'pointer' : 'default', textAlign: 'left', width: '100%' }}>
+                                                                            <span style={{ fontSize: 14 }}>📝</span>
+                                                                            <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: q.status === 'published' ? '#c4b5fd' : '#64748b' }}>{stripHtml(q.title)}</span>
+                                                                            {q.time_limit_minutes && <span style={{ fontSize: 11, color: '#64748b' }}>⏱ {q.time_limit_minutes}m</span>}
+                                                                            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: q.status === 'published' ? 'rgba(34,197,94,0.15)' : 'rgba(100,116,139,0.2)', color: q.status === 'published' ? '#4ade80' : '#94a3b8' }}>{q.status}</span>
+                                                                            {q.status === 'published' && <span style={{ fontSize: 11, color: '#818cf8', fontWeight: 600 }}>Start →</span>}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Assignments */}
+                                                        {topic.assignments.length > 0 && (
+                                                            <div>
+                                                                <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Assignments</div>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                                                    {topic.assignments.map(a => {
+                                                                        const isQuizAssign = a.assignment_type === 'quiz' && !!a.quiz_id;
+                                                                        const icon = a.assignment_type === 'link' ? '🔗' : a.assignment_type === 'file' ? '📎' : isQuizAssign ? '📝' : '📋';
+                                                                        const linkUrl = (a.assignment_type === 'link' || a.assignment_type === 'file') ? a.file_url : null;
+                                                                        return (
+                                                                            <div key={a.id}
+                                                                                onClick={() => isQuizAssign && setActiveQuizId(a.quiz_id!)}
+                                                                                style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 13px', borderRadius: 9, border: `1px solid ${isQuizAssign ? 'rgba(251,191,36,0.25)' : 'rgba(255,255,255,0.07)'}`, background: isQuizAssign ? 'rgba(251,191,36,0.05)' : 'rgba(255,255,255,0.02)', cursor: isQuizAssign ? 'pointer' : 'default' }}>
+                                                                                <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>{icon}</span>
+                                                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                                                    <div style={{ fontSize: 13, fontWeight: 600, color: isQuizAssign ? '#fcd34d' : '#cbd5e1', marginBottom: 2 }}>{stripHtml(a.title)}</div>
+                                                                                    {a.description && <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.4 }}>{stripHtml(a.description)}</div>}
+                                                                                    {linkUrl && (
+                                                                                        <a href={linkUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ fontSize: 12, color: '#818cf8', marginTop: 4, display: 'inline-block' }}>
+                                                                                            {a.assignment_type === 'link' ? 'Open link ↗' : 'Open file ↗'}
+                                                                                        </a>
+                                                                                    )}
+                                                                                </div>
+                                                                                {isQuizAssign && <span style={{ fontSize: 11, color: '#fbbf24', flexShrink: 0, alignSelf: 'center', fontWeight: 600 }}>Take →</span>}
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {count === 0 && (
+                                                            <div style={{ padding: '16px 0', textAlign: 'center', color: '#475569', fontSize: 13 }}>No content in this topic yet.</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Quiz modal layers above course modal */}
+            {activeQuizId && (
+                <QuizModal quizId={activeQuizId} userId={userId} userName={userName} onClose={() => setActiveQuizId(null)} />
+            )}
+        </>
+    );
+}
+
