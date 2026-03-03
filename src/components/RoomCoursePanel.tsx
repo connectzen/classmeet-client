@@ -173,6 +173,7 @@ export default function RoomCoursePanel({
     const CANVAS_W = 640;
     const scrollThrottle = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastRatio   = useRef(0);
+    const committingRef = useRef(false); // prevents onBlur double-commit after Enter
     const isDrawing   = useRef(false);
     const lastPt      = useRef<{ x: number; y: number } | null>(null);
     const shapeStart  = useRef<{ x: number; y: number } | null>(null);
@@ -798,7 +799,7 @@ export default function RoomCoursePanel({
             {textInput && (
                 <div style={{ position: 'fixed', left: Math.min(textInput.vx, window.innerWidth - 260), top: Math.min(textInput.vy, window.innerHeight - 60), zIndex: 9999, width: 240, background: 'transparent', border: 'none', padding: 0 }}>
                     <textarea autoFocus rows={2} placeholder=""
-                    style={{ display: 'block', width: '100%', background: 'transparent', color: drawColor, border: 'none', padding: '2px 0', fontSize: Math.round(14 * TOOL_SIZES[drawSizeKey]), fontFamily: 'sans-serif', fontWeight: 700, outline: 'none', resize: 'none', boxSizing: 'border-box', lineHeight: 1.4, caretColor: drawColor, letterSpacing: '0.01em' }}
+                    style={{ display: 'block', width: '100%', background: 'transparent', color: drawColor, border: 'none', padding: '0', margin: '0', fontSize: Math.round(15 * TOOL_SIZES[drawSizeKey]), fontFamily: 'sans-serif', fontWeight: 700, outline: 'none', resize: 'none', boxSizing: 'border-box', lineHeight: 1.4, caretColor: drawColor, letterSpacing: '0.01em' }}
                     onChange={e => {
                         // Stream typed text to students in real time
                         const { drawSizeKey: sk, drawColor: dc } = drawState.current;
@@ -806,13 +807,14 @@ export default function RoomCoursePanel({
                         onDrawPrevCb.current?.(seg);
                     }}
                     onKeyDown={e => {
-                        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitText(e.currentTarget.value, textInput.cx, textInput.cy); }
+                        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); committingRef.current = true; commitText(e.currentTarget.value, textInput.cx, textInput.cy); }
                         if (e.key === 'Escape') {
+                            committingRef.current = true;
                             onDrawPrevCb.current?.({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
                             setTextInput(null);
                         }
                     }}
-                    onBlur={e => commitText(e.currentTarget.value, textInput.cx, textInput.cy)} />
+                    onBlur={e => { if (committingRef.current) { committingRef.current = false; return; } commitText(e.currentTarget.value, textInput.cx, textInput.cy); }} />
                 </div>
             )}
         </div>
