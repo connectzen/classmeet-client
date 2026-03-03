@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import RichEditor, { isRichEmpty, RichContent } from '../components/RichEditor';
+import RichEditor, { isRichEmpty, RichContent, stripHtml } from '../components/RichEditor';
 import { io } from 'socket.io-client';
 import { useUser } from '../lib/AuthContext';
 import { insforge } from '../lib/insforge';
@@ -1499,8 +1499,8 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                     {studentPublishedCourses.map(c => (
                                                         <div key={c.id} style={{ padding: '12px 14px', background: 'rgba(34,197,94,0.05)', borderRadius: 12, border: '1px solid rgba(34,197,94,0.18)', display: 'flex', alignItems: 'center', gap: 12 }}>
                                                             <div style={{ flex: 1, minWidth: 0 }}>
-                                                                <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)', marginBottom: 2 }}>{c.title}</div>
-                                                                {c.description && <div style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.description}</div>}
+                                                                <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)', marginBottom: 2 }}>{stripHtml(c.title)}</div>
+                                                                {c.description && <div style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stripHtml(c.description)}</div>}
                                                             </div>
                                                             <button
                                                                 type="button"

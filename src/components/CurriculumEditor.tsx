@@ -16,7 +16,7 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import RichEditor from './RichEditor';
+import RichEditor, { stripHtml } from './RichEditor';
 
 const SERVER = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -448,12 +448,20 @@ function SortableTopicCard({
                                 {assignmentType === 'quiz' && (
                                     <select
                                         value={assignmentQuizId}
-                                        onChange={e => setAssignmentQuizId(e.target.value)}
+                                        onChange={e => {
+                                            const qid = e.target.value;
+                                            setAssignmentQuizId(qid);
+                                            // Auto-fill assignment title from the selected quiz name
+                                            if (qid && !assignmentTitle.trim()) {
+                                                const picked = availableQuizzes.find(q => q.id === qid);
+                                                if (picked) setAssignmentTitle(stripHtml(picked.title));
+                                            }
+                                        }}
                                         style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.3)', color: assignmentQuizId ? '#e2e8f0' : '#64748b', fontSize: 13, boxSizing: 'border-box', width: '100%', cursor: 'pointer' }}
                                     >
                                         <option value="">— Select a quiz —</option>
                                         {availableQuizzes.map(q => (
-                                            <option key={q.id} value={q.id}>{q.title}{q.status !== 'published' ? ' (draft)' : ''}</option>
+                                            <option key={q.id} value={q.id}>{stripHtml(q.title)}{q.status !== 'published' ? ' (draft)' : ''}</option>
                                         ))}
                                     </select>
                                 )}
