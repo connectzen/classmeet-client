@@ -623,7 +623,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                             ) : (
                                 <div style={{ display: 'grid', gap: 10 }}>
                                     {members.map(m => (
-                                        <div key={m.user_id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                                        <div key={m.user_id} className="hover-card" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                                 <Avatar name={m.name || m.email} color="#a78bfa" avatarUrl={m.avatar_url} />
                                                 <div>
@@ -698,7 +698,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                             ) : (
                                 <div style={{ display: 'grid', gap: 10 }}>
                                     {teachers.map(t => (
-                                        <div key={t.user_id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                                        <div key={t.user_id} className="hover-card" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                                             {editTeacher?.user_id === t.user_id ? (
                                                 <div style={{ display: 'flex', gap: 8, flex: 1, alignItems: 'center', flexWrap: 'wrap' }}>
                                                     <Input value={editTeacher.name} onChange={e => setEditTeacher({ ...editTeacher, name: e.target.value })} style={{ width: 160 }} />
@@ -750,7 +750,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                             ) : (
                                 <div style={{ display: 'grid', gap: 10 }}>
                                     {students.map(s => (
-                                        <div key={s.user_id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                                        <div key={s.user_id} className="hover-card" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                                 <Avatar name={s.name || s.email} color="#22c55e" avatarUrl={s.avatar_url} />
                                                 <div>
@@ -793,7 +793,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                             ) : (
                                 <div style={{ display: 'grid', gap: 10 }}>
                                     {pendingUsers.map(u => (
-                                        <div key={u.id} style={{ background: 'var(--surface)', border: '1px solid rgba(234,179,8,0.25)', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                                        <div key={u.id} className="hover-card" style={{ background: 'var(--surface)', border: '1px solid rgba(234,179,8,0.25)', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                                 <Avatar name={u.name || u.email} color="#f59e0b" avatarUrl={u.avatar_url} />
                                                 <div>
@@ -961,7 +961,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                                         const isLive = scheduledDate <= new Date();
                                         const isActive = m.is_active;
                                         return (
-                                            <div key={m.id} style={{
+                                            <div key={m.id} className="hover-card" style={{
                                                 background: isActive
                                                     ? 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.05))'
                                                     : 'var(--surface)',

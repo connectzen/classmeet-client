@@ -447,7 +447,7 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                             <div>
                                 <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#6366f1', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Course Title</label>
-                                <div style={{ borderRadius: 10, border: '1px solid rgba(99,102,241,0.3)', background: 'rgba(99,102,241,0.05)', overflow: 'hidden' }}>
+                                <div className="hover-card-subtle" style={{ borderRadius: 10, border: '1px solid rgba(99,102,241,0.3)', background: 'rgba(99,102,241,0.05)', overflow: 'hidden' }}>
                                     <RichEditor
                                         value={title}
                                         onChange={setTitle}
@@ -458,7 +458,7 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
                             </div>
                             <div>
                                 <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#6366f1', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Description <span style={{ color: '#4b5a7a', fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
-                                <div style={{ borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', overflow: 'hidden' }}>
+                                <div className="hover-card-subtle" style={{ borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', overflow: 'hidden' }}>
                                     <RichEditor
                                         value={description}
                                         onChange={setDescription}

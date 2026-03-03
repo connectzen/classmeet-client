@@ -76,7 +76,7 @@ export default function InviteLinksSection({ userId, variant }: Props) {
         <div style={{ marginBottom: 24 }}>
             <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 12 }}>Invite links</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div style={{
+                <div className="hover-card" style={{
                     padding: 16,
                     background: 'rgba(255,255,255,0.04)',
                     borderRadius: 12,
@@ -153,7 +153,7 @@ export default function InviteLinksSection({ userId, variant }: Props) {
                     )}
                 </div>
                 {variant === 'member' && (
-                    <div style={{
+                    <div className="hover-card" style={{
                         padding: 16,
                         background: 'rgba(255,255,255,0.04)',
                         borderRadius: 12,

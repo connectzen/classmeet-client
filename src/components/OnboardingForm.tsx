@@ -98,7 +98,7 @@ export default function OnboardingForm({ userId, name, email, onComplete }: Prop
     }
 
     return (
-        <div style={{
+        <div className="hover-card" style={{
             maxWidth: 520,
             margin: '0 auto',
             padding: 24,

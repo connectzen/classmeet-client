@@ -911,7 +911,7 @@ function PdfViewer({ url, name, onClose }: { url: string; name: string; onClose:
 function DeleteConfirm({ onConfirm, onCancel, message }: { onConfirm: () => void; onCancel: () => void; message?: string }) {
     return (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(2px)' }}>
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '24px 28px', maxWidth: 320, width: '90%', textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+            <div className="hover-card" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '24px 28px', maxWidth: 320, width: '90%', textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
                 <div style={{ fontSize: 32, marginBottom: 12 }}>🗑️</div>
                 <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>Delete?</div>
                 <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>{message || 'This will permanently remove the message and any attached file.'}</div>
