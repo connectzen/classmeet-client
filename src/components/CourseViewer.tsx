@@ -144,95 +144,153 @@ function QuizModal({ quizId, userId, userName, onClose }: {
     );
     const fmtTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
+    // Per-question pagination
+    const [currentQIdx, setCurrentQIdx] = useState(0);
+    const [slideDir, setSlideDir] = useState<'left' | 'right'>('right');
+    const [animKey, setAnimKey] = useState(0);
+
+    function goToQ(newIdx: number, dir: 'left' | 'right') {
+        setSlideDir(dir);
+        setAnimKey(k => k + 1);
+        setCurrentQIdx(newIdx);
+    }
+
+    const totalQ = flatQuestions.length;
+    const isLast = currentQIdx === totalQ - 1;
+    const currentQ = flatQuestions[currentQIdx];
+
     return (
+        <>
+        <style>{`
+            @keyframes slideInRight { from { transform: translateX(60px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+            @keyframes slideInLeft  { from { transform: translateX(-60px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        `}</style>
         <div
-            style={{ position: 'fixed', inset: 0, zIndex: 100001, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '60px 24px 40px', overflowY: 'auto' }}
+            style={{ position: 'fixed', inset: 0, zIndex: 100001, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '50px 24px 40px', overflowY: 'auto' }}
             onClick={onClose}
         >
             <div
-                style={{ background: '#13131a', borderRadius: 16, width: '100%', maxWidth: 640, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 25px 60px -12px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column' }}
+                style={{ background: 'linear-gradient(160deg,#13131f 0%,#0f0f1c 100%)', borderRadius: 18, width: '100%', maxWidth: 620, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.1)', display: 'flex', flexDirection: 'column' }}
                 onClick={e => e.stopPropagation()}
             >
                 {/* Quiz header */}
-                <div style={{ padding: '18px 22px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+                <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, background: 'rgba(99,102,241,0.06)', borderRadius: '18px 18px 0 0' }}>
                     <div>
-                        <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>📝 Quiz</div>
-                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#e2e8f0' }}>{quiz ? stripHtml(quiz.title) : 'Loading…'}</h3>
+                        <div style={{ fontSize: 10, color: '#818cf8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>📝 Quiz</div>
+                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#e2e8f0' }}>{quiz ? stripHtml(quiz.title) : 'Loading…'}</h3>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         {phase === 'taking' && timeLeft !== null && (
-                            <div style={{ fontSize: 14, fontWeight: 700, color: timeLeft < 60 ? '#f87171' : '#fcd34d', background: 'rgba(251,191,36,0.1)', padding: '5px 12px', borderRadius: 8, border: '1px solid rgba(251,191,36,0.2)' }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: timeLeft < 60 ? '#f87171' : '#fcd34d', background: 'rgba(251,191,36,0.1)', padding: '5px 12px', borderRadius: 8, border: '1px solid rgba(251,191,36,0.2)' }}>
                                 ⏱ {fmtTime(timeLeft)}
                             </div>
                         )}
-                        <button type="button" onClick={onClose} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', color: '#94a3b8', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 13 }}>Close</button>
+                        <button type="button" onClick={onClose} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#94a3b8', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 13 }}>Close</button>
                     </div>
                 </div>
 
-                <div style={{ flex: 1, overflowY: 'auto', padding: 22 }}>
-                    {phase === 'loading' && <div style={{ textAlign: 'center', color: '#64748b', padding: 40 }}>Loading quiz…</div>}
+                {/* Progress bar */}
+                {phase === 'taking' && totalQ > 0 && (
+                    <div style={{ padding: '12px 22px 0', flexShrink: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                            <span style={{ fontSize: 11, color: '#475569', fontWeight: 600 }}>Question {currentQIdx + 1} of {totalQ}</span>
+                            <span style={{ fontSize: 11, color: '#475569' }}>{Math.round(((currentQIdx + 1) / totalQ) * 100)}%</span>
+                        </div>
+                        <div style={{ height: 4, borderRadius: 99, background: 'rgba(99,102,241,0.15)', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${((currentQIdx + 1) / totalQ) * 100}%`, background: 'linear-gradient(90deg,#6366f1,#818cf8)', borderRadius: 99, transition: 'width 0.35s cubic-bezier(0.4,0,0.2,1)' }} />
+                        </div>
+                    </div>
+                )}
 
-                    {phase === 'taking' && quiz && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                            {flatQuestions.map((q, idx) => (
-                                <div key={q.id} style={{ padding: '16px 18px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)' }}>
-                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
-                                        <span style={{ minWidth: 24, height: 24, borderRadius: '50%', background: 'rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#a5b4fc', flexShrink: 0 }}>{idx + 1}</span>
-                                        <div style={{ fontSize: 14, color: '#e2e8f0', lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(q.question_text) }} />
-                                    </div>
-                                    {q.video_url && <div style={{ marginBottom: 12 }}><video src={q.video_url} controls style={{ width: '100%', borderRadius: 8 }} /></div>}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px' }}>
+                    {phase === 'loading' && <div style={{ textAlign: 'center', color: '#64748b', padding: 48 }}>Loading quiz…</div>}
 
-                                    {q.type === 'text' && (
-                                        <textarea value={answers[q.id]?.text || ''} onChange={e => setAnswers(prev => ({ ...prev, [q.id]: { ...prev[q.id], text: e.target.value } }))} placeholder="Your answer…" rows={3}
-                                            style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(0,0,0,0.3)', color: '#e2e8f0', fontSize: 13, resize: 'vertical', boxSizing: 'border-box' }} />
-                                    )}
-                                    {q.type === 'select' && q.options && (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                                            {q.options.map(opt => {
-                                                const sel = answers[q.id]?.selected?.[0] === opt;
-                                                return (
-                                                    <button key={opt} type="button" onClick={() => setAnswers(prev => ({ ...prev, [q.id]: { ...prev[q.id], selected: [opt] } }))}
-                                                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, border: `1px solid ${sel ? 'rgba(99,102,241,0.6)' : 'rgba(255,255,255,0.08)'}`, background: sel ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)', color: sel ? '#c7d2fe' : '#94a3b8', cursor: 'pointer', textAlign: 'left', fontSize: 13 }}>
-                                                        <span style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${sel ? '#a5b4fc' : '#475569'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                            {sel && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#a5b4fc' }} />}
-                                                        </span>
-                                                        {opt}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                    {q.type === 'multi-select' && q.options && (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                                            {q.options.map(opt => {
-                                                const sel = answers[q.id]?.selected?.includes(opt) ?? false;
-                                                return (
-                                                    <button key={opt} type="button" onClick={() => setAnswers(prev => {
-                                                        const cur = prev[q.id]?.selected || [];
-                                                        return { ...prev, [q.id]: { ...prev[q.id], selected: sel ? cur.filter(x => x !== opt) : [...cur, opt] } };
-                                                    })}
-                                                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, border: `1px solid ${sel ? 'rgba(139,92,246,0.6)' : 'rgba(255,255,255,0.08)'}`, background: sel ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.03)', color: sel ? '#c4b5fd' : '#94a3b8', cursor: 'pointer', textAlign: 'left', fontSize: 13 }}>
-                                                        <span style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${sel ? '#a78bfa' : '#475569'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                            {sel && <span style={{ fontSize: 11, color: '#a78bfa', lineHeight: 1 }}>✓</span>}
-                                                        </span>
-                                                        {opt}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                    {(q.type === 'recording' || q.type === 'upload') && (
-                                        <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.15)', fontSize: 12, color: '#fcd34d' }}>
-                                            {q.type === 'recording' ? '🎙️ Voice recording — submit directly to your teacher.' : '📎 File upload — submit directly to your teacher.'}
-                                        </div>
-                                    )}
-                                    <div style={{ marginTop: 8, fontSize: 11, color: '#475569', textAlign: 'right' }}>{q.points} pt{q.points !== 1 ? 's' : ''}</div>
+                    {phase === 'taking' && quiz && currentQ && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            {/* Single question card with slide animation */}
+                            <div key={animKey} style={{ padding: '20px 22px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.09)', background: 'rgba(255,255,255,0.03)', animation: `${slideDir === 'right' ? 'slideInRight' : 'slideInLeft'} 0.3s cubic-bezier(0.22,1,0.36,1) both` }}>
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 16 }}>
+                                    <span style={{ minWidth: 28, height: 28, borderRadius: '50%', background: 'rgba(99,102,241,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#a5b4fc', flexShrink: 0 }}>{currentQIdx + 1}</span>
+                                    <div style={{ fontSize: 15, color: '#e2e8f0', lineHeight: 1.65, fontWeight: 500 }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(currentQ.question_text) }} />
                                 </div>
-                            ))}
-                            <button type="button" onClick={handleSubmit} disabled={submitting}
-                                style={{ padding: '12px 28px', borderRadius: 10, border: 'none', background: submitting ? 'rgba(99,102,241,0.3)' : '#6366f1', color: '#fff', fontSize: 14, fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', alignSelf: 'flex-end' }}>
-                                {submitting ? 'Submitting…' : 'Submit Quiz'}
-                            </button>
+                                {currentQ.video_url && <div style={{ marginBottom: 14 }}><video src={currentQ.video_url} controls style={{ width: '100%', borderRadius: 10 }} /></div>}
+
+                                {currentQ.type === 'text' && (
+                                    <textarea value={answers[currentQ.id]?.text || ''} onChange={e => setAnswers(prev => ({ ...prev, [currentQ.id]: { ...prev[currentQ.id], text: e.target.value } }))} placeholder="Type your answer here…" rows={4}
+                                        style={{ width: '100%', padding: '11px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(0,0,0,0.25)', color: '#e2e8f0', fontSize: 14, resize: 'vertical', boxSizing: 'border-box', outline: 'none', lineHeight: 1.6 }} />
+                                )}
+                                {currentQ.type === 'select' && currentQ.options && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        {currentQ.options.map(opt => {
+                                            const sel = answers[currentQ.id]?.selected?.[0] === opt;
+                                            return (
+                                                <button key={opt} type="button" onClick={() => setAnswers(prev => ({ ...prev, [currentQ.id]: { ...prev[currentQ.id], selected: [opt] } }))}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 10, border: `1px solid ${sel ? 'rgba(99,102,241,0.65)' : 'rgba(255,255,255,0.08)'}`, background: sel ? 'rgba(99,102,241,0.22)' : 'rgba(255,255,255,0.03)', color: sel ? '#c7d2fe' : '#94a3b8', cursor: 'pointer', textAlign: 'left', fontSize: 14, transition: 'all 0.15s ease' }}>
+                                                    <span style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${sel ? '#a5b4fc' : '#475569'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'border-color 0.15s' }}>
+                                                        {sel && <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#a5b4fc' }} />}
+                                                    </span>
+                                                    {opt}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                                {currentQ.type === 'multi-select' && currentQ.options && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        {currentQ.options.map(opt => {
+                                            const sel = answers[currentQ.id]?.selected?.includes(opt) ?? false;
+                                            return (
+                                                <button key={opt} type="button" onClick={() => setAnswers(prev => {
+                                                    const cur = prev[currentQ.id]?.selected || [];
+                                                    return { ...prev, [currentQ.id]: { ...prev[currentQ.id], selected: sel ? cur.filter(x => x !== opt) : [...cur, opt] } };
+                                                })}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 10, border: `1px solid ${sel ? 'rgba(139,92,246,0.65)' : 'rgba(255,255,255,0.08)'}`, background: sel ? 'rgba(139,92,246,0.22)' : 'rgba(255,255,255,0.03)', color: sel ? '#c4b5fd' : '#94a3b8', cursor: 'pointer', textAlign: 'left', fontSize: 14, transition: 'all 0.15s ease' }}>
+                                                    <span style={{ width: 18, height: 18, borderRadius: 5, border: `2px solid ${sel ? '#a78bfa' : '#475569'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: sel ? 'rgba(167,139,250,0.2)' : 'transparent', transition: 'all 0.15s' }}>
+                                                        {sel && <span style={{ fontSize: 11, color: '#a78bfa', lineHeight: 1, fontWeight: 800 }}>✓</span>}
+                                                    </span>
+                                                    {opt}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                                {(currentQ.type === 'recording' || currentQ.type === 'upload') && (
+                                    <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.18)', fontSize: 13, color: '#fcd34d' }}>
+                                        {currentQ.type === 'recording' ? '🎙️ Voice recording — submit directly to your teacher.' : '📎 File upload — submit directly to your teacher.'}
+                                    </div>
+                                )}
+                                <div style={{ marginTop: 12, fontSize: 11, color: '#3d4f6e', textAlign: 'right', fontWeight: 600 }}>{currentQ.points} pt{currentQ.points !== 1 ? 's' : ''}</div>
+                            </div>
+
+                            {/* Navigation row */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                                <button type="button" onClick={() => goToQ(currentQIdx - 1, 'left')} disabled={currentQIdx === 0}
+                                    style={{ padding: '10px 22px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: currentQIdx === 0 ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.06)', color: currentQIdx === 0 ? '#2d3a50' : '#94a3b8', fontSize: 13, fontWeight: 600, cursor: currentQIdx === 0 ? 'not-allowed' : 'pointer', transition: 'all 0.15s' }}>
+                                    ← Previous
+                                </button>
+
+                                {/* Dot indicators */}
+                                {totalQ <= 12 && (
+                                    <div style={{ display: 'flex', gap: 5 }}>
+                                        {flatQuestions.map((_, i) => (
+                                            <button key={i} type="button" onClick={() => goToQ(i, i > currentQIdx ? 'right' : 'left')}
+                                                style={{ width: i === currentQIdx ? 20 : 7, height: 7, borderRadius: 99, border: 'none', background: i === currentQIdx ? '#6366f1' : answers[flatQuestions[i].id] ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.12)', cursor: 'pointer', padding: 0, transition: 'all 0.25s ease' }} />
+                                        ))}
+                                    </div>
+                                )}
+
+                                {isLast ? (
+                                    <button type="button" onClick={handleSubmit} disabled={submitting}
+                                        style={{ padding: '10px 26px', borderRadius: 10, border: 'none', background: submitting ? 'rgba(99,102,241,0.3)' : 'linear-gradient(135deg,#6366f1,#4f46e5)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', boxShadow: submitting ? 'none' : '0 4px 14px rgba(99,102,241,0.4)' }}>
+                                        {submitting ? 'Submitting…' : 'Submit Quiz ✓'}
+                                    </button>
+                                ) : (
+                                    <button type="button" onClick={() => goToQ(currentQIdx + 1, 'right')}
+                                        style={{ padding: '10px 22px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 14px rgba(99,102,241,0.3)' }}>
+                                        Next →
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     )}
 
@@ -252,6 +310,7 @@ function QuizModal({ quizId, userId, userName, onClose }: {
                 </div>
             </div>
         </div>
+        </>
     );
 }
 

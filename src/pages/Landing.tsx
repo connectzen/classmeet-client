@@ -1506,7 +1506,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                                                 type="button"
                                                                 onClick={() => setViewingStudentCourse(c)}
                                                                 style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(34,197,94,0.4)', background: 'rgba(34,197,94,0.12)', color: '#4ade80', fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}
-                                                            >View Lessons</button>
+                                                            >Start Course →</button>
                                                         </div>
                                                     ))}
                                                 </div>

@@ -394,7 +394,7 @@ function SortableTopicCard({
                             {topic.quizzes.map(quiz => (
                                 <div key={quiz.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 9, border: '1px solid rgba(139,92,246,0.32)', borderLeft: '3px solid rgba(139,92,246,0.7)', background: 'linear-gradient(90deg,rgba(139,92,246,0.1) 0%,rgba(139,92,246,0.04) 100%)' }}>
                                     <span style={{ fontSize: 15, flexShrink: 0 }}>📝</span>
-                                    <span style={{ flex: 1, fontSize: 13, color: '#c4b5fd', fontWeight: 600 }}>{quiz.title}</span>
+                                    <span style={{ flex: 1, fontSize: 13, color: '#c4b5fd', fontWeight: 600 }}>{stripHtml(quiz.title)}</span>
                                     <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 20, fontWeight: 700, letterSpacing: '0.05em', background: quiz.status === 'published' ? 'rgba(34,197,94,0.15)' : 'rgba(100,116,139,0.2)', color: quiz.status === 'published' ? '#4ade80' : '#94a3b8', flexShrink: 0, textTransform: 'uppercase' }}>{quiz.status}</span>
                                     <button type="button" onClick={() => handleDetachQuiz(quiz.id)} style={{ background: '#2a1018', border: '1px solid rgba(239,68,68,0.5)', color: '#f87171', cursor: 'pointer', fontSize: 11, borderRadius: 6, padding: '4px 9px', flexShrink: 0, fontWeight: 700, lineHeight: 1 }} title="Remove">✕</button>
                                 </div>
@@ -519,7 +519,7 @@ function SortableTopicCard({
                                     {unattachedQuizzes.map(quiz => (
                                         <button key={quiz.id} type="button" onClick={() => handleAttachQuiz(quiz)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: '#e2e8f0', cursor: 'pointer', textAlign: 'left', width: '100%' }}>
                                             <span style={{ fontSize: 16, flexShrink: 0 }}>📝</span>
-                                            <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{quiz.title}</span>
+                                            <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{stripHtml(quiz.title)}</span>
                                             <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: quiz.status === 'published' ? 'rgba(34,197,94,0.15)' : 'rgba(100,116,139,0.2)', color: quiz.status === 'published' ? '#4ade80' : '#94a3b8', flexShrink: 0 }}>{quiz.status}</span>
                                         </button>
                                     ))}

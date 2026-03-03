@@ -150,7 +150,7 @@ export default function MemberCoursesSection({ userId, userName, onCoursesChange
                                             cursor: 'pointer',
                                         }}
                                     >
-                                        View Lessons
+                                        Preview Course
                                     </button>
                                     <button
                                         type="button"
