@@ -79,7 +79,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [drawClearSignal, setDrawClearSignal] = useState(0);
     const [snapshotRequest, setSnapshotRequest] = useState(0);
     const [externalDrawSnapshot, setExternalDrawSnapshot] = useState<string | null>(null);
-    const [externalDrawHistory, setExternalDrawHistory] = useState<DrawSeg[] | null>(null);
+    const snapshotTargetRef = useRef<string | null>(null); // socket ID of student who needs the snapshot
     // Quiz student monitoring (teacher side) — keyed by socketId
     const [quizStudentProgress, setQuizStudentProgress] = useState<Map<string, { name: string; currentIdx: number; totalQ: number; answers: Record<string, { questionId: string; answerText?: string; selectedOptions?: string[] }> }>>(new Map());
     const [quizFocusedStudent, setQuizFocusedStudent] = useState<string | null>(null);
@@ -207,7 +207,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                     setTimeout(() => {
                         e.emitCourseNavigate?.(s.courseCourseIdx, s.courseLessonIdx);
                         e.emitCourseSidebar?.(s.courseSidebarOpen);
-                        // Trigger canvas snapshot capture so late joiner sees current annotations
+                        // Snapshot only the canvas for this specific late joiner
+                        snapshotTargetRef.current = p.socketId;
                         setSnapshotRequest(prev => prev + 1);
                     }, 400);
                 }, 600);
@@ -296,7 +297,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         sendSignal, sendMessage, endRoom, muteParticipant, camParticipant, broadcastSelfCam, changeSpotlight,
         startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
         emitCourseToggle, emitCourseNavigate, emitCourseScroll, emitCourseSidebar,
-        emitDrawSegment, emitDrawPreview, emitDrawCursor, emitDrawClear, emitDrawSnapshot,
+        emitDrawSegment, emitDrawPreview, emitDrawCursor, emitDrawClear, emitDrawSnapshot, emitDrawSnapshotTo,
         emitQuizStarted, emitQuizStopped, emitQuizProgress,
     } = useSocket({
             roomCode, roomId, roomName, name, role, isGuestRoomHost,
@@ -339,13 +340,10 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                 if (role !== 'teacher') setExternalCursor(x < 0 ? null : { x, y });
             },
             onDrawClear: () => {
-                if (role !== 'teacher') { setDrawClearSignal(prev => prev + 1); setExternalDrawHistory(null); }
+                if (role !== 'teacher') { setDrawClearSignal(prev => prev + 1); }
             },
             onDrawSnapshot: (dataUrl) => {
                 if (role !== 'teacher') setExternalDrawSnapshot(dataUrl);
-            },
-            onDrawHistory: (segs) => {
-                if (role !== 'teacher') setExternalDrawHistory(segs);
             },
             onQuizStudentStarted: (data) => {
                 if (role === 'teacher') {
@@ -522,7 +520,6 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
             setDrawClearSignal(0);
             setSnapshotRequest(0);
             setExternalDrawSnapshot(null);
-            setExternalDrawHistory(null);
         }
     }, [courseToggleOn]);
 
@@ -962,7 +959,11 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 onDrawCursor={emitDrawCursor}
                                 onDrawClear={() => { emitDrawClear(); setDrawClearSignal(prev => prev + 1); }}
                                 snapshotRequest={snapshotRequest}
-                                onSnapshot={emitDrawSnapshot}
+                                onSnapshot={(dataUrl) => {
+                                    const target = snapshotTargetRef.current;
+                                    if (target) { emitDrawSnapshotTo(target, dataUrl); snapshotTargetRef.current = null; }
+                                    else emitDrawSnapshot(dataUrl);
+                                }}
                             />
                         ) : courseToggleOn && role !== 'teacher' ? (
                             <RoomCoursePanel
@@ -980,7 +981,6 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 externalCursor={externalCursor}
                                 drawClearSignal={drawClearSignal}
                                 snapshotDataUrl={externalDrawSnapshot}
-                                externalDrawHistory={externalDrawHistory}
                             />
                         ) : quizToggleOn && role === 'teacher' ? (
                             quizMonitorMode && quizStudentProgress.size > 0 ? (
