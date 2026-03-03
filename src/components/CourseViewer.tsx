@@ -402,7 +402,7 @@ export default function CourseViewer({ course, userId, userName, onClose }: Prop
                                                                         const isLOpen = expandedLessonId === lesson.id;
                                                                         const icon = lesson.lesson_type === 'video' ? '🎬' : lesson.lesson_type === 'audio' ? '🎵' : lesson.lesson_type === 'image' ? '🖼️' : '📄';
                                                                         return (
-                                                                            <div key={lesson.id} className="hover-card" style={{ borderRadius: 12, border: '1px solid rgba(234,179,8,0.6)', overflow: 'hidden', background: isLOpen ? 'transparent' : 'rgb(255,255,0)', boxShadow: isLOpen ? 'none' : '0 2px 10px rgba(234,179,8,0.25)' }}>
+                                                                            <div key={lesson.id} className="hover-card" style={{ borderRadius: 12, border: '1px solid rgba(234,179,8,0.6)', overflow: 'hidden', background: isLOpen ? 'transparent' : '#facc15', boxShadow: isLOpen ? 'none' : '0 2px 10px rgba(234,179,8,0.25)' }}>
                                                                                 <button type="button" onClick={() => setExpandedLessonId(isLOpen ? null : lesson.id)}
                                                                                     style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '10px 13px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
                                                                                     <span style={{ fontSize: 13 }}>{icon}</span>
