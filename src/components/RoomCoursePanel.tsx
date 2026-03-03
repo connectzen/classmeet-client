@@ -23,6 +23,8 @@ export interface DrawSeg {
     color: string; size: number;
     mode: 'pen' | 'highlight' | 'eraser' | 'circle' | 'rect' | 'square' | 'text' | 'arrow' | 'line';
     text?: string;
+    fontStyle?: string;   // e.g. 'bold', 'italic', 'bold italic', 'normal'
+    fontFamily?: string;  // e.g. 'sans-serif', 'serif', 'monospace'
 }
 
 interface Props {
@@ -125,10 +127,13 @@ function drawOnCanvas(ctx: CanvasRenderingContext2D, seg: DrawSeg, w: number, h:
     } else if (seg.mode === 'text') {
         ctx.globalCompositeOperation = 'source-over';
         ctx.globalAlpha = 1; ctx.fillStyle = seg.color;
-        ctx.font = `bold ${Math.round(15 * seg.size)}px sans-serif`;
+        const fStyle  = seg.fontStyle  || 'bold';
+        const fFamily = seg.fontFamily || 'sans-serif';
+        const fSize   = Math.round(15 * seg.size);
+        ctx.font = `${fStyle} ${fSize}px ${fFamily}`;
         ctx.textBaseline = 'top';
         const lines = (seg.text || '').split('\n');
-        const lineH = Math.round(15 * seg.size) * 1.4;
+        const lineH = fSize * 1.4;
         lines.forEach((line, i) => ctx.fillText(line, seg.x1 * w, seg.y1 * h + i * lineH));
     }
     ctx.restore();
@@ -150,6 +155,8 @@ export default function RoomCoursePanel({
     const [drawTool, setDrawTool] = useState<DrawTool | null>(null);
     const [drawColor, setDrawColor] = useState('#ff4444');
     const [drawSizeKey, setDrawSizeKey] = useState<'S' | 'M' | 'L'>('M');
+    const [textFontStyle, setTextFontStyle] = useState<'normal' | 'bold' | 'italic' | 'bold italic'>('bold');
+    const [textFontFamily, setTextFontFamily] = useState<'sans-serif' | 'serif' | 'monospace'>('sans-serif');
     const [textInput, setTextInput] = useState<{ vx: number; vy: number; cx: number; cy: number } | null>(null);
     const [toolbarPos, setToolbarPos] = useState<{ x: number; y: number } | null>(null);
     const [toolbarExpanded, setToolbarExpanded] = useState(false);
@@ -186,8 +193,8 @@ export default function RoomCoursePanel({
     const persistentSnapshot = useRef<ImageData | null>(null);
 
     // Always-fresh refs so document-level handlers never have stale closures
-    const drawState   = useRef({ drawTool, drawColor, drawSizeKey, ephemeralMode });
-    drawState.current = { drawTool, drawColor, drawSizeKey, ephemeralMode };
+    const drawState   = useRef({ drawTool, drawColor, drawSizeKey, ephemeralMode, textFontStyle, textFontFamily });
+    drawState.current = { drawTool, drawColor, drawSizeKey, ephemeralMode, textFontStyle, textFontFamily };
     const onDrawSegCb    = useRef(onDrawSegment);
     onDrawSegCb.current  = onDrawSegment;
     const onDrawPrevCb   = useRef(onDrawPreview);
@@ -579,8 +586,8 @@ export default function RoomCoursePanel({
         // Always clear preview canvas on students when text input closes
         onDrawPrevCb.current?.({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
         if (!text.trim()) return;
-        const { drawColor, drawSizeKey } = drawState.current;
-        const seg: DrawSeg = { x1: cx, y1: cy, x2: cx, y2: cy, color: drawColor, size: TOOL_SIZES[drawSizeKey], mode: 'text', text };
+        const { drawColor, drawSizeKey, textFontStyle, textFontFamily } = drawState.current;
+        const seg: DrawSeg = { x1: cx, y1: cy, x2: cx, y2: cy, color: drawColor, size: TOOL_SIZES[drawSizeKey], mode: 'text', text, fontStyle: textFontStyle, fontFamily: textFontFamily };
         const c = canvasRef.current;
         if (c) { const ctx = c.getContext('2d'); if (ctx) drawOnCanvas(ctx, seg, c.width, c.height); }
         onDrawSegCb.current?.(seg);
@@ -757,6 +764,37 @@ export default function RoomCoursePanel({
 
                             <div style={{ height: 1, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />
 
+                            {/* ── Text options: visible only when T tool is active ── */}
+                            {drawTool === 'text' && (<>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>Style</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 30px)', gap: 3 }}>
+                                    {(['normal','bold','italic','bold italic'] as const).map(fs => (
+                                        <button key={fs} onClick={() => setTextFontStyle(fs)} title={fs}
+                                            style={{ height: 26, borderRadius: 5, border: 'none', fontSize: 11,
+                                                background: textFontStyle === fs ? 'rgba(99,102,241,0.5)' : 'transparent',
+                                                color: textFontStyle === fs ? '#a5b4fc' : 'var(--text-muted)',
+                                                fontWeight: fs.includes('bold') ? 700 : 400,
+                                                fontStyle: fs.includes('italic') ? 'italic' : 'normal',
+                                                cursor: 'pointer' }}>
+                                            {fs === 'normal' ? 'N' : fs === 'bold' ? 'B' : fs === 'italic' ? 'I' : 'BI'}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center', marginTop: 2 }}>Font</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                    {(['sans-serif','serif','monospace'] as const).map(ff => (
+                                        <button key={ff} onClick={() => setTextFontFamily(ff)} title={ff}
+                                            style={{ height: 22, borderRadius: 5, border: 'none', fontSize: 10,
+                                                background: textFontFamily === ff ? 'rgba(99,102,241,0.5)' : 'transparent',
+                                                color: textFontFamily === ff ? '#a5b4fc' : 'var(--text-muted)',
+                                                fontFamily: ff, cursor: 'pointer' }}>
+                                            {ff === 'sans-serif' ? 'Sans' : ff === 'serif' ? 'Serif' : 'Mono'}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div style={{ height: 1, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />
+                            </>)}
+
                             {/* ── Sizes: row of 3 ── */}
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3 }}>
                                 {(['S', 'M', 'L'] as const).map(s => (
@@ -799,11 +837,11 @@ export default function RoomCoursePanel({
             {textInput && (
                 <div style={{ position: 'fixed', left: Math.min(textInput.vx, window.innerWidth - 260), top: Math.min(textInput.vy, window.innerHeight - 60), zIndex: 9999, width: 240, background: 'transparent', border: 'none', padding: 0 }}>
                     <textarea autoFocus rows={2} placeholder=""
-                    style={{ display: 'block', width: '100%', background: 'transparent', color: drawColor, border: 'none', padding: '0', margin: '0', fontSize: Math.round(15 * TOOL_SIZES[drawSizeKey]), fontFamily: 'sans-serif', fontWeight: 700, outline: 'none', resize: 'none', boxSizing: 'border-box', lineHeight: 1.4, caretColor: drawColor, letterSpacing: '0.01em' }}
+                    style={{ display: 'block', width: '100%', background: 'transparent', color: drawColor, border: 'none', padding: '0', margin: '0', fontSize: Math.round(15 * TOOL_SIZES[drawSizeKey]), fontFamily: textFontFamily, fontWeight: textFontStyle.includes('bold') ? 700 : 400, fontStyle: textFontStyle.includes('italic') ? 'italic' : 'normal', outline: 'none', resize: 'none', boxSizing: 'border-box', lineHeight: 1.4, caretColor: drawColor, letterSpacing: '0.01em' }}
                     onChange={e => {
                         // Stream typed text to students in real time
-                        const { drawSizeKey: sk, drawColor: dc } = drawState.current;
-                        const seg: DrawSeg = { x1: textInput.cx, y1: textInput.cy, x2: textInput.cx, y2: textInput.cy, color: dc, size: TOOL_SIZES[sk], mode: 'text', text: e.target.value || ' ' };
+                        const { drawSizeKey: sk, drawColor: dc, textFontStyle: tfs, textFontFamily: tff } = drawState.current;
+                        const seg: DrawSeg = { x1: textInput.cx, y1: textInput.cy, x2: textInput.cx, y2: textInput.cy, color: dc, size: TOOL_SIZES[sk], mode: 'text', text: e.target.value || ' ', fontStyle: tfs, fontFamily: tff };
                         onDrawPrevCb.current?.(seg);
                     }}
                     onKeyDown={e => {
