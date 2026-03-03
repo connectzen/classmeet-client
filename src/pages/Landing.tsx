@@ -8,6 +8,7 @@ import QuizDrawer from '../components/QuizDrawer';
 import AuthModal from '../components/AuthModal';
 import OnboardingForm from '../components/OnboardingForm';
 import MemberCoursesSection from '../components/MemberCoursesSection';
+import CourseViewer from '../components/CourseViewer';
 import UserMenu from '../components/UserMenu';
 import MeetingBanner, { AdminMeeting } from '../components/MeetingBanner';
 
@@ -43,6 +44,24 @@ function getStoredClasses(): { id: string; code: string; name: string }[] {
 }
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+
+// ── Animated count-up number component ───────────────────────────────────────
+function CountUp({ value, duration = 700 }: { value: number; duration?: number }) {
+    const [display, setDisplay] = useState(0);
+    useEffect(() => {
+        if (value === 0) { setDisplay(0); return; }
+        let start: number | null = null;
+        const run = (ts: number) => {
+            if (!start) start = ts;
+            const p = Math.min((ts - start) / duration, 1);
+            setDisplay(Math.round((1 - (1 - p) ** 3) * value));
+            if (p < 1) requestAnimationFrame(run);
+        };
+        const id = requestAnimationFrame(run);
+        return () => cancelAnimationFrame(id);
+    }, [value, duration]);
+    return <>{display}</>;
+}
 
 export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Props) {
     const { user } = useUser();
@@ -188,6 +207,11 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const [groupsCollapsed, setGroupsCollapsed] = useState(true);
     const [teachersCollapsed, setTeachersCollapsed] = useState(true);
     const [teacherStudentsCollapsed, setTeacherStudentsCollapsed] = useState<Record<string, boolean>>({});
+    const [dashSidebarOpen, setDashSidebarOpen] = useState(true);
+    const [studentTeachersCollapsed, setStudentTeachersCollapsed] = useState(true);
+    const [studentPublishedCourses, setStudentPublishedCourses] = useState<{ id: string; title: string; description?: string | null }[]>([]);
+    const [loadingStudentCourses, setLoadingStudentCourses] = useState(false);
+    const [viewingStudentCourse, setViewingStudentCourse] = useState<{ id: string; title: string; description?: string | null } | null>(null);
     const [copiedSessionId, setCopiedSessionId] = useState<string | null>(null);
 
     // Student groups modal state
@@ -377,6 +401,16 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         } catch { /* ignore */ }
     }, [user?.id, userRole, fetchTeacherProfiles]);
 
+    const fetchStudentPublishedCourses = useCallback(async () => {
+        if (!user?.id || userRole !== 'student') return;
+        setLoadingStudentCourses(true);
+        try {
+            const r = await fetch(`${SERVER_URL}/api/courses/published-for-student/${user.id}`);
+            if (r.ok) setStudentPublishedCourses(await r.json());
+        } catch { /* ignore */ }
+        setLoadingStudentCourses(false);
+    }, [user?.id, userRole]);
+
     const fetchTeacherNamesForStudent = useCallback(async () => {
         try {
             const r = await fetch(`${SERVER_URL}/api/teachers`);
@@ -419,10 +453,10 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                 fetchStudentTeacherSessions();
                 if (d.role === 'teacher') { fetchTeacherStudents(); fetchTeacherGroups(); fetchTeacherCoursesCount(); }
                 if (d.role === 'member') { fetchAllStudents(); fetchMemberCoursesCount(); fetchMemberTeachers(); fetchMemberTeachersWithStudents(); }
-                if (d.role === 'student') fetchTeacherNamesForStudent();
+                if (d.role === 'student') { fetchTeacherNamesForStudent(); fetchStudentPublishedCourses(); }
             })
             .catch(() => setUserRole('pending'));
-    }, [user?.id, user?.email, onAdminView, fetchTeacherSessions, fetchMemberSessions, fetchStudentTeacherSessions, fetchTeacherStudents, fetchTeacherGroups, fetchTeacherCoursesCount, fetchAllStudents, fetchMemberCoursesCount, fetchTeacherNamesForStudent, fetchMemberTeachers, fetchMemberTeachersWithStudents]);
+    }, [user?.id, user?.email, onAdminView, fetchTeacherSessions, fetchMemberSessions, fetchStudentTeacherSessions, fetchTeacherStudents, fetchTeacherGroups, fetchTeacherCoursesCount, fetchAllStudents, fetchMemberCoursesCount, fetchTeacherNamesForStudent, fetchMemberTeachers, fetchMemberTeachersWithStudents, fetchStudentPublishedCourses]);
 
     useEffect(() => {
         if (!user?.id || !userRole || userRole === 'pending') return;
@@ -442,6 +476,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         }
         if (userRole === 'student') {
             fetchTeacherNamesForStudent();
+            fetchStudentPublishedCourses();
         }
         const pollIdT = setInterval(fetchTeacherSessions, 30_000);
         const pollIdM = setInterval(fetchMemberSessions, 30_000);
@@ -498,7 +533,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
             if (pollTeacherNames != null) clearInterval(pollTeacherNames);
             sock2.disconnect();
         };
-    }, [user?.id, userRole, fetchTeacherSessions, fetchMemberSessions, fetchStudentTeacherSessions, fetchTeacherStudents, fetchTeacherGroups, fetchTeacherCoursesCount, fetchAllStudents, fetchMemberCoursesCount, fetchTeacherNamesForStudent, fetchMemberTeachers, fetchMemberTeachersWithStudents, refetchRoleAndDashboard]);
+    }, [user?.id, userRole, fetchTeacherSessions, fetchMemberSessions, fetchStudentTeacherSessions, fetchTeacherStudents, fetchTeacherGroups, fetchTeacherCoursesCount, fetchAllStudents, fetchMemberCoursesCount, fetchTeacherNamesForStudent, fetchMemberTeachers, fetchMemberTeachersWithStudents, refetchRoleAndDashboard, fetchStudentPublishedCourses]);
 
     // Refetch role and dashboard when user returns to tab
     useEffect(() => {
@@ -954,10 +989,16 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     )}
 
                     {userRole === 'member' && (
-                        <div className="teacher-dashboard-layout">
+                        <div className="teacher-dashboard-layout" style={dashSidebarOpen ? undefined : { gridTemplateColumns: '52px 1fr' }}>
 
                             {/* ── LEFT SIDEBAR: Teachers & their students ── */}
-                            <aside className="teacher-sidebar enter-up">
+                            <aside className="teacher-sidebar enter-up" style={dashSidebarOpen ? undefined : { padding: '10px 8px' }}>
+                                <button
+                                    onClick={() => setDashSidebarOpen(v => !v)}
+                                    title={dashSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+                                    style={{ display: 'block', marginLeft: 'auto', marginRight: dashSidebarOpen ? 0 : 'auto', marginBottom: dashSidebarOpen ? 8 : 0, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '4px 8px', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, lineHeight: 1 }}
+                                >{dashSidebarOpen ? '◀' : '▶'}</button>
+                                {dashSidebarOpen && (<>
                                 <div className="teacher-sidebar-section">
                                     <button
                                         onClick={() => setTeachersCollapsed(c => !c)}
@@ -1031,25 +1072,26 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                         </div>
                                     ))}
                                 </div>
+                            </>)}
                             </aside>
 
                             {/* ── STAT CARDS ── */}
                             <div className="teacher-stats-bar">
                                 <div className="teacher-stat-card">
                                     <div className="teacher-stat-label">Teachers</div>
-                                    <div className="teacher-stat-value">{loadingMemberTeachers && memberTeachers.length === 0 ? '…' : memberTeachers.length}</div>
+                                    <div className="teacher-stat-value">{loadingMemberTeachers && memberTeachers.length === 0 ? '…' : <CountUp value={memberTeachers.length} />}</div>
                                 </div>
                                 <div className="teacher-stat-card">
                                     <div className="teacher-stat-label">Students</div>
-                                    <div className="teacher-stat-value">{loadingStudentsList && allStudents.length === 0 ? '…' : allStudents.length}</div>
+                                    <div className="teacher-stat-value">{loadingStudentsList && allStudents.length === 0 ? '…' : <CountUp value={allStudents.length} />}</div>
                                 </div>
                                 <div className="teacher-stat-card">
                                     <div className="teacher-stat-label">Active Courses</div>
-                                    <div className="teacher-stat-value">{memberCoursesCount}</div>
+                                    <div className="teacher-stat-value"><CountUp value={memberCoursesCount} /></div>
                                 </div>
                                 <div className="teacher-stat-card">
                                     <div className="teacher-stat-label">Upcoming Sessions</div>
-                                    <div className="teacher-stat-value">{memberSessions.filter(s => new Date(s.scheduled_at) >= new Date()).length}</div>
+                                    <div className="teacher-stat-value"><CountUp value={memberSessions.filter(s => new Date(s.scheduled_at) >= new Date()).length} /></div>
                                 </div>
                             </div>
 
@@ -1128,10 +1170,16 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                     )}
 
                     {userRole === 'teacher' && (
-                        <div className="teacher-dashboard-layout">
+                        <div className="teacher-dashboard-layout" style={dashSidebarOpen ? undefined : { gridTemplateColumns: '52px 1fr' }}>
 
                             {/* ── LEFT SIDEBAR: Students & Groups ── */}
-                            <aside className="teacher-sidebar enter-up">
+                            <aside className="teacher-sidebar enter-up" style={dashSidebarOpen ? undefined : { padding: '10px 8px' }}>
+                                <button
+                                    onClick={() => setDashSidebarOpen(v => !v)}
+                                    title={dashSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+                                    style={{ display: 'block', marginLeft: 'auto', marginRight: dashSidebarOpen ? 0 : 'auto', marginBottom: dashSidebarOpen ? 8 : 0, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '4px 8px', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, lineHeight: 1 }}
+                                >{dashSidebarOpen ? '◀' : '▶'}</button>
+                                {dashSidebarOpen && (<>
                                 {/* Your students */}
                                 <div className="teacher-sidebar-section">
                                     <button
@@ -1229,25 +1277,26 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                         </div>
                                     ))}
                                 </div>
+                            </>)}
                             </aside>
 
                             {/* ── STAT CARDS (inside grid, right column via CSS) ── */}
                             <div className="teacher-stats-bar">
                                 <div className="teacher-stat-card">
                                     <div className="teacher-stat-label">Students</div>
-                                    <div className="teacher-stat-value">{loadingTeacherStudents && teacherStudents.length === 0 ? '…' : teacherStudents.length}</div>
+                                    <div className="teacher-stat-value">{loadingTeacherStudents && teacherStudents.length === 0 ? '…' : <CountUp value={teacherStudents.length} />}</div>
                                 </div>
                                 <div className="teacher-stat-card">
                                     <div className="teacher-stat-label">Active Courses</div>
-                                    <div className="teacher-stat-value">{teacherCoursesCount}</div>
+                                    <div className="teacher-stat-value"><CountUp value={teacherCoursesCount} /></div>
                                 </div>
                                 <div className="teacher-stat-card">
                                     <div className="teacher-stat-label">Groups</div>
-                                    <div className="teacher-stat-value">{loadingTeacherGroups && teacherGroups.length === 0 ? '…' : teacherGroups.length}</div>
+                                    <div className="teacher-stat-value">{loadingTeacherGroups && teacherGroups.length === 0 ? '…' : <CountUp value={teacherGroups.length} />}</div>
                                 </div>
                                 <div className="teacher-stat-card">
                                     <div className="teacher-stat-label">Upcoming Sessions</div>
-                                    <div className="teacher-stat-value">{teacherSessions.filter(s => new Date(s.scheduled_at) >= new Date()).length}</div>
+                                    <div className="teacher-stat-value"><CountUp value={teacherSessions.filter(s => new Date(s.scheduled_at) >= new Date()).length} /></div>
                                 </div>
                             </div>
 
@@ -1330,23 +1379,35 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
 
                     {/* STUDENT DASHBOARD */}
                     {userRole === 'student' && (
-                        <div className="teacher-dashboard-layout">
+                        <div className="teacher-dashboard-layout" style={dashSidebarOpen ? undefined : { gridTemplateColumns: '52px 1fr' }}>
 
                             {/* ── LEFT SIDEBAR: Your Teachers ── */}
-                            <aside className="teacher-sidebar enter-up">
+                            <aside className="teacher-sidebar enter-up" style={dashSidebarOpen ? undefined : { padding: '10px 8px' }}>
+                                <button
+                                    onClick={() => setDashSidebarOpen(v => !v)}
+                                    title={dashSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+                                    style={{ display: 'block', marginLeft: 'auto', marginRight: dashSidebarOpen ? 0 : 'auto', marginBottom: dashSidebarOpen ? 8 : 0, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '4px 8px', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, lineHeight: 1 }}
+                                >{dashSidebarOpen ? '◀' : '▶'}</button>
+                                {dashSidebarOpen && (
                                 <div className="teacher-sidebar-section">
-                                    <div className="teacher-sidebar-section-header" style={{ marginBottom: 10, alignItems: 'center' }}>
-                                        <span style={{ whiteSpace: 'nowrap' }}>Your teachers</span>
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, height: 18, borderRadius: 100, padding: '0 6px', fontSize: 11, fontWeight: 700, background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.35)', color: '#93c5fd' }}>
-                                            {Array.from(new Set(studentTeacherSessions.map(s => s.created_by))).length}
-                                        </span>
-                                    </div>
-                                    {(() => {
+                                    <button
+                                        onClick={() => setStudentTeachersCollapsed(c => !c)}
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit' }}
+                                    >
+                                        <div className="teacher-sidebar-section-header" style={{ margin: 0, flex: 1, alignItems: 'center' }}>
+                                            <span style={{ whiteSpace: 'nowrap' }}>Your teachers</span>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, height: 18, borderRadius: 100, padding: '0 6px', fontSize: 11, fontWeight: 700, background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.35)', color: '#93c5fd' }}>
+                                                {Array.from(new Set(studentTeacherSessions.map(s => s.created_by))).length}
+                                            </span>
+                                        </div>
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginLeft: 6, transition: 'transform 0.2s', transform: studentTeachersCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}><polyline points="6 9 12 15 18 9"/></svg>
+                                    </button>
+                                    {!studentTeachersCollapsed && (() => {
                                         const teacherIds = Array.from(new Set(studentTeacherSessions.map(s => s.created_by)));
                                         return teacherIds.length === 0 ? (
-                                            <div style={{ color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.5 }}>No teachers assigned yet.</div>
+                                            <div style={{ color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.5, marginTop: 8 }}>No teachers assigned yet.</div>
                                         ) : (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
                                                 {teacherIds.map(tid => {
                                                     const name = teacherProfiles[tid]?.name ?? teacherNamesFromApi[tid] ?? 'Teacher';
                                                     const avatarUrl = teacherProfiles[tid]?.avatar_url;
@@ -1372,21 +1433,22 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                         );
                                     })()}
                                 </div>
+                                )}
                             </aside>
 
                             {/* ── STAT CARDS ── */}
                             <div className="teacher-stats-bar student-stats-bar">
                                 <div className="teacher-stat-card">
                                     <div className="teacher-stat-label">Upcoming Sessions</div>
-                                    <div className="teacher-stat-value">{studentTeacherSessions.filter(s => new Date(s.scheduled_at) >= new Date()).length}</div>
+                                    <div className="teacher-stat-value"><CountUp value={studentTeacherSessions.filter(s => new Date(s.scheduled_at) >= new Date()).length} /></div>
                                 </div>
                                 <div className="teacher-stat-card">
                                     <div className="teacher-stat-label">Total Classes</div>
-                                    <div className="teacher-stat-value">{studentTeacherSessions.length}</div>
+                                    <div className="teacher-stat-value"><CountUp value={studentTeacherSessions.length} /></div>
                                 </div>
                                 <div className="teacher-stat-card">
                                     <div className="teacher-stat-label">Teachers</div>
-                                    <div className="teacher-stat-value">{Array.from(new Set(studentTeacherSessions.map(s => s.created_by))).length}</div>
+                                    <div className="teacher-stat-value"><CountUp value={Array.from(new Set(studentTeacherSessions.map(s => s.created_by))).length} /></div>
                                 </div>
                             </div>
 
@@ -1422,6 +1484,35 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                     ) : (
                                         <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>No scheduled sessions yet.</div>
                                     )}
+
+                                    {/* ── Published Courses from Teachers ── */}
+                                    {(loadingStudentCourses || studentPublishedCourses.length > 0) && (
+                                        <div style={{ marginTop: 24 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                                                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em' }}>📚 Courses from Your Teachers</span>
+                                                {!loadingStudentCourses && <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 20, height: 18, borderRadius: 100, padding: '0 6px', fontSize: 11, fontWeight: 700, background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.35)', color: '#4ade80' }}>{studentPublishedCourses.length}</span>}
+                                            </div>
+                                            {loadingStudentCourses ? (
+                                                <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading courses…</div>
+                                            ) : (
+                                                <div style={{ display: 'grid', gap: 10 }}>
+                                                    {studentPublishedCourses.map(c => (
+                                                        <div key={c.id} style={{ padding: '12px 14px', background: 'rgba(34,197,94,0.05)', borderRadius: 12, border: '1px solid rgba(34,197,94,0.18)', display: 'flex', alignItems: 'center', gap: 12 }}>
+                                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                                <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)', marginBottom: 2 }}>{c.title}</div>
+                                                                {c.description && <div style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.description}</div>}
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setViewingStudentCourse(c)}
+                                                                style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(34,197,94,0.4)', background: 'rgba(34,197,94,0.12)', color: '#4ade80', fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}
+                                                            >View Lessons</button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -1432,6 +1523,13 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
 
                 <p className="landing-footer">Secure · Real-time · Up to 5 participants per session</p>
             </div>
+            {/* Student: view published course */}
+            {viewingStudentCourse && (
+                <CourseViewer
+                    course={viewingStudentCourse}
+                    onClose={() => setViewingStudentCourse(null)}
+                />
+            )}
             {/* Schedule Class Modal */}
             {scheduleMode && (
                 <div style={{

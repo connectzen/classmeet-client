@@ -99,6 +99,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
     // Mobile detection (sidebar → bottom tab bar below 640 px)
     const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     useEffect(() => {
         const handler = () => setIsMobile(window.innerWidth < 640);
         window.addEventListener('resize', handler);
@@ -502,31 +503,44 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                     transform: mobileSidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
                     transition: 'transform 0.25s ease',
                     boxShadow: mobileSidebarOpen ? '4px 0 20px rgba(0,0,0,0.3)' : 'none',
-                } : {}}>
-                    {isMobile && (
+                } : sidebarCollapsed ? {
+                    width: 56, minWidth: 56, padding: '16px 8px', overflow: 'hidden',
+                    transition: 'width 0.25s ease, min-width 0.25s ease',
+                } : { transition: 'width 0.25s ease, min-width 0.25s ease' }}>
+                    {isMobile ? (
                         <button onClick={() => setMobileSidebarOpen(false)}
                             style={{ alignSelf: 'flex-end', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 20, marginBottom: 8, padding: '2px 4px' }}>✕</button>
+                    ) : (
+                        <button
+                            onClick={() => setSidebarCollapsed(v => !v)}
+                            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                            style={{ alignSelf: sidebarCollapsed ? 'center' : 'flex-end', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 14, marginBottom: 8, padding: '4px 6px', borderRadius: 6 }}
+                        >{sidebarCollapsed ? '▶' : '◀'}</button>
                     )}
                     {NAV_ITEMS.map(n => (
                         <button
                             key={n.key}
-                            onClick={() => setTab(n.key)}
+                            onClick={() => { setTab(n.key); if (isMobile) setMobileSidebarOpen(false); }}
                             className={`admin-nav-btn${tab === n.key ? ' admin-nav-btn-active' : ''}`}
+                            title={sidebarCollapsed && !isMobile ? n.label : undefined}
+                            style={sidebarCollapsed && !isMobile ? { justifyContent: 'center', padding: '10px 0' } : undefined}
                         >
                             <span className="admin-nav-icon">{n.icon}</span>
-                            {n.label}
+                            {(!sidebarCollapsed || isMobile) && n.label}
                         </button>
                     ))}
 
-                    <div style={{ marginTop: 'auto', fontSize: 11, color: 'var(--text-muted)', padding: '12px 14px 0', borderTop: '1px solid var(--border)' }}>
-                        <div style={{ fontWeight: 600, marginBottom: 4, color: 'var(--text)' }}>Platform Stats</div>
-                        <div>{members.length} member{members.length !== 1 ? 's' : ''}</div>
-                        <div>{teachers.length} teacher{teachers.length !== 1 ? 's' : ''}</div>
-                        <div>{students.length} student{students.length !== 1 ? 's' : ''}</div>
-                        {pendingUsers.length > 0 && <div style={{ color: '#f59e0b', marginTop: 2 }}>{pendingUsers.length} pending</div>}
-                        {(adminStats?.liveGuestCount ?? 0) > 0 && <div style={{ color: '#64748b', marginTop: 2 }}>{adminStats?.liveGuestCount} live guest{(adminStats?.liveGuestCount ?? 0) !== 1 ? 's' : ''}</div>}
-                        {meetings.filter(m => m.is_active).length > 0 && <div style={{ color: '#a5b4fc', marginTop: 2 }}>{meetings.filter(m => m.is_active).length} active meeting{meetings.filter(m => m.is_active).length !== 1 ? 's' : ''}</div>}
-                    </div>
+                    {(!sidebarCollapsed || isMobile) && (
+                        <div style={{ marginTop: 'auto', fontSize: 11, color: 'var(--text-muted)', padding: '12px 14px 0', borderTop: '1px solid var(--border)' }}>
+                            <div style={{ fontWeight: 600, marginBottom: 4, color: 'var(--text)' }}>Platform Stats</div>
+                            <div>{members.length} member{members.length !== 1 ? 's' : ''}</div>
+                            <div>{teachers.length} teacher{teachers.length !== 1 ? 's' : ''}</div>
+                            <div>{students.length} student{students.length !== 1 ? 's' : ''}</div>
+                            {pendingUsers.length > 0 && <div style={{ color: '#f59e0b', marginTop: 2 }}>{pendingUsers.length} pending</div>}
+                            {(adminStats?.liveGuestCount ?? 0) > 0 && <div style={{ color: '#64748b', marginTop: 2 }}>{adminStats?.liveGuestCount} live guest{(adminStats?.liveGuestCount ?? 0) !== 1 ? 's' : ''}</div>}
+                            {meetings.filter(m => m.is_active).length > 0 && <div style={{ color: '#a5b4fc', marginTop: 2 }}>{meetings.filter(m => m.is_active).length} active meeting{meetings.filter(m => m.is_active).length !== 1 ? 's' : ''}</div>}
+                        </div>
+                    )}
                 </aside>
 
                 {/* ── MAIN CONTENT ── */}
@@ -1135,12 +1149,31 @@ function Card({ title, children, style }: { title: string; children: React.React
     );
 }
 
+function useCountUp(target: number, duration = 700) {
+    const [count, setCount] = useState(0);
+    useEffect(() => {
+        if (target === 0) { setCount(0); return; }
+        let start: number | null = null;
+        const run = (ts: number) => {
+            if (!start) start = ts;
+            const p = Math.min((ts - start) / duration, 1);
+            setCount(Math.round((1 - (1 - p) ** 3) * target));
+            if (p < 1) requestAnimationFrame(run);
+        };
+        const id = requestAnimationFrame(run);
+        return () => cancelAnimationFrame(id);
+    }, [target, duration]);
+    return count;
+}
+
 function StatCard({ icon, label, value, accent }: { icon: string; label: string; value: number; accent: string }) {
+    const animatedValue = useCountUp(value);
+    void accent; // kept for API compatibility
     return (
         <div className="stat-card">
             <div style={{ position: 'absolute', top: -10, right: -10, fontSize: 80, opacity: 0.04, pointerEvents: 'none', userSelect: 'none' }}>{icon}</div>
             <div className="stat-label" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>{label}</div>
-            <div className="stat-value" style={{ color: accent }}>{value}</div>
+            <div className="stat-value">{animatedValue}</div>
         </div>
     );
 }
