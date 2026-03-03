@@ -408,7 +408,7 @@ function SortableTopicCard({
                                 {/* Type selector */}
                                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                                     {(['text', 'link', 'file', 'quiz'] as const).map(t => (
-                                        <button key={t} type="button" onClick={() => setAssignmentType(t)}
+                                        <button key={t} type="button" onClick={() => { setAssignmentType(t); setAssignmentTitle(''); setAssignmentDesc(''); setAssignmentUrl(''); setAssignmentQuizId(''); }}
                                             style={{ padding: '5px 12px', borderRadius: 6, border: `1px solid ${assignmentType === t ? 'rgba(251,191,36,0.6)' : 'rgba(255,255,255,0.08)'}`, background: assignmentType === t ? 'rgba(251,191,36,0.15)' : 'transparent', color: assignmentType === t ? '#fcd34d' : '#64748b', fontSize: 12, fontWeight: assignmentType === t ? 700 : 500, cursor: 'pointer', textTransform: 'capitalize' }}>
                                             {t === 'text' ? '📄 Text' : t === 'link' ? '🔗 Link' : t === 'file' ? '📎 File' : '📝 Quiz'}
                                         </button>
@@ -552,7 +552,7 @@ export default function CurriculumEditor({ courseId, userId, onCoursesChange }: 
             const t = await r.json();
             const newTopic: Topic = { id: t.id, title: t.title, order_index: t.order_index ?? topics.length, lessons: [], quizzes: [], assignments: [] };
             setTopics(prev => [...prev, newTopic]);
-            setExpandedTopics(prev => new Set([...prev, t.id]));
+            setExpandedTopics(new Set([t.id])); // collapse others, expand new topic
         }
     }
 
@@ -630,9 +630,15 @@ export default function CurriculumEditor({ courseId, userId, onCoursesChange }: 
                                 userId={userId}
                                 expanded={expandedTopics.has(topic.id)}
                                 onToggleExpand={() => setExpandedTopics(prev => {
-                                    const s = new Set(prev);
-                                    if (s.has(topic.id)) s.delete(topic.id); else s.add(topic.id);
-                                    return s;
+                                    if (prev.has(topic.id)) {
+                                        // close it
+                                        const s = new Set(prev);
+                                        s.delete(topic.id);
+                                        return s;
+                                    } else {
+                                        // accordion: open this one, close all others
+                                        return new Set([topic.id]);
+                                    }
                                 })}
                                 onUpdateTopic={handleUpdateTopic}
                                 onDeleteTopic={handleDeleteTopic}
