@@ -1379,16 +1379,10 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
 
                     {/* STUDENT DASHBOARD */}
                     {userRole === 'student' && (
-                        <div className="teacher-dashboard-layout" style={dashSidebarOpen ? undefined : { gridTemplateColumns: '52px 1fr' }}>
+                        <div className="teacher-dashboard-layout">
 
                             {/* ── LEFT SIDEBAR: Your Teachers ── */}
-                            <aside className="teacher-sidebar enter-up" style={dashSidebarOpen ? undefined : { padding: '10px 8px' }}>
-                                <button
-                                    onClick={() => setDashSidebarOpen(v => !v)}
-                                    title={dashSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-                                    style={{ display: 'block', marginLeft: 'auto', marginRight: dashSidebarOpen ? 0 : 'auto', marginBottom: dashSidebarOpen ? 8 : 0, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '4px 8px', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, lineHeight: 1 }}
-                                >{dashSidebarOpen ? '◀' : '▶'}</button>
-                                {dashSidebarOpen && (
+                            <aside className="teacher-sidebar enter-up">
                                 <div className="teacher-sidebar-section">
                                     <button
                                         onClick={() => setStudentTeachersCollapsed(c => !c)}
@@ -1433,7 +1427,6 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                                         );
                                     })()}
                                 </div>
-                                )}
                             </aside>
 
                             {/* ── STAT CARDS ── */}
