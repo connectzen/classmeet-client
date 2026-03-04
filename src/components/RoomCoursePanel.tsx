@@ -205,6 +205,7 @@ export default function RoomCoursePanel({
     const lastPt      = useRef<{ x: number; y: number } | null>(null);
     const shapeStart  = useRef<{ x: number; y: number } | null>(null);
     const toolbarRef  = useRef<HTMLDivElement>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
     const isDraggingBar = useRef(false);
     const barDragOffset = useRef({ x: 0, y: 0 });
     const cursorThrottle = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -850,11 +851,40 @@ export default function RoomCoursePanel({
                         Teacher sees text rendered live on canvas (preview); students see the same.
                         The textarea itself is invisible so nothing distracts from the canvas. */}
                     {textInput && isTeacher && (
-                        <div style={{
-                            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                            zIndex: 25, cursor: 'text',
-                        }}>
-                            <textarea autoFocus placeholder=""
+                        <div
+                            style={{
+                                position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                                zIndex: 17, cursor: 'text',
+                            }}
+                            onMouseDown={e => {
+                                // Reposition the text anchor to wherever the teacher clicks.
+                                // Skip if click landed inside the toolbar (higher z-order handles that).
+                                const tb = toolbarRef.current;
+                                if (tb && tb.contains(e.target as Node)) return;
+                                const c = canvasRef.current;
+                                if (!c) return;
+                                const r = c.getBoundingClientRect();
+                                const newCx = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+                                const newCy = Math.max(0, Math.min(1, (e.clientY - r.top)  / r.height));
+                                // Commit any text already typed at the old anchor
+                                const ta = textareaRef.current;
+                                const val = ta?.value ?? '';
+                                if (val.trim()) {
+                                    const { drawSizeKey: sk, drawColor: dc, textFontStyle: tfs, textFontFamily: tff, textFontSize: tfsz } = drawState.current;
+                                    const seg: DrawSeg = { x1: textInput.cx, y1: textInput.cy, x2: textInput.cx, y2: textInput.cy, color: dc, size: TOOL_SIZES[sk], mode: 'text', text: val, fontStyle: tfs, fontFamily: tff, fontSizePx: tfsz };
+                                    committedSegs.current.push(seg);
+                                    const cnv = canvasRef.current;
+                                    if (cnv) { const ctx = cnv.getContext('2d'); if (ctx) drawOnCanvas(ctx, seg, cnv.width, cnv.height); }
+                                    onDrawSegCb.current?.(seg);
+                                }
+                                // Clear preview, move anchor, clear textarea
+                                onDrawPrevCb.current?.({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
+                                e.preventDefault(); // keep textarea focused
+                                setTextInput({ vx: e.clientX, vy: e.clientY, cx: newCx, cy: newCy });
+                                if (ta) { ta.value = ''; ta.focus(); }
+                            }}
+                        >
+                            <textarea autoFocus ref={textareaRef} placeholder=""
                                 style={{
                                     display: 'block', width: '100%', height: '100%',
                                     background: 'transparent',
