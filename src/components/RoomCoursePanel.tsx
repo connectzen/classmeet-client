@@ -1101,6 +1101,26 @@ export default function RoomCoursePanel({
                                     onDrawPrevCb.current?.(seg);
                                 }}
                                 onKeyDown={e => {
+                                    // Allow all navigation keys to work natively:
+                                    // ArrowUp/Down/Left/Right, Home, End, PageUp/PageDown,
+                                    // Backspace, Delete — no interception needed.
+                                    // Tab: insert spaces instead of moving browser focus away.
+                                    if (e.key === 'Tab') {
+                                        e.preventDefault();
+                                        const ta = e.currentTarget;
+                                        const start = ta.selectionStart ?? ta.value.length;
+                                        const end   = ta.selectionEnd   ?? ta.value.length;
+                                        const spaces = '    '; // 4-space indent
+                                        ta.value = ta.value.slice(0, start) + spaces + ta.value.slice(end);
+                                        ta.selectionStart = ta.selectionEnd = start + spaces.length;
+                                        // Manually update canvas preview (bypasses React synthetic onChange)
+                                        const { drawSizeKey: sk, drawColor: dc, textFontStyle: tfs, textFontFamily: tff, textFontSize: tfsz } = drawState.current;
+                                        const tabSeg = { x1: textInput.cx, y1: textInput.cy, x2: textInput.cx, y2: textInput.cy, color: dc, size: TOOL_SIZES[sk], mode: 'text' as const, text: ta.value || ' ', fontStyle: tfs, fontFamily: tff, fontSizePx: tfsz };
+                                        const tp = previewRef.current;
+                                        if (tp) { const tctx = tp.getContext('2d'); if (tctx) { tctx.clearRect(0, 0, tp.width, tp.height); drawOnCanvas(tctx, tabSeg, tp.width, tp.height); } }
+                                        onDrawPrevCb.current?.(tabSeg);
+                                        return;
+                                    }
                                     if (e.key === 'Enter' && !typingMode) {
                                         e.preventDefault();
                                         committingRef.current = true;
