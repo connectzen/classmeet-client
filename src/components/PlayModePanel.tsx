@@ -133,6 +133,7 @@ function buildGroupPlan(
     let lineY         = anchorCy;
     let lineWordCount = 0;
     let lineAccum     = "";
+    let lineXOffset   = 0; // running x offset in canvas-fraction units, measured per fly's own style
     let prevTextLine  = styledWords[0].textLine;
     let i             = 0;
     let lineLeadingPx = styledWords[0].fontSizePx;
@@ -143,6 +144,7 @@ function buildGroupPlan(
                 lineY += (lineLeadingPx * 1.4) / Math.max(1, canvasH);
                 lineWordCount = 0;
                 lineAccum = "";
+                lineXOffset = 0;
                 lineLeadingPx = styledWords[i].fontSizePx;
             }
             prevTextLine = styledWords[i].textLine;
@@ -168,7 +170,13 @@ function buildGroupPlan(
         lineAccum           = lineAccum ? lineAccum + " " + flyText : flyText;
         lineWordCount      += take;
 
-        const prevTextWidth = prevAccum ? measureWidth(prevAccum + " ", fontStyle, fontSizePx, fontFamily) : 0;
+        // Use running offset so each fly's position accounts for the actual rendered
+        // width of all previous flies (which may have different bold/font/size).
+        const prevTextWidth = lineXOffset;
+        // Advance offset by this fly's own measured width (+ inter-word space if not first)
+        const flyMeasured = measureWidth(flyText, fontStyle, fontSizePx, fontFamily);
+        const spaceMeasured = isFirstOnLine ? 0 : measureWidth(" ", fontStyle, fontSizePx, fontFamily);
+        lineXOffset += spaceMeasured + flyMeasured;
 
         plan.push({
             accumulated: lineAccum, prevAccumulated: prevAccum,
@@ -180,6 +188,7 @@ function buildGroupPlan(
             lineY += (lineLeadingPx * 1.4) / Math.max(1, canvasH);
             lineWordCount = 0;
             lineAccum = "";
+            lineXOffset = 0;
             lineLeadingPx = i < styledWords.length ? styledWords[i].fontSizePx : fontSizePx;
         }
     }
