@@ -320,9 +320,12 @@ export default function RoomCoursePanel({
         if (!content || !inner || !canvas || !preview) return;
 
         const sync = () => {
-            // Compute scale so content fits the available panel width
-            const availW = wrapperRef.current?.clientWidth ?? CANVAS_W;
-            const scale  = Math.min(1, availW / CANVAS_W);
+            // Compute scale so content fills the available panel width.
+            // For teachers, subtract the toolbar width so content doesn't hide behind it.
+            const totalW    = wrapperRef.current?.clientWidth ?? CANVAS_W;
+            const tbW       = isTeacher ? ((toolbarRef.current?.offsetWidth ?? 0) + 10) : 0;
+            const availW    = Math.max(totalW - tbW, 1);
+            const scale     = availW / CANVAS_W;
             setContentScale(scale);
 
             // Collapse canvas height so it doesn't inflate inner.scrollHeight
@@ -353,7 +356,7 @@ export default function RoomCoursePanel({
         ro.observe(inner);
         if (wrapperRef.current) ro.observe(wrapperRef.current);
         return () => ro.disconnect();
-    }, [CANVAS_W]);
+    }, [CANVAS_W, isTeacher]);
 
     // ── Drawing: document-level events ────────────────────────────────────────
     // mousemove/mouseup are on document so strokes never stop when cursor leaves
