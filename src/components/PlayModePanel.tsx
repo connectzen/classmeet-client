@@ -172,11 +172,12 @@ function buildGroupPlan(
 
         // Use running offset so each fly's position accounts for the actual rendered
         // width of all previous flies (which may have different bold/font/size).
-        const prevTextWidth = lineXOffset;
-        // Advance offset by this fly's own measured width (+ inter-word space if not first)
-        const flyMeasured = measureWidth(flyText, fontStyle, fontSizePx, fontFamily);
+        // The space *before* this fly is measured in this fly's own font and included
+        // in the start position, so words never bunch together or overlap.
         const spaceMeasured = isFirstOnLine ? 0 : measureWidth(" ", fontStyle, fontSizePx, fontFamily);
-        lineXOffset += spaceMeasured + flyMeasured;
+        const prevTextWidth = lineXOffset + spaceMeasured; // where this fly starts
+        const flyMeasured   = measureWidth(flyText, fontStyle, fontSizePx, fontFamily);
+        lineXOffset = prevTextWidth + flyMeasured; // where the next fly will start (before its space)
 
         plan.push({
             accumulated: lineAccum, prevAccumulated: prevAccum,
