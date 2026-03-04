@@ -35,6 +35,7 @@ export interface DrawSeg {
     fontFamily?: string;
     fontSizePx?: number;
     opacity?: number;
+    underline?: boolean;
 }
 
 interface Props {
@@ -161,11 +162,23 @@ function drawOnCanvas(ctx: CanvasRenderingContext2D, seg: DrawSeg, w: number, h:
         ctx.font = `${fStyle} ${fSize}px ${fFamily}`;
         ctx.textBaseline = 'top';
         const lineH   = fSize * 1.4;
-        const RIGHT_PAD = 24; // canvas px kept clear on the right
+        const RIGHT_PAD = 24;
         const maxW    = Math.max(10, (1 - seg.x1) * w - RIGHT_PAD);
         const startX  = seg.x1 * w;
         let   curY    = seg.y1 * h;
-        // Helper: break a token that is itself wider than maxW character by character
+        const drawLine = (text: string, x: number, y: number) => {
+            ctx.fillText(text, x, y);
+            if (seg.underline) {
+                const tw = ctx.measureText(text).width;
+                const uy = y + fSize + 1;
+                ctx.save();
+                ctx.strokeStyle = seg.color;
+                ctx.lineWidth = Math.max(1, fSize * 0.07);
+                ctx.globalAlpha = seg.opacity ?? 1;
+                ctx.beginPath(); ctx.moveTo(x, uy); ctx.lineTo(x + tw, uy); ctx.stroke();
+                ctx.restore();
+            }
+        };
         const breakWide = (token: string, carry: string): string[] => {
             const chunks: string[] = [];
             let buf = carry;
@@ -177,7 +190,6 @@ function drawOnCanvas(ctx: CanvasRenderingContext2D, seg: DrawSeg, w: number, h:
             }
             return [...chunks, buf];
         };
-        // Word-wrap: split on explicit newlines first, then wrap each line by word
         for (const rawLine of (seg.text || '').split('\n')) {
             if (rawLine === '') { curY += lineH; continue; }
             const words = rawLine.split(' ');
@@ -185,19 +197,17 @@ function drawOnCanvas(ctx: CanvasRenderingContext2D, seg: DrawSeg, w: number, h:
             for (const word of words) {
                 const test = cur ? cur + ' ' + word : word;
                 if (ctx.measureText(test).width > maxW) {
-                    // Flush current buffer first
-                    if (cur) { ctx.fillText(cur, startX, curY); curY += lineH; cur = ''; }
-                    // Break the word itself if it's wider than maxW
+                    if (cur) { drawLine(cur, startX, curY); curY += lineH; cur = ''; }
                     const parts = breakWide(word, '');
                     for (let pi = 0; pi < parts.length - 1; pi++) {
-                        ctx.fillText(parts[pi], startX, curY); curY += lineH;
+                        drawLine(parts[pi], startX, curY); curY += lineH;
                     }
                     cur = parts[parts.length - 1];
                 } else {
                     cur = test;
                 }
             }
-            if (cur) { ctx.fillText(cur, startX, curY); curY += lineH; }
+            if (cur) { drawLine(cur, startX, curY); curY += lineH; }
         }
     }
     ctx.restore();

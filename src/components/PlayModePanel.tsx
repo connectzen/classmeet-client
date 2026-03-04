@@ -22,6 +22,7 @@ interface StyledWord {
     fontFamily: string;
     fontSizePx: number;
     fontStyle: FontStyle;
+    underline: boolean;
 }
 
 /** Parse Tiptap HTML into a flat list of words each carrying its inline style. */
@@ -34,7 +35,7 @@ function parseRichToStyledWords(html: string): StyledWord[] {
 
     function walk(
         node: Node,
-        inh: { color: string; fontFamily: string; fontSizePx: number; fontStyle: FontStyle },
+        inh: { color: string; fontFamily: string; fontSizePx: number; fontStyle: FontStyle; underline: boolean },
     ) {
         if (node.nodeType === Node.TEXT_NODE) {
             const text = node.textContent ?? '';
@@ -62,6 +63,9 @@ function parseRichToStyledWords(html: string): StyledWord[] {
         // italic via inline style
         if (st.fontStyle === 'italic')
             cur.fontStyle = cur.fontStyle.includes('bold') ? 'bold italic' : 'italic';
+        // underline via inline style or <u> tag
+        if (st.textDecoration?.includes('underline') || tag === 'u')
+            cur.underline = true;
         // semantic tags
         if (tag === 'strong' || tag === 'b')
             cur.fontStyle = cur.fontStyle.includes('italic') ? 'bold italic' : 'bold';
@@ -75,7 +79,7 @@ function parseRichToStyledWords(html: string): StyledWord[] {
         for (const child of Array.from(el.childNodes)) walk(child, cur);
     }
 
-    const defaults = { color: '#ffffff', fontFamily: 'Inter, sans-serif', fontSizePx: 20, fontStyle: 'normal' as FontStyle };
+    const defaults = { color: '#ffffff', fontFamily: 'Inter, sans-serif', fontSizePx: 20, fontStyle: 'normal' as FontStyle, underline: false };
 
     for (const child of Array.from(div.childNodes)) walk(child, defaults);
     return words;
@@ -105,6 +109,7 @@ interface GroupPlan {
     fontFamily: string;
     fontSizePx: number;
     fontStyle: FontStyle;
+    underline: boolean;
 }
 
 function buildGroupPlan(
@@ -154,7 +159,7 @@ function buildGroupPlan(
         const flySlice = styledWords.slice(i, i + take);
         i += take;
 
-        const { color, fontFamily, fontSizePx, fontStyle } = flySlice[0];
+        const { color, fontFamily, fontSizePx, fontStyle, underline } = flySlice[0];
         lineLeadingPx = Math.max(lineLeadingPx, fontSizePx);
 
         const isFirstOnLine = lineWordCount === 0;
@@ -168,7 +173,7 @@ function buildGroupPlan(
         plan.push({
             accumulated: lineAccum, prevAccumulated: prevAccum,
             lineY, isFirstOnLine, prevTextWidth, newWords: flyText,
-            color, fontFamily, fontSizePx, fontStyle,
+            color, fontFamily, fontSizePx, fontStyle, underline,
         });
 
         if (lineWordCount >= wordsPerLine) {
@@ -215,7 +220,7 @@ export default function PlayModePanel({
     const makeBaseSeg = useCallback((
         text: string,
         lineY: number,
-        style: { color: string; fontFamily: string; fontSizePx: number; fontStyle: FontStyle },
+        style: { color: string; fontFamily: string; fontSizePx: number; fontStyle: FontStyle; underline: boolean },
     ): DrawSeg => {
         const baseX = anchorRef.current?.cx ?? 0.02;
         return {
@@ -224,6 +229,7 @@ export default function PlayModePanel({
             fontFamily: style.fontFamily,
             fontSizePx: style.fontSizePx,
             fontStyle:  style.fontStyle,
+            underline:  style.underline,
         };
     }, []);
 
@@ -240,8 +246,8 @@ export default function PlayModePanel({
             return;
         }
         const { accumulated, lineY, isFirstOnLine, prevTextWidth, newWords,
-                color, fontFamily, fontSizePx, fontStyle } = plan[idx];
-        const flyStyle = { color, fontFamily, fontSizePx, fontStyle };
+                color, fontFamily, fontSizePx, fontStyle, underline } = plan[idx];
+        const flyStyle = { color, fontFamily, fontSizePx, fontStyle, underline };
         setCurrentGroupIdx(idx);
         setPlayState("playing");
 
