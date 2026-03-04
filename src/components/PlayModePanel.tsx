@@ -236,20 +236,21 @@ export default function PlayModePanel({
 
         const style: SegStyle = { color: segColor, fontFamily: segFontFamily, fontSize: segFontSize, fontStyle: segFontStyle };
 
-        // For replace-last groups (!isFirstOnLine): route animation directly through
-        // onPlayReplaceRef (writes to main canvas) to avoid double-drawing the
-        // already-committed previous text on top of the preview canvas.
-        // For first-on-line groups: use preview canvas as normal.
-        const emit = (seg: DrawSeg) => isFirstOnLine
-            ? onPlayFrameRef.current(seg)
-            : onPlayReplaceRef.current(seg);
+        // Always animate on the preview canvas so opacity/slides start smoothly
+        // without disturbing the already-committed word(s) on the main canvas.
+        // At finalCommit:
+        //   • isFirstOnLine  → clear preview + push new seg (onPlayCommit)
+        //   • !isFirstOnLine → clear preview + replace-last (pop old committed
+        //                      word, push full accumulated text at full opacity)
+        const emit = (seg: DrawSeg) => onPlayFrameRef.current(seg);
 
         const finalCommit = (seg: DrawSeg) => {
+            onPlayFrameRef.current(null);   // clear preview canvas
             if (isFirstOnLine) {
-                onPlayFrameRef.current(null);
-                onPlayCommitRef.current(seg);
+                onPlayCommitRef.current(seg);      // push brand-new seg
+            } else {
+                onPlayReplaceRef.current(seg);     // swap old word → full line text
             }
-            // replace-last: final tick already wrote the full text via emit()
         };
 
         const anim = animTypeRef.current;
