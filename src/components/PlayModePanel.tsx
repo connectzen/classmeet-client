@@ -27,10 +27,12 @@ interface Props {
     onEnableBlackboard: () => void;
     /** Whether blackboard is currently on */
     isBlackboardOn: boolean;
+    /** Auto-enable the course panel when Start Playing is clicked */
+    onEnableCourse?: () => void;
 }
 
 export default function PlayModePanel({
-    anchor, canvasH, onPlayFrame, onPlayCommit, onEnableBlackboard, isBlackboardOn,
+    anchor, canvasH, onPlayFrame, onPlayCommit, onEnableBlackboard, isBlackboardOn, onEnableCourse,
 }: Props) {
     // ── Editor style state ────────────────────────────────────────────────────
     const [fontFamily, setFontFamily]   = useState('sans-serif');
@@ -141,7 +143,8 @@ export default function PlayModePanel({
         const raw = editorRef.current?.innerText?.trim() ?? '';
         if (!raw) return;
 
-        // Auto-enable blackboard
+        // Auto-enable course panel + blackboard
+        if (onEnableCourse) onEnableCourse();
         if (!isBlackboardOn) onEnableBlackboard();
 
         // Build word groups
@@ -159,7 +162,7 @@ export default function PlayModePanel({
         lineYRef.current = startY;
 
         animateGroup(0, startY);
-    }, [isBlackboardOn, onEnableBlackboard, wordsPerStep, animateGroup]);
+    }, [isBlackboardOn, onEnableBlackboard, onEnableCourse, wordsPerStep, animateGroup]);
 
     // ── Next ──────────────────────────────────────────────────────────────────
     const handleNext = useCallback(() => {

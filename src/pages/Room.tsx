@@ -1196,7 +1196,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 borderBottom: rightTab === 'chat' ? '2px solid #6366f1' : '2px solid transparent' }}>
                             💬 Chat
                         </button>
-                        {role === 'teacher' && courseToggleOn && (
+                        {role === 'teacher' && (
                             <button onClick={() => setRightTab('play')}
                                 style={{ flex: 1, padding: '8px 0', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer',
                                     background: rightTab === 'play' ? 'rgba(99,102,241,0.15)' : 'transparent',
@@ -1208,11 +1208,17 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                     </div>
                     {/* Panel content */}
                     <div style={{ flex: 1, overflow: 'hidden' }}>
-                        {rightTab === 'play' && role === 'teacher' && courseToggleOn ? (
+                        {rightTab === 'play' && role === 'teacher' ? (
                             <PlayModePanel
                                 anchor={playAnchor}
                                 canvasH={playCanvasH}
                                 isBlackboardOn={blackboardOn}
+                                onEnableCourse={() => {
+                                    if (!courseToggleOn) {
+                                        setCourseToggleOn(true);
+                                        emitCourseToggle(true, sessionCourseIds);
+                                    }
+                                }}
                                 onEnableBlackboard={() => {
                                     setBlackboardOn(true);
                                     emitBlackboardToggle(true);
