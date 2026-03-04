@@ -912,7 +912,7 @@ export default function RoomCoursePanel({
                                 → same scrollHeight → canvas coords map identically. */}
                             <div ref={innerContentRef} style={{ padding: showBlackboard ? 0 : '20px', boxSizing: 'border-box', width: CANVAS_W, minWidth: CANVAS_W }}>
                                 {showBlackboard ? (
-                                    <div style={{ width: CANVAS_W, height: 600, background: 'linear-gradient(135deg, #0d1117 0%, #0f1923 100%)', borderRadius: 0 }} />
+                                    <div style={{ width: CANVAS_W, height: canvasH, background: 'linear-gradient(135deg, #0d1117 0%, #0f1923 100%)', borderRadius: 0 }} />
                                 ) : loading ? (
                                     <div style={{ color: 'var(--text-muted)', padding: 40, textAlign: 'center' }}>Loading course…</div>
                                 ) : !course ? (
