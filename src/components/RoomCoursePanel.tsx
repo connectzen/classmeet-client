@@ -201,7 +201,8 @@ export default function RoomCoursePanel({
     const isDraggingBar = useRef(false);
     const barDragOffset = useRef({ x: 0, y: 0 });
     const cursorThrottle = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const ephemeralStrokes = useRef<Array<{ seg: DrawSeg; drawnAt: number }>>([]);
+    const ephemeralStrokes = useRef<Array<{ seg: DrawSeg; releasedAt: number }>>([]);
+    const currentEphemeralStroke = useRef<DrawSeg[]>([]); // buffer for in-progress ephemeral stroke
     const ephemeralRaf     = useRef<number | null>(null);
     const persistentSnapshot = useRef<ImageData | null>(null);
     // All permanent (non-ephemeral) segments — replayed on canvas resize so drawings persist
@@ -442,7 +443,7 @@ export default function RoomCoursePanel({
                 if (prev) {
                     const seg: DrawSeg = { x1: prev.x, y1: prev.y, x2: p.x, y2: p.y, color: drawColor, size: TOOL_SIZES[drawSizeKey], mode: drawTool };
                     if (drawState.current.ephemeralMode) {
-                        ephemeralStrokes.current.push({ seg, drawnAt: Date.now() });
+                        currentEphemeralStroke.current.push(seg);
                     } else {
                         committedSegs.current.push(seg);
                         const ctx = canvas.getContext('2d');
@@ -465,7 +466,13 @@ export default function RoomCoursePanel({
                 if (prev) prev.getContext('2d')?.clearRect(0, 0, prev.width, prev.height);
                 const seg: DrawSeg = { x1: shapeStart.current.x, y1: shapeStart.current.y, x2: p.x, y2: p.y, color: drawColor, size: TOOL_SIZES[drawSizeKey], mode: drawTool as DrawSeg['mode'] };
                 if (drawState.current.ephemeralMode) {
-                    ephemeralStrokes.current.push({ seg, drawnAt: Date.now() });
+                    currentEphemeralStroke.current.push(seg);
+                    // Flush the whole stroke to ephemeralStrokes on release, timestamped NOW
+                    const releasedAt = Date.now();
+                    for (const s of currentEphemeralStroke.current) {
+                        ephemeralStrokes.current.push({ seg: s, releasedAt });
+                    }
+                    currentEphemeralStroke.current = [];
                 } else {
                     committedSegs.current.push(seg);
                     const ctx = canvas.getContext('2d');
@@ -477,6 +484,14 @@ export default function RoomCoursePanel({
                 shapeStart.current = null;
             }
             lastPt.current = null;
+            // Flush any buffered pen ephemeral stroke (non-shape) on release
+            if (drawState.current.ephemeralMode && currentEphemeralStroke.current.length > 0) {
+                const releasedAt = Date.now();
+                for (const s of currentEphemeralStroke.current) {
+                    ephemeralStrokes.current.push({ seg: s, releasedAt });
+                }
+                currentEphemeralStroke.current = [];
+            }
         };
 
         // Forward wheel events → content div so scrolling works with a tool active
@@ -538,6 +553,7 @@ export default function RoomCoursePanel({
         const c = canvasRef.current;
         if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
         ephemeralStrokes.current = [];
+        currentEphemeralStroke.current = [];
         persistentSnapshot.current = null;
     }, [drawClearSignal]);
 
@@ -555,18 +571,23 @@ export default function RoomCoursePanel({
             const ctx = initCanvas.getContext('2d');
             if (ctx) persistentSnapshot.current = ctx.getImageData(0, 0, initCanvas.width, initCanvas.height);
         }
-        const FADE_MS = 1500;
+        const FADE_MS = 1000;
         const loop = () => {
             const now = Date.now();
-            ephemeralStrokes.current = ephemeralStrokes.current.filter(s => now - s.drawnAt < FADE_MS + 200);
+            ephemeralStrokes.current = ephemeralStrokes.current.filter(s => now - s.releasedAt < FADE_MS + 100);
             const cnv = canvasRef.current;
             if (cnv) {
                 const ctx = cnv.getContext('2d');
                 if (ctx) {
                     ctx.clearRect(0, 0, cnv.width, cnv.height);
                     if (persistentSnapshot.current) ctx.putImageData(persistentSnapshot.current, 0, 0);
-                    for (const { seg, drawnAt } of ephemeralStrokes.current) {
-                        const age = now - drawnAt;
+                    // Draw in-progress stroke at full opacity (not yet released)
+                    for (const seg of currentEphemeralStroke.current) {
+                        drawOnCanvas(ctx, seg, cnv.width, cnv.height);
+                    }
+                    // Draw released strokes fading out
+                    for (const { seg, releasedAt } of ephemeralStrokes.current) {
+                        const age = now - releasedAt;
                         const alpha = Math.max(0, 1 - age / FADE_MS);
                         ctx.save();
                         ctx.globalAlpha = alpha;
