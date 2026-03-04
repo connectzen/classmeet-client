@@ -176,6 +176,21 @@ function buildGroupPlan(
             take++;
         if (take === 0) break;
 
+        // Trim fly to the first style-homogeneous run so every word in a fly has
+        // identical styling. This prevents the first word's color/font overriding
+        // subsequent words that have different styles (e.g. red "will" + white "be").
+        const s0 = styledWords[i];
+        let homogTake = 1;
+        while (
+            homogTake < take &&
+            styledWords[i + homogTake].color      === s0.color &&
+            styledWords[i + homogTake].fontFamily === s0.fontFamily &&
+            styledWords[i + homogTake].fontSizePx === s0.fontSizePx &&
+            styledWords[i + homogTake].fontStyle  === s0.fontStyle &&
+            styledWords[i + homogTake].underline  === s0.underline
+        ) homogTake++;
+        take = homogTake;
+
         const flySlice = styledWords.slice(i, i + take);
         i += take;
 
