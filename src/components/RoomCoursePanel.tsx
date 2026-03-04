@@ -146,9 +146,22 @@ function drawOnCanvas(ctx: CanvasRenderingContext2D, seg: DrawSeg, w: number, h:
         ctx.font = `${fStyle} ${fSize}px ${fFamily}`;
         ctx.textBaseline = 'top';
         const lineH   = fSize * 1.4;
-        const maxW    = Math.max(10, (1 - seg.x1) * w - 8); // available width to canvas right edge
+        const RIGHT_PAD = 24; // canvas px kept clear on the right
+        const maxW    = Math.max(10, (1 - seg.x1) * w - RIGHT_PAD);
         const startX  = seg.x1 * w;
         let   curY    = seg.y1 * h;
+        // Helper: break a token that is itself wider than maxW character by character
+        const breakWide = (token: string, carry: string): string[] => {
+            const chunks: string[] = [];
+            let buf = carry;
+            for (const ch of token) {
+                const t = buf + ch;
+                if (ctx.measureText(t).width > maxW && buf) {
+                    chunks.push(buf); buf = ch;
+                } else { buf = t; }
+            }
+            return [...chunks, buf];
+        };
         // Word-wrap: split on explicit newlines first, then wrap each line by word
         for (const rawLine of (seg.text || '').split('\n')) {
             if (rawLine === '') { curY += lineH; continue; }
@@ -156,10 +169,15 @@ function drawOnCanvas(ctx: CanvasRenderingContext2D, seg: DrawSeg, w: number, h:
             let cur = '';
             for (const word of words) {
                 const test = cur ? cur + ' ' + word : word;
-                if (ctx.measureText(test).width > maxW && cur) {
-                    ctx.fillText(cur, startX, curY);
-                    curY += lineH;
-                    cur = word;
+                if (ctx.measureText(test).width > maxW) {
+                    // Flush current buffer first
+                    if (cur) { ctx.fillText(cur, startX, curY); curY += lineH; cur = ''; }
+                    // Break the word itself if it's wider than maxW
+                    const parts = breakWide(word, '');
+                    for (let pi = 0; pi < parts.length - 1; pi++) {
+                        ctx.fillText(parts[pi], startX, curY); curY += lineH;
+                    }
+                    cur = parts[parts.length - 1];
                 } else {
                     cur = test;
                 }
@@ -1057,7 +1075,7 @@ export default function RoomCoursePanel({
                                     border: 'none', outline: 'none', resize: 'none',
                                     paddingTop: `${textInput.cy * canvasH * contentScale}px`,
                                     paddingLeft: `${textInput.cx * CANVAS_W * contentScale}px`,
-                                    paddingRight: `8px`, paddingBottom: 0,
+                                    paddingRight: `${24 * contentScale}px`, paddingBottom: 0,
                                     margin: 0, boxSizing: 'border-box', overflow: 'hidden',
                                     // Scale font to match the CSS-zoomed canvas so caret advances with visible text
                                     fontSize: textFontSize * contentScale, fontFamily: textFontFamily,
