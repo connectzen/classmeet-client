@@ -168,7 +168,7 @@ export default function PlayModePanel({
 }: Props) {
     const [fontFamily,      setFontFamily]      = useState("Inter, sans-serif");
     const [fontSize,        setFontSize]        = useState(20);
-    const [fontStyle,       setFontStyle]       = useState<FontStyle>("bold");
+    const [fontStyle,       setFontStyle]       = useState<FontStyle>("normal");
     const [color,           setColor]           = useState("#ffffff");
     const [textAlign,       setTextAlign]       = useState<"left" | "center" | "right">("left");
     const [wordsPerLine,    setWordsPerLine]    = useState(5);
@@ -435,10 +435,6 @@ export default function PlayModePanel({
 
     const isActive = playState !== "idle";
     const progress = totalGroups > 0 ? `${Math.min(currentGroupIdx + 1, totalGroups)} / ${totalGroups}` : "";
-    // Controls that require a selection are dimmed + inert when nothing is highlighted
-    const selRequired = hasSelection
-        ? {}
-        : { opacity: 0.3, pointerEvents: "none" as const, cursor: "not-allowed" as const };
 
     const COLOR_PRESETS = [
         "#000000","#374151","#6b7280","#9ca3af","#d1d5db","#ffffff",
@@ -484,22 +480,22 @@ export default function PlayModePanel({
                     )}
                 </div>
 
-                {/* Font size — requires selection */}
-                <div style={selRequired} title={hasSelection ? "Font size" : "Highlight text first"}>
+                {/* Font size */}
+                <div title={hasSelection ? "Applies to selection" : "Font size (global)"}>
                 <select value={fontSize} onChange={e => applyStyle({ fontSize: Number(e.target.value) })}
                     style={{ padding: "2px 2px", borderRadius: 5, border: "1px solid rgba(255,255,255,0.1)", background: "#1e293b", color: "#94a3b8", fontSize: 11, cursor: "pointer", colorScheme: "dark", width: 40, minWidth: 40 }}>
                     {SIZE_LIST.map(sz => <option key={sz} value={sz}>{sz}</option>)}
                 </select>
                 </div>
 
-                {/* B / I toggles — require selection */}
-                <div style={{ display: "inline-flex", gap: 2, ...selRequired }} title={hasSelection ? undefined : "Highlight text first"}>
+                {/* B / I toggles */}
+                <div style={{ display: "inline-flex", gap: 2 }} title={hasSelection ? "Applies to selection" : "Bold/Italic (global)"}>
                 <button style={tbBtn(fontStyle.includes("bold"), { fontWeight: 900, minWidth: 22, padding: "2px 4px" })} onMouseDown={e => e.preventDefault()} onClick={() => { const next: FontStyle = fontStyle.includes("bold") ? (fontStyle.includes("italic") ? "italic" : "normal") : (fontStyle.includes("italic") ? "bold italic" : "bold"); applyStyle({ fontStyle: next }); }} title="Bold">B</button>
                 <button style={tbBtn(fontStyle.includes("italic"), { fontStyle: "italic", minWidth: 22, padding: "2px 4px" })} onMouseDown={e => e.preventDefault()} onClick={() => { const next: FontStyle = fontStyle.includes("italic") ? (fontStyle.includes("bold") ? "bold" : "normal") : (fontStyle.includes("bold") ? "bold italic" : "italic"); applyStyle({ fontStyle: next }); }} title="Italic">I</button>
                 </div>
 
-                {/* Color picker — requires selection */}
-                <div style={{ position: "relative", display: "inline-flex", flexShrink: 0, ...selRequired }} title={hasSelection ? "Text color" : "Highlight text first"}>
+                {/* Color picker */}
+                <div style={{ position: "relative", display: "inline-flex", flexShrink: 0 }} title={hasSelection ? "Applies to selection" : "Text color (global)"}>
                     <button ref={colorBtnRef} title="Text color"
                         onMouseDown={e => {
                             e.preventDefault();
@@ -554,10 +550,10 @@ export default function PlayModePanel({
                 </select>
             </div>
 
-            {/* ── Selection hint ── */}
-            {!hasSelection && (
-                <div style={{ padding: "3px 8px", fontSize: 10, color: "#475569", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.04)", flexShrink: 0, textAlign: "center" }}>
-                    Highlight text to change size, style &amp; color
+            {/* ── Selection hint — shown only when text is highlighted ── */}
+            {hasSelection && (
+                <div style={{ padding: "3px 8px", fontSize: 10, color: "#818cf8", background: "rgba(99,102,241,0.08)", borderBottom: "1px solid rgba(99,102,241,0.15)", flexShrink: 0, textAlign: "center" }}>
+                    ✦ Formatting will apply to highlighted text only
                 </div>
             )}
 
