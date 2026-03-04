@@ -145,9 +145,27 @@ function drawOnCanvas(ctx: CanvasRenderingContext2D, seg: DrawSeg, w: number, h:
         const fSize   = seg.fontSizePx ?? Math.round(15 * seg.size);
         ctx.font = `${fStyle} ${fSize}px ${fFamily}`;
         ctx.textBaseline = 'top';
-        const lines = (seg.text || '').split('\n');
-        const lineH = fSize * 1.4;
-        lines.forEach((line, i) => ctx.fillText(line, seg.x1 * w, seg.y1 * h + i * lineH));
+        const lineH   = fSize * 1.4;
+        const maxW    = Math.max(10, (1 - seg.x1) * w - 8); // available width to canvas right edge
+        const startX  = seg.x1 * w;
+        let   curY    = seg.y1 * h;
+        // Word-wrap: split on explicit newlines first, then wrap each line by word
+        for (const rawLine of (seg.text || '').split('\n')) {
+            if (rawLine === '') { curY += lineH; continue; }
+            const words = rawLine.split(' ');
+            let cur = '';
+            for (const word of words) {
+                const test = cur ? cur + ' ' + word : word;
+                if (ctx.measureText(test).width > maxW && cur) {
+                    ctx.fillText(cur, startX, curY);
+                    curY += lineH;
+                    cur = word;
+                } else {
+                    cur = test;
+                }
+            }
+            if (cur) { ctx.fillText(cur, startX, curY); curY += lineH; }
+        }
     }
     ctx.restore();
 }
@@ -1039,13 +1057,14 @@ export default function RoomCoursePanel({
                                     border: 'none', outline: 'none', resize: 'none',
                                     paddingTop: `${textInput.cy * canvasH * contentScale}px`,
                                     paddingLeft: `${textInput.cx * CANVAS_W * contentScale}px`,
-                                    paddingRight: 0, paddingBottom: 0,
+                                    paddingRight: `8px`, paddingBottom: 0,
                                     margin: 0, boxSizing: 'border-box', overflow: 'hidden',
                                     // Scale font to match the CSS-zoomed canvas so caret advances with visible text
                                     fontSize: textFontSize * contentScale, fontFamily: textFontFamily,
                                     fontWeight: textFontStyle.includes('bold') ? 700 : 400,
                                     fontStyle: textFontStyle.includes('italic') ? 'italic' : 'normal',
                                     lineHeight: 1.4, cursor: 'inherit',
+                                    whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                                 }}
                                 onChange={e => {
                                     const { drawSizeKey: sk, drawColor: dc, textFontStyle: tfs, textFontFamily: tff, textFontSize: tfsz } = drawState.current;
