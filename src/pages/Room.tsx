@@ -1194,7 +1194,7 @@ function CtrlToggle({ label, on, onChange }: { label: string; on: boolean; onCha
     return (
         <button
             onClick={onChange}
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', padding: '4px clamp(2px, 0.8vw, 8px)', flex: '1 1 0', minWidth: 0, boxSizing: 'border-box' }}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', padding: '4px clamp(4px, 1vw, 12px)', flex: '0 0 auto', minWidth: 0, boxSizing: 'border-box' }}
         >
             <span style={{ fontSize: 'clamp(7px, 1.5vw, 9px)', fontWeight: 700, letterSpacing: '0.06em', color: on ? '#e2e8f0' : 'var(--text-muted)', textTransform: 'uppercase', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{label}</span>
             <div style={{ width: 'clamp(28px, 5vw, 40px)', height: 'clamp(16px, 3vw, 22px)', borderRadius: 11, background: trackColor, border: `1.5px solid ${borderColor}`, position: 'relative', transition: 'background 0.2s, border-color 0.2s', flexShrink: 0 }}>
