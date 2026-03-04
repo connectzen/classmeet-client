@@ -177,8 +177,11 @@ export default function RoomCoursePanel({
     const [toolbarPos, setToolbarPos] = useState<{ x: number; y: number } | null>(null);
     const [toolbarExpanded, setToolbarExpanded] = useState(false);
     const [ephemeralMode, setEphemeralMode] = useState(false);
+    const [typingMode, setTypingMode] = useState(false);
     const [blackboardMode, setBlackboardMode] = useState(false);
     const [lessonKey, setLessonKey] = useState(0);
+    const [canvasH, setCanvasH] = useState(600);
+    const [toolbarScale, setToolbarScale] = useState(1);
     // Teacher cursor rendered on the student's canvas
     const [teacherCursor, setTeacherCursor] = useState<{ x: number; y: number } | null>(null);
 
@@ -353,6 +356,7 @@ export default function RoomCoursePanel({
             const w = CANVAS_W;
             // Height mirrors the inner content div so drawings cover all the text
             const h = Math.max(inner.scrollHeight, content.clientHeight, 1);
+            setCanvasH(h);
 
             if (canvas.width !== w || canvas.height !== h) {
                 canvas.width = w; canvas.height = h;
@@ -365,6 +369,12 @@ export default function RoomCoursePanel({
             canvas.style.height  = canvas.height + 'px';
             preview.style.width  = preview.width  + 'px';
             preview.style.height = preview.height + 'px';
+
+            // Scale toolbar to fit vertically without scrolling.
+            // scrollHeight is unaffected by CSS transform:scale so this is stable.
+            const wrapH = wrapperRef.current?.clientHeight ?? 600;
+            const tbNatH = toolbarRef.current?.scrollHeight ?? 0;
+            if (tbNatH > 0) setToolbarScale(Math.min(1, (wrapH - 16) / tbNatH));
         };
 
         sync();
@@ -417,22 +427,25 @@ export default function RoomCoursePanel({
         };
 
         const onMove = (e: MouseEvent) => {
-            // Emit cursor position whenever mouse is over the content area (throttled ~30 fps)
-            const wr = wrapperRef.current;
-            if (wr) {
-                const wrRect = wr.getBoundingClientRect();
-                const inBounds = e.clientX >= wrRect.left && e.clientX <= wrRect.right
-                               && e.clientY >= wrRect.top  && e.clientY <= wrRect.bottom;
-                if (inBounds || isDrawing.current) {
-                    const r = canvas.getBoundingClientRect();
-                    const cx = (e.clientX - r.left) / r.width;
-                    const cy = (e.clientY - r.top)  / r.height;
-                    if (!cursorThrottle.current) {
-                        cursorThrottle.current = setTimeout(() => {
-                            cursorThrottle.current = null;
-                            onDrawCursorCb.current?.(cx, cy);
-                        }, 33);
-                    }
+            // Emit cursor position — only within canvas bounds, clamped when drawing (throttled ~30 fps)
+            const r = canvas.getBoundingClientRect();
+            const inCanvas = e.clientX >= r.left && e.clientX <= r.right
+                           && e.clientY >= r.top  && e.clientY <= r.bottom;
+            if (inCanvas || isDrawing.current) {
+                const cx = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+                const cy = Math.max(0, Math.min(1, (e.clientY - r.top)  / r.height));
+                if (!cursorThrottle.current) {
+                    cursorThrottle.current = setTimeout(() => {
+                        cursorThrottle.current = null;
+                        onDrawCursorCb.current?.(cx, cy);
+                    }, 33);
+                }
+            } else if (!isDrawing.current) {
+                if (!cursorThrottle.current) {
+                    cursorThrottle.current = setTimeout(() => {
+                        cursorThrottle.current = null;
+                        onDrawCursorCb.current?.(-1, -1);
+                    }, 33);
                 }
             }
 
@@ -819,8 +832,8 @@ export default function RoomCoursePanel({
                             {!isTeacher && teacherCursor && (
                                 <div style={{
                                     position: 'absolute',
-                                    left: teacherCursor.x * CANVAS_W - 8,
-                                    top: teacherCursor.y * (canvasRef.current?.height ?? 0) - 8,
+                                    left: Math.max(0, Math.min(CANVAS_W - 16, teacherCursor.x * CANVAS_W - 8)),
+                                    top: Math.max(0, Math.min(canvasH - 16, teacherCursor.y * canvasH - 8)),
                                     width: 16, height: 16, borderRadius: '50%',
                                     background: 'rgba(99,102,241,0.9)',
                                     border: '2px solid #fff',
@@ -829,6 +842,62 @@ export default function RoomCoursePanel({
                                     zIndex: 10,
                                     transition: 'left 0.05s linear, top 0.05s linear',
                                 }} />
+                            )}
+
+                            {/* Text input — absolute inside canvas coordinate space so it scales with zoom */}
+                            {textInput && isTeacher && (
+                                <div style={{
+                                    position: 'absolute',
+                                    left: Math.min(textInput.cx * CANVAS_W, CANVAS_W - 220),
+                                    top: textInput.cy * canvasH,
+                                    zIndex: 25,
+                                    minWidth: 120,
+                                    maxWidth: CANVAS_W - Math.min(textInput.cx * CANVAS_W, CANVAS_W - 220),
+                                    pointerEvents: 'auto',
+                                }}>
+                                    <textarea autoFocus placeholder=""
+                                        style={{ display: 'block', width: '100%',
+                                            background: typingMode ? 'rgba(0,0,0,0.35)' : 'transparent',
+                                            color: drawColor,
+                                            border: typingMode ? '1px dashed rgba(255,255,255,0.35)' : 'none',
+                                            borderRadius: typingMode ? 4 : 0,
+                                            padding: typingMode ? '4px 6px' : '0',
+                                            margin: '0', outline: 'none', resize: 'none',
+                                            boxSizing: 'border-box', overflow: 'hidden',
+                                            fontSize: textFontSize, fontFamily: textFontFamily,
+                                            fontWeight: textFontStyle.includes('bold') ? 700 : 400,
+                                            fontStyle: textFontStyle.includes('italic') ? 'italic' : 'normal',
+                                            lineHeight: 1.4, caretColor: drawColor,
+                                            minHeight: Math.round(textFontSize * 1.4) + 'px',
+                                        }}
+                                        onChange={e => {
+                                            // Auto-grow
+                                            e.target.style.height = 'auto';
+                                            e.target.style.height = e.target.scrollHeight + 'px';
+                                            // Live preview to students
+                                            const { drawSizeKey: sk, drawColor: dc, textFontStyle: tfs, textFontFamily: tff, textFontSize: tfsz } = drawState.current;
+                                            onDrawPrevCb.current?.({ x1: textInput.cx, y1: textInput.cy, x2: textInput.cx, y2: textInput.cy, color: dc, size: TOOL_SIZES[sk], mode: 'text', text: e.target.value || ' ', fontStyle: tfs, fontFamily: tff, fontSizePx: tfsz });
+                                        }}
+                                        onKeyDown={e => {
+                                            if (e.key === 'Enter' && !typingMode) {
+                                                // Normal mode: Enter commits
+                                                e.preventDefault();
+                                                committingRef.current = true;
+                                                commitText(e.currentTarget.value, textInput.cx, textInput.cy);
+                                            }
+                                            // Typewriter mode: Enter naturally inserts \n (no preventDefault)
+                                            if (e.key === 'Escape') {
+                                                committingRef.current = true;
+                                                onDrawPrevCb.current?.({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
+                                                setTextInput(null);
+                                            }
+                                        }}
+                                        onBlur={e => {
+                                            if (committingRef.current) { committingRef.current = false; return; }
+                                            commitText(e.currentTarget.value, textInput.cx, textInput.cy);
+                                        }}
+                                    />
+                                </div>
                             )}
                         </div>
                     </div>
@@ -850,13 +919,13 @@ export default function RoomCoursePanel({
                     {/* Annotation toolbar — teacher only, always visible, 2-column grid */}
                     {isTeacher && (
                         <>
-                        {/* Text options floating panel — slides in from the right when T active */}
+                        {/* Text options floating panel — visible when T active AND no text input open */}
                         <div style={{
                             position: 'absolute', right: 82, top: '50%',
-                            transform: `translateY(-50%) translateX(${drawTool === 'text' ? 0 : 14}px)`,
+                            transform: `translateY(-50%) translateX(${drawTool === 'text' && textInput === null ? 0 : 14}px)`,
                             zIndex: 19,
-                            pointerEvents: drawTool === 'text' ? 'auto' : 'none',
-                            opacity: drawTool === 'text' ? 1 : 0,
+                            pointerEvents: drawTool === 'text' && textInput === null ? 'auto' : 'none',
+                            opacity: drawTool === 'text' && textInput === null ? 1 : 0,
                             transition: 'opacity 0.22s ease, transform 0.22s ease',
                         }}>
                             <div style={{
@@ -865,8 +934,17 @@ export default function RoomCoursePanel({
                                 padding: '10px 10px', boxShadow: '0 6px 24px rgba(0,0,0,0.5)',
                                 display: 'flex', flexDirection: 'column', gap: 8, minWidth: 140,
                             }}>
-                                {/* Header */}
-                                <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(163,163,163,0.7)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Text Options</div>
+                                {/* Header + typewriter toggle */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(163,163,163,0.7)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Text Options</div>
+                                    <button onClick={() => setTypingMode(v => !v)}
+                                        title={typingMode ? 'Typewriter ON — Enter = new line, click outside to commit' : 'Normal — Enter commits text'}
+                                        style={{ height: 22, padding: '0 7px', borderRadius: 5,
+                                            border: `1px solid ${typingMode ? 'rgba(99,102,241,0.6)' : 'rgba(255,255,255,0.1)'}`,
+                                            background: typingMode ? 'rgba(99,102,241,0.35)' : 'transparent',
+                                            color: typingMode ? '#a5b4fc' : 'var(--text-muted)',
+                                            fontSize: 11, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }}>⌨</button>
+                                </div>
 
                                 {/* Style row: N B I BI */}
                                 <div>
@@ -929,7 +1007,8 @@ export default function RoomCoursePanel({
                         </div>
 
                         <div ref={toolbarRef} style={{
-                            position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+                            position: 'absolute', right: 6, top: '50%',
+                            transform: `translateY(-50%) scale(${toolbarScale})`,
                             zIndex: 20, background: 'rgba(10,10,20,0.92)', backdropFilter: 'blur(10px)',
                             border: '1px solid rgba(99,102,241,0.35)', borderRadius: 14,
                             padding: '8px 6px', boxShadow: '0 6px 24px rgba(0,0,0,0.5)',
@@ -1038,27 +1117,6 @@ export default function RoomCoursePanel({
                 </div>
             </div>
 
-            {/* Floating text input — minimal, no background, just a cursor */}
-            {textInput && (
-                <div style={{ position: 'fixed', left: Math.min(textInput.vx, window.innerWidth - 260), top: Math.min(textInput.vy, window.innerHeight - 60), zIndex: 9999, width: 240, background: 'transparent', border: 'none', padding: 0 }}>
-                    <textarea autoFocus rows={2} placeholder=""
-                    style={{ display: 'block', width: '100%', background: 'transparent', color: drawColor, border: 'none', padding: '0', margin: '0', fontSize: textFontSize, fontFamily: textFontFamily, fontWeight: textFontStyle.includes('bold') ? 700 : 400, fontStyle: textFontStyle.includes('italic') ? 'italic' : 'normal', outline: 'none', resize: 'none', boxSizing: 'border-box', lineHeight: 1.4, caretColor: drawColor, letterSpacing: '0.01em' }}
-                    onChange={e => {
-                        const { drawSizeKey: sk, drawColor: dc, textFontStyle: tfs, textFontFamily: tff, textFontSize: tfsz } = drawState.current;
-                        const seg: DrawSeg = { x1: textInput.cx, y1: textInput.cy, x2: textInput.cx, y2: textInput.cy, color: dc, size: TOOL_SIZES[sk], mode: 'text', text: e.target.value || ' ', fontStyle: tfs, fontFamily: tff, fontSizePx: tfsz };
-                        onDrawPrevCb.current?.(seg);
-                    }}
-                    onKeyDown={e => {
-                        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); committingRef.current = true; commitText(e.currentTarget.value, textInput.cx, textInput.cy); }
-                        if (e.key === 'Escape') {
-                            committingRef.current = true;
-                            onDrawPrevCb.current?.({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
-                            setTextInput(null);
-                        }
-                    }}
-                    onBlur={e => { if (committingRef.current) { committingRef.current = false; return; } commitText(e.currentTarget.value, textInput.cx, textInput.cy); }} />
-                </div>
-            )}
         </div>
     );
 }
