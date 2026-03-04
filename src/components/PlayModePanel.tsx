@@ -116,19 +116,17 @@ interface Props {
 
 // ── GroupPlan: pre-computed animation schedule ────────────────────────────────
 interface GroupPlan {
-    accumulated: string;
-    prevAccumulated: string;
     lineY: number;
     isFirstOnLine: boolean;
     prevTextWidth: number;
     newWords: string;
-    // resolved style for this fly group (from first word in the group)
     color: string;
     fontFamily: string;
     fontSizePx: number;
     fontStyle: FontStyle;
     underline: boolean;
-    blockIdx: number; // which "block" of N lines this group belongs to
+    blockIdx: number; // block of linesPerBlock canvas lines
+    colIdx: number;   // fly-column within the block (same blockIdx+colIdx = auto-advance)
 }
 
 function buildGroupPlan(
@@ -149,89 +147,91 @@ function buildGroupPlan(
         return measCtx.measureText(str).width / CANVAS_W;
     };
 
-    const plan: GroupPlan[] = [];
-    let lineY         = anchorCy;
-    let lineWordCount = 0;
-    let lineAccum     = "";
-    let lineXOffset   = 0; // running x offset in canvas-fraction units, measured per fly's own style
-    let prevTextLine  = styledWords[0].textLine;
-    let i             = 0;
-    let lineLeadingPx = styledWords[0].fontSizePx;
-    let canvasLineIdx = 0; // how many canvas lines have been started (each lineWordCount reset = new line)
-    let blockIdx      = 0;
+    // ── Step 1: split styledWords into canvas lines ─────────────────────────
+    // A new canvas line begins when the source textLine changes OR wordsPerLine is reached.
+    interface CanvasLine { words: StyledWord[]; leadingPx: number; }
+    const canvasLines: CanvasLine[] = [];
+    let cur: StyledWord[] = [];
+    let curLeading = styledWords[0].fontSizePx;
+    let prevTL = styledWords[0].textLine;
 
-    while (i < styledWords.length) {
-        if (styledWords[i].textLine !== prevTextLine) {
-            if (lineWordCount > 0) {
-                lineY += (lineLeadingPx * 1.4) / Math.max(1, canvasH);
-                lineWordCount = 0;
-                lineAccum = "";
-                lineXOffset = 0;
-                lineLeadingPx = styledWords[i].fontSizePx;
-                canvasLineIdx++;
-                blockIdx = Math.floor(canvasLineIdx / Math.max(1, linesPerBlock));
-            }
-            prevTextLine = styledWords[i].textLine;
+    for (const w of styledWords) {
+        const lineBreak = w.textLine !== prevTL;
+        const full      = cur.length >= wordsPerLine;
+        if (lineBreak || full) {
+            if (cur.length) canvasLines.push({ words: cur, leadingPx: curLeading });
+            cur = [];
+            curLeading = w.fontSizePx;
+            prevTL = w.textLine;
         }
+        curLeading = Math.max(curLeading, w.fontSizePx);
+        cur.push(w);
+    }
+    if (cur.length) canvasLines.push({ words: cur, leadingPx: curLeading });
 
-        const remaining = wordsPerLine - lineWordCount;
-        const maxTake   = Math.min(wordsPerFly, remaining);
-        const curLine   = styledWords[i].textLine;
-        let take = 0;
-        while (take < maxTake && i + take < styledWords.length && styledWords[i + take].textLine === curLine)
-            take++;
-        if (take === 0) break;
+    // ── Step 2: iterate blocks of linesPerBlock, then columns within each block ──
+    // Within a block, plan entries are emitted column-first:
+    //   col 0 of line 0, col 0 of line 1, ... col 0 of line N-1,
+    //   col 1 of line 0, col 1 of line 1, ...
+    // Same (blockIdx, colIdx) → auto-advance. Different colIdx → wait for Next.
+    const plan: GroupPlan[] = [];
+    let globalY = anchorCy;
 
-        // Trim fly to the first style-homogeneous run so every word in a fly has
-        // identical styling. This prevents the first word's color/font overriding
-        // subsequent words that have different styles (e.g. red "will" + white "be").
-        const s0 = styledWords[i];
-        let homogTake = 1;
-        while (
-            homogTake < take &&
-            styledWords[i + homogTake].color      === s0.color &&
-            styledWords[i + homogTake].fontFamily === s0.fontFamily &&
-            styledWords[i + homogTake].fontSizePx === s0.fontSizePx &&
-            styledWords[i + homogTake].fontStyle  === s0.fontStyle &&
-            styledWords[i + homogTake].underline  === s0.underline
-        ) homogTake++;
-        take = homogTake;
+    for (let b = 0; b < canvasLines.length; b += linesPerBlock) {
+        const blockLines = canvasLines.slice(b, b + linesPerBlock);
+        const blockIdx   = Math.floor(b / linesPerBlock);
 
-        const flySlice = styledWords.slice(i, i + take);
-        i += take;
+        // y position for each line in this block
+        const lineYs: number[] = [];
+        let y = globalY;
+        for (let li = 0; li < blockLines.length; li++) {
+            lineYs.push(y);
+            y += (blockLines[li].leadingPx * 1.4) / Math.max(1, canvasH);
+        }
+        globalY = y; // next block starts here
 
-        const { color, fontFamily, fontSizePx, fontStyle, underline } = flySlice[0];
-        lineLeadingPx = Math.max(lineLeadingPx, fontSizePx);
+        // per-line cursors
+        const wordIdx  = blockLines.map(() => 0);  // next word to emit
+        const xOffset  = blockLines.map(() => 0);  // running x in canvas-fraction
 
-        const isFirstOnLine = lineWordCount === 0;
-        const prevAccum     = lineAccum;
-        const flyText       = flySlice.map(w => w.word).join(" ");
-        lineAccum           = lineAccum ? lineAccum + " " + flyText : flyText;
-        lineWordCount      += take;
+        let colIdx = 0;
+        let anyLeft = true;
+        while (anyLeft) {
+            anyLeft = false;
+            for (let li = 0; li < blockLines.length; li++) {
+                const bl = blockLines[li];
+                let    wi = wordIdx[li];
+                if (wi >= bl.words.length) continue;
+                anyLeft = true;
 
-        // Use running offset so each fly's position accounts for the actual rendered
-        // width of all previous flies (which may have different bold/font/size).
-        // The space *before* this fly is measured in this fly's own font and included
-        // in the start position, so words never bunch together or overlap.
-        const spaceMeasured = isFirstOnLine ? 0 : measureWidth(" ", fontStyle, fontSizePx, fontFamily);
-        const prevTextWidth = lineXOffset + spaceMeasured; // where this fly starts
-        const flyMeasured   = measureWidth(flyText, fontStyle, fontSizePx, fontFamily);
-        lineXOffset = prevTextWidth + flyMeasured; // where the next fly will start (before its space)
+                // homogeneous-style slice of up to wordsPerFly
+                const s0 = bl.words[wi];
+                let take = 1;
+                while (
+                    take < wordsPerFly &&
+                    wi + take < bl.words.length &&
+                    bl.words[wi + take].color      === s0.color &&
+                    bl.words[wi + take].fontFamily === s0.fontFamily &&
+                    bl.words[wi + take].fontSizePx === s0.fontSizePx &&
+                    bl.words[wi + take].fontStyle  === s0.fontStyle &&
+                    bl.words[wi + take].underline  === s0.underline
+                ) take++;
 
-        plan.push({
-            accumulated: lineAccum, prevAccumulated: prevAccum,
-            lineY, isFirstOnLine, prevTextWidth, newWords: flyText,
-            color, fontFamily, fontSizePx, fontStyle, underline, blockIdx,
-        });
+                wordIdx[li] += take;
+                const { color, fontFamily, fontSizePx, fontStyle, underline } = s0;
+                const flyText        = bl.words.slice(wi, wi + take).map(w => w.word).join(' ');
+                const isFirstOnLine  = xOffset[li] === 0;
+                const spaceMeasured  = isFirstOnLine ? 0 : measureWidth(' ', fontStyle, fontSizePx, fontFamily);
+                const prevTextWidth  = xOffset[li] + spaceMeasured;
+                xOffset[li]          = prevTextWidth + measureWidth(flyText, fontStyle, fontSizePx, fontFamily);
 
-        if (lineWordCount >= wordsPerLine) {
-            lineY += (lineLeadingPx * 1.4) / Math.max(1, canvasH);
-            lineWordCount = 0;
-            lineAccum = "";
-            lineXOffset = 0;
-            lineLeadingPx = i < styledWords.length ? styledWords[i].fontSizePx : fontSizePx;
-            canvasLineIdx++;
-            blockIdx = Math.floor(canvasLineIdx / Math.max(1, linesPerBlock));
+                plan.push({
+                    lineY: lineYs[li], isFirstOnLine, prevTextWidth, newWords: flyText,
+                    color, fontFamily, fontSizePx, fontStyle, underline,
+                    blockIdx, colIdx,
+                });
+            }
+            colIdx++;
         }
     }
     return plan;
@@ -299,7 +299,7 @@ export default function PlayModePanel({
             onPlayFrameRef.current(null);
             return;
         }
-        const { accumulated, lineY, isFirstOnLine, prevTextWidth, newWords,
+        const { lineY, isFirstOnLine, prevTextWidth, newWords,
                 color, fontFamily, fontSizePx, fontStyle, underline } = plan[idx];
         const flyStyle = { color, fontFamily, fontSizePx, fontStyle, underline };
         setCurrentGroupIdx(idx);
@@ -325,16 +325,19 @@ export default function PlayModePanel({
             const s = makeBaseSeg(newWords, lineY, flyStyle);
             s.x1 = animX; s.x2 = animX;
             onPlayCommitRef.current(s);
-            // Auto-advance if the next group is in the same block; pause between blocks
+            // Auto-advance if next group is in the same block+column; pause between columns
             const plan = groupPlanRef.current;
             const nextIdx = idx + 1;
             if (nextIdx >= plan.length) {
                 setPlayState("done");
-            } else if (plan[nextIdx].blockIdx === plan[idx].blockIdx) {
-                // same block → auto-advance without requiring Next click
+            } else if (
+                plan[nextIdx].blockIdx === plan[idx].blockIdx &&
+                plan[nextIdx].colIdx   === plan[idx].colIdx
+            ) {
+                // same column within same block → auto-advance to next line
                 setTimeout(() => animateGroup(nextIdx), 80);
             } else {
-                // block boundary → pause and wait for Next
+                // column boundary → wait for Next
                 setPlayState("ready-next");
             }
         };
