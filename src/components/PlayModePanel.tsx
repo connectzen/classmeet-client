@@ -183,6 +183,7 @@ export default function PlayModePanel({
     const [showFontPicker,  setShowFontPicker]  = useState(false);
     const [fontPickerPos,   setFontPickerPos]   = useState({ top: 0, left: 0 });
     const [styleRanges,     setStyleRanges]     = useState<StyleRange[]>([]);
+    const [hasSelection,    setHasSelection]    = useState(false);
 
     const editorRef      = useRef<HTMLTextAreaElement>(null);
     const colorBtnRef    = useRef<HTMLButtonElement>(null);
@@ -190,6 +191,14 @@ export default function PlayModePanel({
     const styleRangesRef = useRef<StyleRange[]>([]); styleRangesRef.current = styleRanges;
     // Persists textarea selection across focus loss (toolbar clicks clear the live selection)
     const savedSelRef = useRef<{ start: number; end: number } | null>(null);
+    // Helper: update both savedSelRef and hasSelection state from a textarea element
+    const updateSel = (ta: HTMLTextAreaElement) => {
+        const s  = Math.min(ta.selectionStart, ta.selectionEnd);
+        const en = Math.max(ta.selectionStart, ta.selectionEnd);
+        const hasSel = s !== en;
+        savedSelRef.current = hasSel ? { start: s, end: en } : null;
+        setHasSelection(hasSel);
+    };
     const cursorPosRef   = useRef(0);
     const groupPlanRef   = useRef<GroupPlan[]>([]);
     const charBufRef     = useRef("");
@@ -426,6 +435,10 @@ export default function PlayModePanel({
 
     const isActive = playState !== "idle";
     const progress = totalGroups > 0 ? `${Math.min(currentGroupIdx + 1, totalGroups)} / ${totalGroups}` : "";
+    // Controls that require a selection are dimmed + inert when nothing is highlighted
+    const selRequired = hasSelection
+        ? {}
+        : { opacity: 0.3, pointerEvents: "none" as const, cursor: "not-allowed" as const };
 
     const COLOR_PRESETS = [
         "#000000","#374151","#6b7280","#9ca3af","#d1d5db","#ffffff",
@@ -471,18 +484,22 @@ export default function PlayModePanel({
                     )}
                 </div>
 
-                {/* Font size */}
+                {/* Font size — requires selection */}
+                <div style={selRequired} title={hasSelection ? "Font size" : "Highlight text first"}>
                 <select value={fontSize} onChange={e => applyStyle({ fontSize: Number(e.target.value) })}
                     style={{ padding: "2px 2px", borderRadius: 5, border: "1px solid rgba(255,255,255,0.1)", background: "#1e293b", color: "#94a3b8", fontSize: 11, cursor: "pointer", colorScheme: "dark", width: 40, minWidth: 40 }}>
                     {SIZE_LIST.map(sz => <option key={sz} value={sz}>{sz}</option>)}
                 </select>
+                </div>
 
-                {/* B / I toggles */}
+                {/* B / I toggles — require selection */}
+                <div style={{ display: "inline-flex", gap: 2, ...selRequired }} title={hasSelection ? undefined : "Highlight text first"}>
                 <button style={tbBtn(fontStyle.includes("bold"), { fontWeight: 900, minWidth: 22, padding: "2px 4px" })} onMouseDown={e => e.preventDefault()} onClick={() => { const next: FontStyle = fontStyle.includes("bold") ? (fontStyle.includes("italic") ? "italic" : "normal") : (fontStyle.includes("italic") ? "bold italic" : "bold"); applyStyle({ fontStyle: next }); }} title="Bold">B</button>
                 <button style={tbBtn(fontStyle.includes("italic"), { fontStyle: "italic", minWidth: 22, padding: "2px 4px" })} onMouseDown={e => e.preventDefault()} onClick={() => { const next: FontStyle = fontStyle.includes("italic") ? (fontStyle.includes("bold") ? "bold" : "normal") : (fontStyle.includes("bold") ? "bold italic" : "italic"); applyStyle({ fontStyle: next }); }} title="Italic">I</button>
+                </div>
 
-                {/* Color picker */}
-                <div style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}>
+                {/* Color picker — requires selection */}
+                <div style={{ position: "relative", display: "inline-flex", flexShrink: 0, ...selRequired }} title={hasSelection ? "Text color" : "Highlight text first"}>
                     <button ref={colorBtnRef} title="Text color"
                         onMouseDown={e => {
                             e.preventDefault();
@@ -537,6 +554,13 @@ export default function PlayModePanel({
                 </select>
             </div>
 
+            {/* ── Selection hint ── */}
+            {!hasSelection && (
+                <div style={{ padding: "3px 8px", fontSize: 10, color: "#475569", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.04)", flexShrink: 0, textAlign: "center" }}>
+                    Highlight text to change size, style &amp; color
+                </div>
+            )}
+
             {/* ── Textarea ── */}
             <textarea
                 ref={editorRef}
@@ -560,28 +584,19 @@ export default function PlayModePanel({
                         t.selectionStart = t.selectionEnd = s + 4;
                     }
                 }}
-                onBlur={e => { cursorPosRef.current = e.currentTarget.selectionStart; }}
-                onSelect={e => {
-                    const ta = e.currentTarget;
-                    const s = Math.min(ta.selectionStart, ta.selectionEnd);
-                    const en = Math.max(ta.selectionStart, ta.selectionEnd);
-                    savedSelRef.current = s !== en ? { start: s, end: en } : null;
-                }}
-                onChange={() => { savedSelRef.current = null; }}
-                onMouseUp={e => {
+                onBlur={e => {
                     cursorPosRef.current = e.currentTarget.selectionStart;
-                    const ta = e.currentTarget;
-                    const s = Math.min(ta.selectionStart, ta.selectionEnd);
-                    const en = Math.max(ta.selectionStart, ta.selectionEnd);
-                    savedSelRef.current = s !== en ? { start: s, end: en } : null;
+                    // Keep hasSelection true after blur so toolbar click can still use it
                 }}
-                onKeyUp={e => {
-                    const ta = e.currentTarget as HTMLTextAreaElement;
-                    cursorPosRef.current = ta.selectionStart;
-                    const s = Math.min(ta.selectionStart, ta.selectionEnd);
-                    const en = Math.max(ta.selectionStart, ta.selectionEnd);
-                    savedSelRef.current = s !== en ? { start: s, end: en } : null;
+                onSelect={e => { updateSel(e.currentTarget); }}
+                onChange={e => {
+                    savedSelRef.current = null;
+                    setHasSelection(false);
+                    // also update cursor
+                    cursorPosRef.current = e.currentTarget.selectionStart;
                 }}
+                onMouseUp={e => { cursorPosRef.current = e.currentTarget.selectionStart; updateSel(e.currentTarget); }}
+                onKeyUp={e => { cursorPosRef.current = (e.currentTarget as HTMLTextAreaElement).selectionStart; updateSel(e.currentTarget as HTMLTextAreaElement); }}
             />
 
             {/* ── Bottom controls ── */}
