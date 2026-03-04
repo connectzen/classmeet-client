@@ -215,12 +215,19 @@ export default function RoomCoursePanel({
     const persistentSnapshot = useRef<ImageData | null>(null);
     // All permanent (non-ephemeral) segments — replayed on canvas resize so drawings persist
     const committedSegs  = useRef<DrawSeg[]>([]);
+    // Strokes drawn while blackboard mode is active — kept separate from lesson segs
+    const blackboardSegs = useRef<DrawSeg[]>([]);
+    // Debounce: block canvas click for 150 ms after text commit so overlay close doesn't re-open text
+    const lastCommitRef  = useRef(0);
     // Last received snapshot (student late-join) — drawn before segs on replay
     const snapshotImgRef = useRef<HTMLImageElement | null>(null);
 
     // Always-fresh refs so document-level handlers never have stale closures
     const drawState   = useRef({ drawTool, drawColor, drawSizeKey, ephemeralMode, textFontStyle, textFontFamily, textFontSize });
     drawState.current = { drawTool, drawColor, drawSizeKey, ephemeralMode, textFontStyle, textFontFamily, textFontSize };
+    // Always-fresh ref so drawing handlers can check blackboard mode without stale closure
+    const showBlackboardRef = useRef(showBlackboard);
+    showBlackboardRef.current = showBlackboard;
     const onDrawSegCb    = useRef(onDrawSegment);
     onDrawSegCb.current  = onDrawSegment;
     const onDrawPrevCb   = useRef(onDrawPreview);
@@ -302,6 +309,7 @@ export default function RoomCoursePanel({
         if (contentRef.current) contentRef.current.scrollTop = 0;
         lastRatio.current = 0;
         committedSegs.current = [];
+        blackboardSegs.current = [];
         snapshotImgRef.current = null;
         const c = canvasRef.current;
         if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
@@ -472,7 +480,7 @@ export default function RoomCoursePanel({
                     if (drawState.current.ephemeralMode) {
                         currentEphemeralStroke.current.push(seg);
                     } else {
-                        committedSegs.current.push(seg);
+                        (showBlackboardRef.current ? blackboardSegs.current : committedSegs.current).push(seg);
                         const ctx = canvas.getContext('2d');
                         if (ctx) drawOnCanvas(ctx, seg, canvas.width, canvas.height);
                         onDrawSegCb.current?.(seg);
@@ -501,7 +509,7 @@ export default function RoomCoursePanel({
                     }
                     currentEphemeralStroke.current = [];
                 } else {
-                    committedSegs.current.push(seg);
+                    (showBlackboardRef.current ? blackboardSegs.current : committedSegs.current).push(seg);
                     const ctx = canvas.getContext('2d');
                     if (ctx) drawOnCanvas(ctx, seg, canvas.width, canvas.height);
                     onDrawSegCb.current?.(seg);
@@ -576,6 +584,7 @@ export default function RoomCoursePanel({
     useEffect(() => {
         if (drawClearSignal == null) return;
         committedSegs.current = [];
+        blackboardSegs.current = [];
         snapshotImgRef.current = null;
         const c = canvasRef.current;
         if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
@@ -583,6 +592,21 @@ export default function RoomCoursePanel({
         currentEphemeralStroke.current = [];
         persistentSnapshot.current = null;
     }, [drawClearSignal]);
+
+    // ── Blackboard mode: swap between lesson canvas and blackboard canvas ─────
+    useEffect(() => {
+        const c = canvasRef.current;
+        const p = previewRef.current;
+        if (!c) return;
+        const ctx = c.getContext('2d');
+        if (!ctx) return;
+        // Always clear preview when switching modes
+        if (p) p.getContext('2d')?.clearRect(0, 0, p.width, p.height);
+        ctx.clearRect(0, 0, c.width, c.height);
+        // Replay whichever set of strokes belongs to this mode
+        const segs = showBlackboard ? blackboardSegs.current : committedSegs.current;
+        for (const seg of segs) drawOnCanvas(ctx, seg, c.width, c.height);
+    }, [showBlackboard]);
 
     // ── Ephemeral mode: fading strokes RAF loop ───────────────────────────────
     useEffect(() => {
@@ -679,6 +703,8 @@ export default function RoomCoursePanel({
     // ── Text tool click ───────────────────────────────────────────────────────
     const onCanvasClick = useCallback((e: React.MouseEvent) => {
         if (drawTool !== 'text') return;
+        // Debounce: skip if a commit happened very recently (overlay close fires an immediate canvas click)
+        if (Date.now() - lastCommitRef.current < 150) return;
         const c = canvasRef.current;
         if (!c) return;
         const r = c.getBoundingClientRect();
@@ -686,6 +712,7 @@ export default function RoomCoursePanel({
     }, [drawTool]);
 
     const commitText = useCallback((text: string, cx: number, cy: number) => {
+        lastCommitRef.current = Date.now(); // debounce: prevent canvas click from immediately re-opening
         setTextInput(null);
         // Clear teacher's own preview canvas
         const p = previewRef.current;
@@ -695,7 +722,7 @@ export default function RoomCoursePanel({
         if (!text.trim()) return;
         const { drawColor, drawSizeKey, textFontStyle, textFontFamily, textFontSize } = drawState.current;
         const seg: DrawSeg = { x1: cx, y1: cy, x2: cx, y2: cy, color: drawColor, size: TOOL_SIZES[drawSizeKey], mode: 'text', text, fontStyle: textFontStyle, fontFamily: textFontFamily, fontSizePx: textFontSize };
-        committedSegs.current.push(seg);
+        (showBlackboardRef.current ? blackboardSegs.current : committedSegs.current).push(seg);
         const c = canvasRef.current;
         if (c) { const ctx = c.getContext('2d'); if (ctx) drawOnCanvas(ctx, seg, c.width, c.height); }
         onDrawSegCb.current?.(seg);
@@ -703,6 +730,7 @@ export default function RoomCoursePanel({
 
     const handleClear = useCallback(() => {
         committedSegs.current = [];
+        blackboardSegs.current = [];
         snapshotImgRef.current = null;
         const c = canvasRef.current;
         if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
@@ -875,7 +903,7 @@ export default function RoomCoursePanel({
                                 if (val.trim()) {
                                     const { drawSizeKey: sk, drawColor: dc, textFontStyle: tfs, textFontFamily: tff, textFontSize: tfsz } = drawState.current;
                                     const seg: DrawSeg = { x1: textInput.cx, y1: textInput.cy, x2: textInput.cx, y2: textInput.cy, color: dc, size: TOOL_SIZES[sk], mode: 'text', text: val, fontStyle: tfs, fontFamily: tff, fontSizePx: tfsz };
-                                    committedSegs.current.push(seg);
+                                    (showBlackboardRef.current ? blackboardSegs.current : committedSegs.current).push(seg);
                                     const cnv = canvasRef.current;
                                     if (cnv) { const ctx = cnv.getContext('2d'); if (ctx) drawOnCanvas(ctx, seg, cnv.width, cnv.height); }
                                     onDrawSegCb.current?.(seg);
@@ -893,6 +921,7 @@ export default function RoomCoursePanel({
                                 } else {
                                     // ── Normal mode: close overlay; teacher can click again to open elsewhere ──
                                     committingRef.current = true;
+                                    lastCommitRef.current = Date.now(); // debounce canvas click after overlay closes
                                     setTextInput(null);
                                 }
                             }}
@@ -908,7 +937,8 @@ export default function RoomCoursePanel({
                                     paddingLeft: `${textInput.cx * CANVAS_W * contentScale}px`,
                                     paddingRight: 0, paddingBottom: 0,
                                     margin: 0, boxSizing: 'border-box', overflow: 'hidden',
-                                    fontSize: textFontSize, fontFamily: textFontFamily,
+                                    // Scale font to match the CSS-zoomed canvas so caret advances with visible text
+                                    fontSize: textFontSize * contentScale, fontFamily: textFontFamily,
                                     fontWeight: textFontStyle.includes('bold') ? 700 : 400,
                                     fontStyle: textFontStyle.includes('italic') ? 'italic' : 'normal',
                                     lineHeight: 1.4, cursor: 'inherit',
@@ -944,6 +974,18 @@ export default function RoomCoursePanel({
                                     commitText(e.currentTarget.value, textInput.cx, textInput.cy);
                                 }}
                             />
+                            {/* Mode badge — always visible while typing overlay is open */}
+                            <div style={{
+                                position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)',
+                                pointerEvents: 'none', zIndex: 18,
+                                background: typingMode ? 'rgba(99,102,241,0.85)' : 'rgba(30,30,50,0.8)',
+                                border: `1px solid ${typingMode ? '#818cf8' : 'rgba(255,255,255,0.15)'}`,
+                                color: typingMode ? '#e0e7ff' : '#94a3b8',
+                                borderRadius: 8, padding: '4px 12px', fontSize: 11, fontWeight: 600,
+                                backdropFilter: 'blur(6px)', whiteSpace: 'nowrap',
+                            }}>
+                                {typingMode ? '⌨ Typewriter — click to reposition' : '✎ Normal — Enter to commit'}
+                            </div>
                         </div>
                     )}
 
