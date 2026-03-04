@@ -36,9 +36,10 @@ interface Props {
 
 // ── GroupPlan: pre-computed animation schedule ────────────────────────────────
 interface GroupPlan {
-    accumulated: string;    // full text shown on this line up to and including this fly
-    lineY: number;          // normalised Y coordinate for this line
-    isFirstOnLine: boolean; // true = push new seg; false = replace-last seg
+    accumulated: string;     // full text shown on this line up to and including this fly
+    prevAccumulated: string; // text already committed before this fly ("" for first on line)
+    lineY: number;           // normalised Y coordinate for this line
+    isFirstOnLine: boolean;  // true = push new seg; false = replace-last seg
 }
 
 function buildGroupPlan(
@@ -70,10 +71,12 @@ function buildGroupPlan(
             lineAccum     = "";
         }
 
+        const prevAccum = lineAccum; // snapshot BEFORE this fly is appended
         lineAccum     = lineAccum ? lineAccum + " " + flyWords.join(" ") : flyWords.join(" ");
         lineWordCount += flyCount;
         plan.push({
             accumulated: lineAccum,
+            prevAccumulated: prevAccum,
             lineY,
             isFirstOnLine: lineWordCount === flyCount && (lineAccum === flyWords.join(" ")),
         });
@@ -172,7 +175,7 @@ export default function PlayModePanel({
             onPlayFrameRef.current(null);
             return;
         }
-        const { accumulated, lineY, isFirstOnLine } = plan[idx];
+        const { accumulated, prevAccumulated, lineY, isFirstOnLine } = plan[idx];
         setCurrentGroupIdx(idx);
         setPlayState("playing");
 
@@ -187,7 +190,9 @@ export default function PlayModePanel({
         const anim = animTypeRef.current;
 
         if (anim === "typing") {
-            charBufRef.current = "";
+            // For replace-line groups, start from the already-committed text so only
+            // the NEW word(s) appear to type in (not the whole line from scratch).
+            charBufRef.current = prevAccumulated;
             intervalRef.current = setInterval(() => {
                 if (playStateRef.current === "paused") return;
                 const next = charBufRef.current.length + 1;
