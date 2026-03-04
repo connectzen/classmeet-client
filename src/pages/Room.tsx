@@ -5,6 +5,7 @@ import DevicePicker from '../components/DevicePicker';
 import RescheduleSessionModal from '../components/RescheduleSessionModal';
 import { RoomQuizParticipant, RoomQuizHost, PostSubmitWaiting, InlineResultCard } from '../components/RoomQuizPanel';
 import RoomCoursePanel, { DrawSeg } from '../components/RoomCoursePanel';
+import PlayModePanel from '../components/PlayModePanel';
 import DOMPurify from 'dompurify';
 import { useSocket, Participant } from '../hooks/useSocket';
 import { useWebRTC } from '../hooks/useWebRTC';
@@ -58,6 +59,12 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [courseToggleOn, setCourseToggleOn] = useState(false);
     const [courseSharedWithStudents, setCourseSharedWithStudents] = useState(false);
     const [blackboardOn, setBlackboardOn] = useState(false);
+    // Play Mode state
+    const [rightTab,         setRightTab]         = useState<'chat' | 'play'>('chat');
+    const [playAnchor,       setPlayAnchor]       = useState<{ cx: number; cy: number } | null>(null);
+    const [playCanvasH,      setPlayCanvasH]      = useState(600);
+    const [playPreviewSeg,   setPlayPreviewSeg]   = useState<DrawSeg | null>(null);
+    const [playCommitSeg,    setPlayCommitSeg]    = useState<DrawSeg | null>(null);
     const [sessionQuizIds, setSessionQuizIds] = useState<string[]>([]);
     const [sessionCourseIds, setSessionCourseIds] = useState<string[]>([]);
     const [roomQuizzes, setRoomQuizzes] = useState<{ id: string; title: string; question_count?: number; room_id?: string; status?: string }[]>([]);
@@ -989,6 +996,10 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 }}
                                 blackboardActive={blackboardOn}
                                 onBlackboardToggle={(on) => { setBlackboardOn(on); emitBlackboardToggle(on); }}
+                                onTextAnchorSet={(cx, cy) => setPlayAnchor({ cx, cy })}
+                                onCanvasHChange={h => setPlayCanvasH(h)}
+                                externalPlaySeg={playPreviewSeg}
+                                externalPlayCommitSeg={playCommitSeg}
                             />
                         ) : courseToggleOn && role !== 'teacher' ? (
                             <RoomCoursePanel
@@ -1174,9 +1185,56 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                     </div>
                 </div>
 
-                {/* RIGHT: Chat sidebar (desktop only) */}
-                <div className="room-chat-sidebar desktop-only">
-                    <ChatPanel messages={messages} mySocketId={socketId} onSend={sendMessage} />
+                {/* RIGHT: Chat / Play sidebar (desktop only) */}
+                <div className="room-chat-sidebar desktop-only" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    {/* Tab header — Play tab visible only to teacher when course is on */}
+                    <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
+                        <button onClick={() => setRightTab('chat')}
+                            style={{ flex: 1, padding: '8px 0', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer',
+                                background: rightTab === 'chat' ? 'rgba(99,102,241,0.15)' : 'transparent',
+                                color: rightTab === 'chat' ? '#a5b4fc' : '#64748b',
+                                borderBottom: rightTab === 'chat' ? '2px solid #6366f1' : '2px solid transparent' }}>
+                            💬 Chat
+                        </button>
+                        {role === 'teacher' && courseToggleOn && (
+                            <button onClick={() => setRightTab('play')}
+                                style={{ flex: 1, padding: '8px 0', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer',
+                                    background: rightTab === 'play' ? 'rgba(99,102,241,0.15)' : 'transparent',
+                                    color: rightTab === 'play' ? '#a5b4fc' : '#64748b',
+                                    borderBottom: rightTab === 'play' ? '2px solid #6366f1' : '2px solid transparent' }}>
+                                ▶ Play
+                            </button>
+                        )}
+                    </div>
+                    {/* Panel content */}
+                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                        {rightTab === 'play' && role === 'teacher' && courseToggleOn ? (
+                            <PlayModePanel
+                                anchor={playAnchor}
+                                canvasH={playCanvasH}
+                                isBlackboardOn={blackboardOn}
+                                onEnableBlackboard={() => {
+                                    setBlackboardOn(true);
+                                    emitBlackboardToggle(true);
+                                }}
+                                onPlayFrame={seg => {
+                                    setPlayPreviewSeg(seg ? { ...seg } : null);
+                                    if (seg) emitDrawPreview(seg);
+                                    else emitDrawPreview({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
+                                }}
+                                onPlayCommit={seg => {
+                                    // Commit to students
+                                    emitDrawSegment(seg);
+                                    // Commit to teacher's own canvas
+                                    setPlayCommitSeg({ ...seg });
+                                    // Clear preview
+                                    setPlayPreviewSeg(null);
+                                }}
+                            />
+                        ) : (
+                            <ChatPanel messages={messages} mySocketId={socketId} onSend={sendMessage} hideHeader />
+                        )}
+                    </div>
                 </div>
 
             </div>

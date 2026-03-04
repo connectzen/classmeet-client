@@ -63,6 +63,14 @@ interface Props {
     onShareToggle?: () => void;
     blackboardActive?: boolean;
     onBlackboardToggle?: (on: boolean) => void;
+    // Called when teacher clicks to set text anchor — used by Play Mode panel
+    onTextAnchorSet?: (cx: number, cy: number) => void;
+    // Called whenever the internal canvas height changes — used by Play Mode panel
+    onCanvasHChange?: (h: number) => void;
+    // Live play-mode animation frame — drawn on preview canvas each tick (teacher side)
+    externalPlaySeg?: DrawSeg | null;
+    // Final committed play-mode segment — written to blackboardSegs + main canvas
+    externalPlayCommitSeg?: DrawSeg | null;
 }
 
 type DrawTool = 'pen' | 'highlight' | 'eraser' | 'text' | 'circle' | 'rect' | 'square' | 'arrow' | 'line';
@@ -195,6 +203,7 @@ export default function RoomCoursePanel({
     sidebarOpen, onSidebarToggle,
     onDrawSegment, onDrawPreview, onDrawCursor, onDrawClear,
     externalDrawSeg, externalDrawPreview, externalCursor, drawClearSignal,
+    onTextAnchorSet, onCanvasHChange, externalPlaySeg, externalPlayCommitSeg,
     onSnapshot, snapshotRequest,
     snapshotDataUrl,
     sharedWithStudents, onShareToggle,
@@ -432,6 +441,7 @@ export default function RoomCoursePanel({
             const naturalH = Math.round(inner.getBoundingClientRect().height / appliedScale);
             const h = Math.max(naturalH, Math.round(content.clientHeight / scale), 1);
             setCanvasH(h);
+            onCanvasHChange?.(h);
 
             if (canvas.width !== w || canvas.height !== h) {
                 canvas.width = w; canvas.height = h;
@@ -636,6 +646,26 @@ export default function RoomCoursePanel({
         if (c) { const ctx = c.getContext('2d'); if (ctx) drawOnCanvas(ctx, externalDrawSeg, c.width, c.height); }
     }, [externalDrawSeg]);
 
+    // ── Play Mode: live animation frame — draws on preview canvas each tick ────
+    useEffect(() => {
+        const p = previewRef.current;
+        if (!p) return;
+        const ctx = p.getContext('2d');
+        if (!ctx) return;
+        ctx.clearRect(0, 0, p.width, p.height);
+        if (externalPlaySeg) drawOnCanvas(ctx, externalPlaySeg, p.width, p.height);
+    }, [externalPlaySeg]);
+
+    // ── Play Mode: committed segment — writes to blackboardSegs + main canvas ──
+    useEffect(() => {
+        if (!externalPlayCommitSeg) return;
+        blackboardSegs.current.push(externalPlayCommitSeg);
+        const c = canvasRef.current;
+        if (c) { const ctx = c.getContext('2d'); if (ctx) drawOnCanvas(ctx, externalPlayCommitSeg, c.width, c.height); }
+        const p = previewRef.current;
+        if (p) p.getContext('2d')?.clearRect(0, 0, p.width, p.height);
+    }, [externalPlayCommitSeg]);
+
     // ── Receive live preview from teacher (student) ───────────────────────────
     useEffect(() => {
         if (!externalDrawPreview) return;
@@ -817,6 +847,7 @@ export default function RoomCoursePanel({
         const cx = (e.clientX - r.left) / r.width;
         const cy = (e.clientY - r.top) / r.height;
         setTextInput({ vx: e.clientX, vy: e.clientY, cx, cy });
+        onTextAnchorSet?.(cx, cy);
         // Tell students where the teacher is about to type (blinking caret indicator)
         const { drawColor: dc, textFontSize: tfsz } = drawState.current;
         onDrawPrevCb.current?.({ x1: cx, y1: cy, x2: cx, y2: cy, color: dc, size: 0, mode: 'text', text: '__text_anchor__', fontSizePx: tfsz });
