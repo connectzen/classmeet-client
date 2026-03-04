@@ -45,7 +45,8 @@ export default function PlayModePanel({
     const [currentGroupIdx, setCurrentGroupIdx] = useState(0);
     const [totalGroups,     setTotalGroups]     = useState(0);
 
-    const editorRef     = useRef<HTMLTextAreaElement>(null);
+    const editorRef       = useRef<HTMLTextAreaElement>(null);
+    const cursorPosRef    = useRef(0); // saved on blur so button-click doesn't reset it
     const wordGroupsRef = useRef<string[][]>([]);
     const charBufRef    = useRef("");
     const intervalRef   = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -111,7 +112,11 @@ export default function PlayModePanel({
     }, [stopInterval, makeSeg]);
 
     const handleStart = useCallback(() => {
-        const raw = editorRef.current?.value?.trim() ?? "";
+        const ta = editorRef.current;
+        if (!ta) return;
+        // Use saved cursor position (textarea loses focus when button is clicked)
+        const cursorPos = cursorPosRef.current;
+        const raw = ta.value.slice(cursorPos).trim();
         if (!raw) return;
         if (onEnableCourse) onEnableCourse();
         if (!isBlackboardOn) onEnableBlackboard();
@@ -257,6 +262,9 @@ export default function PlayModePanel({
                             t.selectionStart = t.selectionEnd = s + 4;
                         }
                     }}
+                onBlur={e => { cursorPosRef.current = e.currentTarget.selectionStart; }}
+                onMouseUp={e => { cursorPosRef.current = e.currentTarget.selectionStart; }}
+                onKeyUp={e => { cursorPosRef.current = (e.currentTarget as HTMLTextAreaElement).selectionStart; }}
                 />
 
                 {/* Controls */}
