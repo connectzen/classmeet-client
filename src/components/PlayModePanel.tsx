@@ -54,7 +54,7 @@ function parseRichToStyledWords(html: string): StyledWord[] {
         const cur = { ...inh };
         const st  = el.style;
         if (st.color)      cur.color      = st.color;
-        if (st.fontFamily) cur.fontFamily  = st.fontFamily.replace(/['"]*/g, '').trim();
+        if (st.fontFamily) cur.fontFamily  = st.fontFamily.replace(/['"]/g, '').split(',')[0].trim();
         if (st.fontSize)   cur.fontSizePx  = parseInt(st.fontSize) || inh.fontSizePx;
         // bold via inline style
         const fw = st.fontWeight;
@@ -97,7 +97,7 @@ function parseRichToStyledWords(html: string): StyledWord[] {
         for (const child of Array.from(el.childNodes)) walk(child, cur);
     }
 
-    const defaults = { color: '#ffffff', fontFamily: 'Inter, sans-serif', fontSizePx: 20, fontStyle: 'normal' as FontStyle, underline: false };
+    const defaults = { color: '#ffffff', fontFamily: 'Inter', fontSizePx: 20, fontStyle: 'normal' as FontStyle, underline: false };
 
     for (const child of Array.from(div.childNodes)) walk(child, defaults);
     return words;
@@ -196,6 +196,9 @@ function buildGroupPlan(
 
         let colIdx = 0;
         let anyLeft = true;
+        // Normalize fontFamily for comparison — strip quotes, take first token only,
+        // lowercased. "Merriweather", 'Merriweather', "Merriweather, serif" → "merriweather"
+        const normFont = (f: string) => f.replace(/['"]/g, '').split(',')[0].trim().toLowerCase();
         while (anyLeft) {
             anyLeft = false;
             for (let li = 0; li < blockLines.length; li++) {
@@ -211,7 +214,7 @@ function buildGroupPlan(
                     take < wordsPerFly &&
                     wi + take < bl.words.length &&
                     bl.words[wi + take].color      === s0.color &&
-                    bl.words[wi + take].fontFamily === s0.fontFamily &&
+                    normFont(bl.words[wi + take].fontFamily) === normFont(s0.fontFamily) &&
                     bl.words[wi + take].fontSizePx === s0.fontSizePx &&
                     bl.words[wi + take].fontStyle  === s0.fontStyle &&
                     bl.words[wi + take].underline  === s0.underline
