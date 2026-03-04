@@ -223,6 +223,11 @@ export default function RoomCoursePanel({
     const snapshotImgRef = useRef<HTMLImageElement | null>(null);
 
     // Always-fresh refs so document-level handlers never have stale closures
+    const isTeacher  = role === 'teacher';
+    const drawActive = isTeacher && drawTool !== null;
+    const cursor     = drawTool ? (TOOL_DEFS.find(t => t.id === drawTool)?.cursor ?? 'crosshair') : 'default';
+    const showBlackboard = blackboardMode || (!!blackboardActive && !isTeacher);
+
     const drawState   = useRef({ drawTool, drawColor, drawSizeKey, ephemeralMode, textFontStyle, textFontFamily, textFontSize });
     drawState.current = { drawTool, drawColor, drawSizeKey, ephemeralMode, textFontStyle, textFontFamily, textFontSize };
     // Always-fresh ref so drawing handlers can check blackboard mode without stale closure
@@ -234,11 +239,6 @@ export default function RoomCoursePanel({
     onDrawPrevCb.current = onDrawPreview;
     const onDrawCursorCb  = useRef(onDrawCursor);
     onDrawCursorCb.current = onDrawCursor;
-
-    const isTeacher  = role === 'teacher';
-    const drawActive = isTeacher && drawTool !== null;
-    const cursor     = drawTool ? (TOOL_DEFS.find(t => t.id === drawTool)?.cursor ?? 'crosshair') : 'default';
-    const showBlackboard = blackboardMode || (!!blackboardActive && !isTeacher);
 
     const handleBlackboardToggle = useCallback(() => {
         setBlackboardMode(prev => {
