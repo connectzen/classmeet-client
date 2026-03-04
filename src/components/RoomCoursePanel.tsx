@@ -330,6 +330,8 @@ export default function RoomCoursePanel({
     // ── Canvas replay helper ───────────────────────────────────────────────────
     // Redraws all committed segments (+ any snapshot base) onto the canvas.
     // Called whenever the canvas buffer is re-created due to resize.
+    // Uses showBlackboardRef so it always replays the correct set of segments
+    // regardless of which mode was active when the resize fired.
     const replayOnCanvas = useCallback(() => {
         const c = canvasRef.current;
         if (!c) return;
@@ -337,7 +339,8 @@ export default function RoomCoursePanel({
         if (!ctx) return;
         ctx.clearRect(0, 0, c.width, c.height);
         if (snapshotImgRef.current) ctx.drawImage(snapshotImgRef.current, 0, 0, c.width, c.height);
-        for (const seg of committedSegs.current) drawOnCanvas(ctx, seg, c.width, c.height);
+        const segs = showBlackboardRef.current ? blackboardSegs.current : committedSegs.current;
+        for (const seg of segs) drawOnCanvas(ctx, seg, c.width, c.height);
     }, []);
     const replayRef = useRef(replayOnCanvas);
     replayRef.current = replayOnCanvas;
@@ -390,9 +393,16 @@ export default function RoomCoursePanel({
             if (canvas.width !== w || canvas.height !== h) {
                 canvas.width = w; canvas.height = h;
                 preview.width = w; preview.height = h;
-                // Replay committed strokes onto the freshly-sized canvas buffer
-                // instead of relying on toDataURL (which fails on zero-sized canvas).
+                // Replay committed/blackboard strokes onto the freshly-sized canvas buffer.
                 replayRef.current();
+                // Invalidate the ephemeral-mode snapshot: it was captured at the old
+                // canvas size and would paint corrupted/wrong-sized pixels if reused.
+                // Re-capture immediately so the ephemeral RAF loop has a consistent base.
+                persistentSnapshot.current = null;
+                if (drawState.current.ephemeralMode) {
+                    const eCtx = canvas.getContext('2d');
+                    if (eCtx) persistentSnapshot.current = eCtx.getImageData(0, 0, canvas.width, canvas.height);
+                }
             }
             canvas.style.width   = canvas.width  + 'px';
             canvas.style.height  = canvas.height + 'px';
