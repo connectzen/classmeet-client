@@ -645,11 +645,16 @@ export default function RoomCoursePanel({
     }, [externalCursor]);
 
     // ── Clear signal ──────────────────────────────────────────────────────────
+    // Only clears the currently active surface (blackboard OR lesson) so the two
+    // pages remain completely independent.
     useEffect(() => {
         if (drawClearSignal == null) return;
-        committedSegs.current = [];
-        blackboardSegs.current = [];
-        snapshotImgRef.current = null;
+        if (showBlackboardRef.current) {
+            blackboardSegs.current = [];
+        } else {
+            committedSegs.current = [];
+            snapshotImgRef.current = null;
+        }
         const c = canvasRef.current;
         if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
         ephemeralStrokes.current = [];
@@ -798,13 +803,20 @@ export default function RoomCoursePanel({
     }, []);
 
     const handleClear = useCallback(() => {
-        committedSegs.current = [];
-        blackboardSegs.current = [];
-        snapshotImgRef.current = null;
+        // Only clear the active surface; the other surface's drawings are preserved.
+        if (showBlackboardRef.current) {
+            blackboardSegs.current = [];
+        } else {
+            committedSegs.current = [];
+            snapshotImgRef.current = null;
+        }
         const c = canvasRef.current;
         if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
         const p = previewRef.current;
         if (p) p.getContext('2d')?.clearRect(0, 0, p.width, p.height);
+        ephemeralStrokes.current = [];
+        currentEphemeralStroke.current = [];
+        persistentSnapshot.current = null;
         onDrawClear?.();
     }, [onDrawClear]);
 
