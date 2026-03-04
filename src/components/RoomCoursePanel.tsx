@@ -36,6 +36,7 @@ export interface DrawSeg {
     fontSizePx?: number;
     opacity?: number;
     underline?: boolean;
+    noWrap?: boolean; // if true, render text at exact x1/y1 without word-wrap
 }
 
 interface Props {
@@ -179,6 +180,10 @@ function drawOnCanvas(ctx: CanvasRenderingContext2D, seg: DrawSeg, w: number, h:
                 ctx.restore();
             }
         };
+        // noWrap: play-mode segments are pre-positioned — render at exact coords, no wrapping
+        if (seg.noWrap) {
+            drawLine(seg.text || '', startX, curY);
+        } else {
         const breakWide = (token: string, carry: string): string[] => {
             const chunks: string[] = [];
             let buf = carry;
@@ -209,6 +214,7 @@ function drawOnCanvas(ctx: CanvasRenderingContext2D, seg: DrawSeg, w: number, h:
             }
             if (cur) { drawLine(cur, startX, curY); curY += lineH; }
         }
+        } // end !noWrap
     }
     ctx.restore();
 }

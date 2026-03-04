@@ -273,6 +273,7 @@ export default function PlayModePanel({
             fontSizePx: style.fontSizePx,
             fontStyle:  style.fontStyle,
             underline:  style.underline,
+            noWrap: true, // pre-positioned; never let canvas word-wrap reflow these
         };
     }, []);
 
