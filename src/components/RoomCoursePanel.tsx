@@ -1068,16 +1068,20 @@ export default function RoomCoursePanel({
                         >
                             <textarea autoFocus ref={textareaRef} placeholder=""
                                 style={{
-                                    display: 'block', width: '100%', height: '100%',
+                                    // Absolutely position the textarea starting exactly at the click point.
+                                    // Width is explicitly capped to (1 - cx) * CANVAS_W * scale - 24*scale
+                                    // so the browser wraps at the same boundary as drawOnCanvas (maxW).
+                                    position: 'absolute',
+                                    top: `${textInput.cy * canvasH * contentScale}px`,
+                                    left: `${textInput.cx * CANVAS_W * contentScale}px`,
+                                    width: `${Math.max(20, (1 - textInput.cx) * CANVAS_W * contentScale - 24 * contentScale)}px`,
+                                    height: `${Math.max(40, (1 - textInput.cy) * canvasH * contentScale)}px`,
                                     background: 'transparent',
                                     color: 'transparent',
                                     caretColor: drawColor,
                                     border: 'none', outline: 'none', resize: 'none',
-                                    paddingTop: `${textInput.cy * canvasH * contentScale}px`,
-                                    paddingLeft: `${textInput.cx * CANVAS_W * contentScale}px`,
-                                    paddingRight: `${24 * contentScale}px`, paddingBottom: 0,
-                                    margin: 0, boxSizing: 'border-box', overflow: 'hidden',
-                                    // Scale font to match the CSS-zoomed canvas so caret advances with visible text
+                                    padding: 0, margin: 0, boxSizing: 'border-box', overflow: 'hidden',
+                                    // Font exactly matches canvas rendering (canvas px × contentScale)
                                     fontSize: textFontSize * contentScale, fontFamily: textFontFamily,
                                     fontWeight: textFontStyle.includes('bold') ? 700 : 400,
                                     fontStyle: textFontStyle.includes('italic') ? 'italic' : 'normal',
