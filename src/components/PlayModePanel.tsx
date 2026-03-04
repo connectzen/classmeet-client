@@ -62,11 +62,18 @@ function buildGroupPlan(
     styleRanges: StyleRange[],
     globalStyle: { color: string; fontFamily: string; fontSize: number; fontStyle: FontStyle },
 ): GroupPlan[] {
-    // Collect word positions in original text to look up style annotations
-    const wordInfos: Array<{ word: string; charStart: number }> = [];
-    const re = /\S+/g;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(text)) !== null) wordInfos.push({ word: m[0], charStart: m.index });
+    // Collect words with their char offset AND which textarea line they came from.
+    // Textarea line boundaries are respected: words on a new note-line always start
+    // a new blackboard line, regardless of how full the current line is.
+    const wordInfos: Array<{ word: string; charStart: number; textLine: number }> = [];
+    let charOffset = 0;
+    text.split('\n').forEach((noteLine, lineIdx) => {
+        const re = /\S+/g;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(noteLine)) !== null)
+            wordInfos.push({ word: m[0], charStart: charOffset + m.index, textLine: lineIdx });
+        charOffset += noteLine.length + 1; // +1 for the consumed '\n'
+    });
     if (!wordInfos.length) return [];
 
     const getStyle = (charStart: number) => {
@@ -85,36 +92,57 @@ function buildGroupPlan(
 
     const lineH = (fontSizePx * 1.4) / Math.max(1, canvasH);
     const plan: GroupPlan[] = [];
-    let lineY        = anchorCy;
+    let lineY         = anchorCy;
     let lineWordCount = 0;
     let lineAccum     = "";
+    let prevTextLine  = wordInfos[0].textLine;
+    let i             = 0;
 
-    for (let i = 0; i < wordInfos.length; i += wordsPerFly) {
-        const flySlice   = wordInfos.slice(i, i + wordsPerFly);
-        const flyCount   = flySlice.length;
-        const isFirstOnLine = lineWordCount === 0;
-        const style      = getStyle(flySlice[0].charStart);
-
-        if (!isFirstOnLine && lineWordCount + flyCount > wordsPerLine) {
-            lineY        += lineH;
-            lineWordCount = 0;
-            lineAccum     = "";
+    while (i < wordInfos.length) {
+        // ── Textarea line break → force new blackboard line ──────────────────
+        if (wordInfos[i].textLine !== prevTextLine) {
+            if (lineWordCount > 0) {
+                lineY += lineH;
+                lineWordCount = 0;
+                lineAccum = "";
+            }
+            prevTextLine = wordInfos[i].textLine;
         }
 
-        const prevAccum  = lineAccum;
-        const flyText    = flySlice.map(w => w.word).join(" ");
-        lineAccum        = lineAccum ? lineAccum + " " + flyText : flyText;
-        lineWordCount   += flyCount;
+        // ── How many words does this fly take? ────────────────────────────────
+        // Rule: fill the current line first. Never take more than the remaining
+        // capacity of the current line, and never exceed wordsPerFly.
+        // Also stop at the end of the current textarea line so notes lines map
+        // 1-to-1 with blackboard lines.
+        const remainingOnLine = wordsPerLine - lineWordCount;
+        const maxTake = Math.min(wordsPerFly, remainingOnLine);
+        const currentTextLine = wordInfos[i].textLine;
+        let take = 0;
+        while (
+            take < maxTake &&
+            i + take < wordInfos.length &&
+            wordInfos[i + take].textLine === currentTextLine
+        ) take++;
+        if (take === 0) break; // safety — shouldn't happen
 
-        // Width of the already-committed text + trailing space, so animation only
-        // shows & positions the NEW word(s) right after the committed word(s).
+        const flySlice = wordInfos.slice(i, i + take);
+        i += take;
+
+        const style        = getStyle(flySlice[0].charStart);
+        const isFirstOnLine = lineWordCount === 0;
+        const prevAccum    = lineAccum;
+        const flyText      = flySlice.map(w => w.word).join(" ");
+        lineAccum          = lineAccum ? lineAccum + " " + flyText : flyText;
+        lineWordCount     += take;
+
+        // Width of already-committed text (+space) so animation starts right after it
         const prevTextWidth = prevAccum ? measureWidth(prevAccum + " ", style) : 0;
 
         plan.push({
             accumulated: lineAccum,
             prevAccumulated: prevAccum,
             lineY,
-            isFirstOnLine: lineWordCount === flyCount && (lineAccum === flyText),
+            isFirstOnLine,
             prevTextWidth,
             newWords: flyText,
             segColor: style.color,
@@ -123,10 +151,11 @@ function buildGroupPlan(
             segFontStyle: style.fontStyle,
         });
 
+        // Line full → advance to next blackboard line
         if (lineWordCount >= wordsPerLine) {
-            lineY        += lineH;
+            lineY += lineH;
             lineWordCount = 0;
-            lineAccum     = "";
+            lineAccum = "";
         }
     }
     return plan;
