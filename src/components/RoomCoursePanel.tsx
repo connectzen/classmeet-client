@@ -698,7 +698,7 @@ export default function RoomCoursePanel({
                             so the panel is fully visible on narrow screens without
                             horizontal scroll. zoom affects layout too, so scrollHeight
                             stays proportional and teacher/student scroll stays in sync. */}
-                        <div ref={scaleRef} style={{ width: CANVAS_W, position: 'relative', zoom: contentScale }}>
+                        <div ref={scaleRef} style={{ width: CANVAS_W, position: 'relative', zoom: contentScale, zIndex: 1 }}>
 
                             {/* Lesson content — fixed at exactly CANVAS_W (640 px).
                                 Teacher and student both render at 640px → same text wrap
@@ -757,11 +757,11 @@ export default function RoomCoursePanel({
                     {isTeacher && (
                         <>
                             <button onClick={() => canPrev && onNav(activeCourseIdx, activeLessonIdx - 1)} disabled={!canPrev} title="Previous lesson"
-                                style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 32, height: 48, borderRadius: '0 8px 8px 0', border: 'none', background: 'transparent', color: canPrev ? '#a5b4fc' : 'rgba(255,255,255,0.15)', fontSize: 22, cursor: canPrev ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 12 }}
+                                style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 32, height: 48, borderRadius: '0 8px 8px 0', border: 'none', background: 'transparent', color: canPrev ? '#a5b4fc' : 'rgba(255,255,255,0.15)', fontSize: 22, cursor: canPrev ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 12, pointerEvents: drawActive ? 'none' : 'auto' }}
                                 onMouseEnter={e => { if (canPrev) e.currentTarget.style.background = 'rgba(99,102,241,0.15)'; }}
                                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>‹</button>
                             <button onClick={() => canNext && onNav(activeCourseIdx, activeLessonIdx + 1)} disabled={!canNext} title="Next lesson"
-                                style={{ position: 'absolute', right: 44, top: '50%', transform: 'translateY(-50%)', width: 32, height: 48, borderRadius: '8px 0 0 8px', border: 'none', background: 'transparent', color: canNext ? '#a5b4fc' : 'rgba(255,255,255,0.15)', fontSize: 22, cursor: canNext ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 12 }}
+                                style={{ position: 'absolute', right: 44, top: '50%', transform: 'translateY(-50%)', width: 32, height: 48, borderRadius: '8px 0 0 8px', border: 'none', background: 'transparent', color: canNext ? '#a5b4fc' : 'rgba(255,255,255,0.15)', fontSize: 22, cursor: canNext ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 12, pointerEvents: drawActive ? 'none' : 'auto' }}
                                 onMouseEnter={e => { if (canNext) e.currentTarget.style.background = 'rgba(99,102,241,0.15)'; }}
                                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>›</button>
                         </>
