@@ -34,12 +34,20 @@ interface Props {
     onEnableCourse?: () => void;
 }
 
+// ── Style range (per-selection highlight overrides) ─────────────────────────
+interface StyleRange {
+    start: number; end: number;
+    color: string; fontFamily: string; fontSize: number; fontStyle: FontStyle;
+}
+
 // ── GroupPlan: pre-computed animation schedule ────────────────────────────────
 interface GroupPlan {
     accumulated: string;     // full text shown on this line up to and including this fly
     prevAccumulated: string; // text already committed before this fly ("" for first on line)
     lineY: number;           // normalised Y coordinate for this line
     isFirstOnLine: boolean;  // true = push new seg; false = replace-last seg
+    // Per-fly resolved style (from annotation or global)
+    segColor: string; segFontFamily: string; segFontSize: number; segFontStyle: FontStyle;
 }
 
 function buildGroupPlan(
@@ -49,39 +57,54 @@ function buildGroupPlan(
     anchorCy: number,
     canvasH: number,
     fontSizePx: number,
+    styleRanges: StyleRange[],
+    globalStyle: { color: string; fontFamily: string; fontSize: number; fontStyle: FontStyle },
 ): GroupPlan[] {
-    const words = text.split(/\s+/).filter(Boolean);
-    if (!words.length) return [];
-    const lineH      = (fontSizePx * 1.4) / Math.max(1, canvasH);
+    // Collect word positions in original text to look up style annotations
+    const wordInfos: Array<{ word: string; charStart: number }> = [];
+    const re = /\S+/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) wordInfos.push({ word: m[0], charStart: m.index });
+    if (!wordInfos.length) return [];
+
+    const getStyle = (charStart: number) => {
+        const ann = styleRanges.find(r => charStart >= r.start && charStart < r.end);
+        return ann ? { color: ann.color, fontFamily: ann.fontFamily, fontSize: ann.fontSize, fontStyle: ann.fontStyle } : globalStyle;
+    };
+
+    const lineH = (fontSizePx * 1.4) / Math.max(1, canvasH);
     const plan: GroupPlan[] = [];
     let lineY        = anchorCy;
-    let lineWordCount = 0;   // words consumed on current line so far
-    let lineAccum     = "";  // accumulated text on current line
+    let lineWordCount = 0;
+    let lineAccum     = "";
 
-    for (let i = 0; i < words.length; i += wordsPerFly) {
-        const flyWords   = words.slice(i, i + wordsPerFly);
-        const flyCount   = flyWords.length;
+    for (let i = 0; i < wordInfos.length; i += wordsPerFly) {
+        const flySlice   = wordInfos.slice(i, i + wordsPerFly);
+        const flyCount   = flySlice.length;
         const isFirstOnLine = lineWordCount === 0;
+        const style      = getStyle(flySlice[0].charStart);
 
-        // Would adding these words overflow the line?
         if (!isFirstOnLine && lineWordCount + flyCount > wordsPerLine) {
-            // Start a new line
             lineY        += lineH;
             lineWordCount = 0;
             lineAccum     = "";
         }
 
-        const prevAccum = lineAccum; // snapshot BEFORE this fly is appended
-        lineAccum     = lineAccum ? lineAccum + " " + flyWords.join(" ") : flyWords.join(" ");
-        lineWordCount += flyCount;
+        const prevAccum  = lineAccum;
+        const flyText    = flySlice.map(w => w.word).join(" ");
+        lineAccum        = lineAccum ? lineAccum + " " + flyText : flyText;
+        lineWordCount   += flyCount;
         plan.push({
             accumulated: lineAccum,
             prevAccumulated: prevAccum,
             lineY,
-            isFirstOnLine: lineWordCount === flyCount && (lineAccum === flyWords.join(" ")),
+            isFirstOnLine: lineWordCount === flyCount && (lineAccum === flyText),
+            segColor: style.color,
+            segFontFamily: style.fontFamily,
+            segFontSize: style.fontSize,
+            segFontStyle: style.fontStyle,
         });
 
-        // If the line is now full, the NEXT fly starts on a new line
         if (lineWordCount >= wordsPerLine) {
             lineY        += lineH;
             lineWordCount = 0;
@@ -112,10 +135,12 @@ export default function PlayModePanel({
     const [colorPickerPos,  setColorPickerPos]  = useState({ top: 0, left: 0 });
     const [showFontPicker,  setShowFontPicker]  = useState(false);
     const [fontPickerPos,   setFontPickerPos]   = useState({ top: 0, left: 0 });
+    const [styleRanges,     setStyleRanges]     = useState<StyleRange[]>([]);
 
     const editorRef      = useRef<HTMLTextAreaElement>(null);
     const colorBtnRef    = useRef<HTMLButtonElement>(null);
     const fontBtnRef     = useRef<HTMLButtonElement>(null);
+    const styleRangesRef = useRef<StyleRange[]>([]); styleRangesRef.current = styleRanges;
     const cursorPosRef   = useRef(0);
     const groupPlanRef   = useRef<GroupPlan[]>([]);
     const charBufRef     = useRef("");
@@ -142,25 +167,54 @@ export default function PlayModePanel({
     const isBlackboardOnRef   = useRef(isBlackboardOn);  isBlackboardOnRef.current = isBlackboardOn;
 
     // ── helpers ──────────────────────────────────────────────────────────────
-    const makeBaseSeg = useCallback((text: string, lineY: number): DrawSeg => {
+    type SegStyle = { color: string; fontFamily: string; fontSize: number; fontStyle: FontStyle };
+    const makeBaseSeg = useCallback((text: string, lineY: number, style?: SegStyle): DrawSeg => {
         const baseX = anchorRef.current?.cx ?? 0.02;
         const alignedX = textAlignRef.current === 'center' ? 0.5
                        : textAlignRef.current === 'right'  ? 0.9
                        : baseX;
         return {
-        x1: alignedX,
-        y1: lineY,
-        x2: alignedX,
-        y2: lineY,
-        color: colorRef.current,
-        size: 1,
-        mode: "text",
-        text,
-        fontFamily: fontFamilyRef.current,
-        fontSizePx: fontSizeRef.current,
-        fontStyle:  fontStyleRef.current,
+            x1: alignedX, y1: lineY, x2: alignedX, y2: lineY,
+            color:      style?.color      ?? colorRef.current,
+            size: 1, mode: "text", text,
+            fontFamily: style?.fontFamily ?? fontFamilyRef.current,
+            fontSizePx: style?.fontSize   ?? fontSizeRef.current,
+            fontStyle:  style?.fontStyle  ?? fontStyleRef.current,
         };
     }, []);
+
+    // Helper: returns current textarea selection, or null
+    const getSelection = () => {
+        const ta = editorRef.current;
+        if (!ta) return null;
+        const { selectionStart: s, selectionEnd: e } = ta;
+        if (s === e) return null;
+        return { start: Math.min(s, e), end: Math.max(s, e) };
+    };
+
+    // Apply style to selected range, or update global if no selection
+    const applyStyle = (patch: Partial<SegStyle>) => {
+        const sel = getSelection();
+        if (sel) {
+            const base: SegStyle = { color: colorRef.current, fontFamily: fontFamilyRef.current, fontSize: fontSizeRef.current, fontStyle: fontStyleRef.current };
+            setStyleRanges(prev => {
+                // Remove ranges fully inside sel, trim overlapping ones, then add new
+                const filtered = prev
+                    .map(r => {
+                        if (r.end <= sel.start || r.start >= sel.end) return r; // no overlap
+                        // split: keep parts outside sel
+                        return null; // fully or partially covered → drop (simplest approach)
+                    })
+                    .filter(Boolean) as StyleRange[];
+                return [...filtered, { ...base, ...patch, start: sel.start, end: sel.end }];
+            });
+        } else {
+            if (patch.color      !== undefined) setColor(patch.color);
+            if (patch.fontFamily !== undefined) setFontFamily(patch.fontFamily);
+            if (patch.fontSize   !== undefined) setFontSize(patch.fontSize);
+            if (patch.fontStyle  !== undefined) setFontStyle(patch.fontStyle);
+        }
+    };
 
     const stopInterval = useCallback(() => {
         if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
@@ -175,34 +229,41 @@ export default function PlayModePanel({
             onPlayFrameRef.current(null);
             return;
         }
-        const { accumulated, prevAccumulated, lineY, isFirstOnLine } = plan[idx];
+        const { accumulated, prevAccumulated, lineY, isFirstOnLine,
+                segColor, segFontFamily, segFontSize, segFontStyle } = plan[idx];
         setCurrentGroupIdx(idx);
         setPlayState("playing");
 
-        const commit = (seg: DrawSeg) => {
+        const style: SegStyle = { color: segColor, fontFamily: segFontFamily, fontSize: segFontSize, fontStyle: segFontStyle };
+
+        // For replace-last groups (!isFirstOnLine): route animation directly through
+        // onPlayReplaceRef (writes to main canvas) to avoid double-drawing the
+        // already-committed previous text on top of the preview canvas.
+        // For first-on-line groups: use preview canvas as normal.
+        const emit = (seg: DrawSeg) => isFirstOnLine
+            ? onPlayFrameRef.current(seg)
+            : onPlayReplaceRef.current(seg);
+
+        const finalCommit = (seg: DrawSeg) => {
             if (isFirstOnLine) {
+                onPlayFrameRef.current(null);
                 onPlayCommitRef.current(seg);
-            } else {
-                onPlayReplaceRef.current(seg);
             }
+            // replace-last: final tick already wrote the full text via emit()
         };
 
         const anim = animTypeRef.current;
 
         if (anim === "typing") {
-            // For replace-line groups, start from the already-committed text so only
-            // the NEW word(s) appear to type in (not the whole line from scratch).
+            // Start from prevAccumulated so only the NEW word(s) type in.
             charBufRef.current = prevAccumulated;
             intervalRef.current = setInterval(() => {
                 if (playStateRef.current === "paused") return;
-                const next = charBufRef.current.length + 1;
-                charBufRef.current = accumulated.slice(0, next);
-                onPlayFrameRef.current(makeBaseSeg(charBufRef.current, lineY));
+                charBufRef.current = accumulated.slice(0, charBufRef.current.length + 1);
+                emit(makeBaseSeg(charBufRef.current, lineY, style));
                 if (charBufRef.current.length >= accumulated.length) {
                     stopInterval();
-                    // show nothing on preview; commit the full text
-                    onPlayFrameRef.current(null);
-                    commit(makeBaseSeg(accumulated, lineY));
+                    finalCommit(makeBaseSeg(accumulated, lineY, style));
                     charBufRef.current = "";
                     setPlayState(idx + 1 >= groupPlanRef.current.length ? "done" : "ready-next");
                 }
@@ -212,16 +273,13 @@ export default function PlayModePanel({
             const FRAMES = 20;
             frameRef.current = 0;
             const ax = anchorRef.current?.cx ?? 0.02;
-            const targetFontSize = fontSizeRef.current;
             const ms = Math.max(10, SPEED_OPTIONS[speedRef.current].ms * 1.5);
 
             intervalRef.current = setInterval(() => {
                 if (playStateRef.current === "paused") return;
                 frameRef.current += 1;
-                const raw = frameRef.current / FRAMES;
-                const progress = Math.min(1, 1 - Math.pow(1 - raw, 2)); // ease-out
-
-                const seg = makeBaseSeg(accumulated, lineY);
+                const progress = Math.min(1, 1 - Math.pow(1 - frameRef.current / FRAMES, 2));
+                const seg = makeBaseSeg(accumulated, lineY, style);
 
                 if (anim === "fade") {
                     seg.opacity = progress;
@@ -232,16 +290,15 @@ export default function PlayModePanel({
                 } else if (anim === "slide-bottom") {
                     seg.y1 = seg.y2 = lineY + (0.15 * Math.max(1, canvasHRef.current) / 100) * (1 - progress);
                 } else if (anim === "scale") {
-                    seg.fontSizePx = Math.max(1, Math.round(targetFontSize * (0.05 + 0.95 * progress)));
+                    seg.fontSizePx = Math.max(1, Math.round(segFontSize * (0.05 + 0.95 * progress)));
                 }
 
                 if (frameRef.current >= FRAMES) {
                     stopInterval();
-                    onPlayFrameRef.current(null);
-                    commit(makeBaseSeg(accumulated, lineY));
+                    finalCommit(makeBaseSeg(accumulated, lineY, style));
                     setPlayState(idx + 1 >= groupPlanRef.current.length ? "done" : "ready-next");
                 } else {
-                    onPlayFrameRef.current(seg);
+                    emit(seg);
                 }
             }, ms);
         }
@@ -264,6 +321,8 @@ export default function PlayModePanel({
             anchorRef.current?.cy ?? 0.05,
             canvasHRef.current,
             fontSizeRef.current,
+            styleRangesRef.current,
+            { color: colorRef.current, fontFamily: fontFamilyRef.current, fontSize: fontSizeRef.current, fontStyle: fontStyleRef.current },
         );
         if (!plan.length) return;
         groupPlanRef.current = plan;
@@ -336,7 +395,7 @@ export default function PlayModePanel({
                             <div style={{ position: "fixed", top: fontPickerPos.top, left: fontPickerPos.left, zIndex: 9999, background: "#1e293b", border: "1px solid rgba(99,102,241,0.35)", borderRadius: 8, padding: "4px 0", boxShadow: "0 8px 32px rgba(0,0,0,0.6)", minWidth: 110 }}>
                                 {FONT_LIST.map(f => (
                                     <button key={f.value}
-                                        onMouseDown={e => { e.preventDefault(); setFontFamily(f.value); setShowFontPicker(false); }}
+                                        onMouseDown={e => { e.preventDefault(); applyStyle({ fontFamily: f.value }); setShowFontPicker(false); }}
                                         style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 12px", background: fontFamily === f.value ? "rgba(99,102,241,0.25)" : "transparent", color: fontFamily === f.value ? "#a5b4fc" : "#94a3b8", border: "none", cursor: "pointer", fontSize: 12, fontFamily: f.value }}>
                                         {f.label}
                                     </button>
@@ -347,14 +406,14 @@ export default function PlayModePanel({
                 </div>
 
                 {/* Font size */}
-                <select value={fontSize} onChange={e => setFontSize(Number(e.target.value))}
+                <select value={fontSize} onChange={e => applyStyle({ fontSize: Number(e.target.value) })}
                     style={{ padding: "2px 2px", borderRadius: 5, border: "1px solid rgba(255,255,255,0.1)", background: "#1e293b", color: "#94a3b8", fontSize: 11, cursor: "pointer", colorScheme: "dark", width: 40, minWidth: 40 }}>
                     {SIZE_LIST.map(sz => <option key={sz} value={sz}>{sz}</option>)}
                 </select>
 
                 {/* B / I toggles */}
-                <button style={tbBtn(fontStyle.includes("bold"), { fontWeight: 900, minWidth: 22, padding: "2px 4px" })} onClick={() => setFontStyle(s => s.includes("bold") ? (s.includes("italic") ? "italic" : "normal") : (s.includes("italic") ? "bold italic" : "bold"))} title="Bold">B</button>
-                <button style={tbBtn(fontStyle.includes("italic"), { fontStyle: "italic", minWidth: 22, padding: "2px 4px" })} onClick={() => setFontStyle(s => s.includes("italic") ? (s.includes("bold") ? "bold" : "normal") : (s.includes("bold") ? "bold italic" : "italic"))} title="Italic">I</button>
+                <button style={tbBtn(fontStyle.includes("bold"), { fontWeight: 900, minWidth: 22, padding: "2px 4px" })} onClick={() => { const next: FontStyle = fontStyle.includes("bold") ? (fontStyle.includes("italic") ? "italic" : "normal") : (fontStyle.includes("italic") ? "bold italic" : "bold"); applyStyle({ fontStyle: next }); }} title="Bold">B</button>
+                <button style={tbBtn(fontStyle.includes("italic"), { fontStyle: "italic", minWidth: 22, padding: "2px 4px" })} onClick={() => { const next: FontStyle = fontStyle.includes("italic") ? (fontStyle.includes("bold") ? "bold" : "normal") : (fontStyle.includes("bold") ? "bold italic" : "italic"); applyStyle({ fontStyle: next }); }} title="Italic">I</button>
 
                 {/* Color picker */}
                 <div style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}>
@@ -378,13 +437,13 @@ export default function PlayModePanel({
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 5, marginBottom: 8 }}>
                                     {COLOR_PRESETS.map(c => (
                                         <button key={c} title={c}
-                                            onMouseDown={e => { e.preventDefault(); setColor(c); setShowColorPicker(false); }}
+                                            onMouseDown={e => { e.preventDefault(); applyStyle({ color: c }); setShowColorPicker(false); }}
                                             style={{ width: 22, height: 22, borderRadius: 5, background: c, border: color === c ? "2px solid #fff" : "2px solid rgba(255,255,255,0.15)", cursor: "pointer", padding: 0 }} />
                                     ))}
                                 </div>
                                 <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
                                     <span style={{ fontSize: 11, color: "#64748b" }}>Custom</span>
-                                    <input type="color" value={color} onChange={e => setColor(e.target.value)}
+                                    <input type="color" value={color} onChange={e => applyStyle({ color: e.target.value })}
                                         style={{ width: 32, height: 22, padding: 0, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, cursor: "pointer", background: "none" }} />
                                 </div>
                             </div>
