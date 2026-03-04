@@ -47,6 +47,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [spotlightId, setSpotlightId] = useState<string>('__local__');
     const [showDevicePicker, setShowDevicePicker] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false); // mobile chat popup
+    const [isMobilePlayOpen, setIsMobilePlayOpen] = useState(false); // mobile play panel
     const [activeVideoDeviceId, setActiveVideoDeviceId] = useState<string | null>(null);
     const [activeAudioDeviceId, setActiveAudioDeviceId] = useState<string | null>(null);
     const [teacherGraceCountdown, setTeacherGraceCountdown] = useState<number | null>(null);
@@ -98,6 +99,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [quizMonitorMode, setQuizMonitorMode] = useState(false);
     const socketIdRef = useRef<string>('');
     const mobileChatRef = useRef<HTMLDivElement>(null);
+    const mobilePlayRef = useRef<HTMLDivElement>(null);
     // Refs used in handleParticipantJoined to avoid stale closures
     const liveStateRef = useRef({
         courseToggleOn: false, courseSharedWithStudents: false,
@@ -577,7 +579,23 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         };
     }, [isChatOpen]);
 
-    // Controls
+    // Dynamically resize mobile play container when keyboard opens/closes
+    useEffect(() => {
+        if (!isMobilePlayOpen) return;
+        const el = mobilePlayRef.current;
+        if (!el) return;
+        const updateHeight = () => {
+            const vv = window.visualViewport;
+            if (vv) { el.style.height = `${vv.height}px`; el.style.top = `${vv.offsetTop}px`; }
+        };
+        updateHeight();
+        window.visualViewport?.addEventListener('resize', updateHeight);
+        window.visualViewport?.addEventListener('scroll', updateHeight);
+        return () => {
+            window.visualViewport?.removeEventListener('resize', updateHeight);
+            window.visualViewport?.removeEventListener('scroll', updateHeight);
+        };
+    }, [isMobilePlayOpen]);
     const toggleMic = () => {
         if (!localStream) return;
         const track = localStream.getAudioTracks()[0];
@@ -769,6 +787,45 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                         )}
                     </div>
                     <ChatPanel messages={messages} mySocketId={socketId} onSend={sendMessage} hideHeader />
+                </div>
+            )}
+
+            {/* Mobile Play Mode — full-screen overlay for teachers */}
+            {isMobilePlayOpen && role === 'teacher' && (
+                <div className="mobile-chat-fullscreen" ref={mobilePlayRef} style={{ zIndex: 910 }}>
+                    <div className="mobile-chat-topbar">
+                        <button className="mobile-chat-back" onClick={() => setIsMobilePlayOpen(false)}>
+                            ← Back
+                        </button>
+                        <span className="mobile-chat-topbar-title">▶ Play Mode</span>
+                    </div>
+                    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                        <PlayModePanel
+                            anchor={playAnchor}
+                            canvasH={playCanvasH}
+                            isBlackboardOn={blackboardOn}
+                            onEnableCourse={() => {
+                                if (!courseToggleOn) { setCourseToggleOn(true); emitCourseToggle(true, sessionCourseIds); }
+                            }}
+                            onEnableBlackboard={() => { setBlackboardOn(true); emitBlackboardToggle(true); }}
+                            onPlayFrame={seg => {
+                                setPlayPreviewSeg(seg ? { ...seg } : null);
+                                if (seg) emitDrawPreview(seg);
+                                else emitDrawPreview({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
+                            }}
+                            onPlayCommit={seg => {
+                                emitDrawSegment(seg);
+                                setPlayCommitSeg({ ...seg });
+                                setPlayPreviewSeg(null);
+                            }}
+                            onPlayReplaceLine={seg => {
+                                setPlayReplaceLineSeg({ ...seg });
+                                setPlayReplaceLineCount(prev => prev + 1);
+                                emitDrawReplaceLast(seg);
+                                setPlayPreviewSeg(null);
+                            }}
+                        />
+                    </div>
                 </div>
             )}
 
@@ -1186,6 +1243,13 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                         <button id="btn-mobile-chat" className="control-btn mobile-only" onClick={() => setIsChatOpen(true)}>
                             💬 <span className="control-label">Chat</span>
                         </button>
+
+                        {/* Mobile play toggle — teachers only */}
+                        {role === 'teacher' && (
+                            <button id="btn-mobile-play" className="control-btn mobile-only" onClick={() => setIsMobilePlayOpen(true)}>
+                                ▶ <span className="control-label">Play</span>
+                            </button>
+                        )}
 
                         {role === 'teacher' && (
                             <button id="btn-end-room" className="control-btn control-btn-danger" onClick={handleEndRoom}>

@@ -246,7 +246,9 @@ export default function PlayModePanel({
     const handleStart = useCallback(() => {
         const ta = editorRef.current;
         if (!ta) return;
-        const raw = ta.value.slice(cursorPosRef.current).trim();
+        // Always play the full textarea content; cursor tracking is only used
+        // for continuing after a Restart, not to skip text on first Start.
+        const raw = ta.value.trim();
         if (!raw) return;
         if (onEnableCourse) onEnableCourse();
         if (!isBlackboardOnRef.current) onEnableBlackboard();
@@ -341,7 +343,7 @@ export default function PlayModePanel({
 
                 {/* Font size */}
                 <select value={fontSize} onChange={e => setFontSize(Number(e.target.value))}
-                    style={{ padding: "2px 2px", borderRadius: 5, border: "none", background: "rgba(255,255,255,0.07)", color: "#94a3b8", fontSize: 11, cursor: "pointer", colorScheme: "dark", width: 40, minWidth: 40 }}>
+                    style={{ padding: "2px 2px", borderRadius: 5, border: "1px solid rgba(255,255,255,0.1)", background: "#1e293b", color: "#94a3b8", fontSize: 11, cursor: "pointer", colorScheme: "dark", width: 40, minWidth: 40 }}>
                     {SIZE_LIST.map(sz => <option key={sz} value={sz}>{sz}</option>)}
                 </select>
 
@@ -387,7 +389,7 @@ export default function PlayModePanel({
 
                 {/* Alignment */}
                 <select value={textAlign} onChange={e => setTextAlign(e.target.value as "left" | "center" | "right")}
-                    style={{ padding: "2px 2px", borderRadius: 5, border: "none", background: "rgba(255,255,255,0.07)", color: "#94a3b8", fontSize: 11, cursor: "pointer", colorScheme: "dark", width: 38, minWidth: 38 }}>
+                    style={{ padding: "2px 2px", borderRadius: 5, border: "1px solid rgba(255,255,255,0.1)", background: "#1e293b", color: "#94a3b8", fontSize: 11, cursor: "pointer", colorScheme: "dark", width: 38, minWidth: 38 }}>
                     <option value="left">←</option>
                     <option value="center">≡</option>
                     <option value="right">→</option>
@@ -395,7 +397,7 @@ export default function PlayModePanel({
 
                 {/* Animation type */}
                 <select value={animType} onChange={e => setAnimType(e.target.value as AnimType)}
-                    style={{ padding: "2px 2px", borderRadius: 5, border: "none", background: "rgba(255,255,255,0.07)", color: "#94a3b8", fontSize: 11, cursor: "pointer", colorScheme: "dark", width: 52, minWidth: 52 }}>
+                    style={{ padding: "2px 2px", borderRadius: 5, border: "1px solid rgba(255,255,255,0.1)", background: "#1e293b", color: "#94a3b8", fontSize: 11, cursor: "pointer", colorScheme: "dark", width: 52, minWidth: 52 }}>
                     <option value="typing">Type</option>
                     <option value="fade">Fade</option>
                     <option value="slide-right">Slide →</option>

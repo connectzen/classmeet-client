@@ -2573,6 +2573,19 @@ button:active:not(:disabled),
   padding: 12px;
   border-top: 1px solid var(--border);
   flex-shrink: 0;
+  /* Keep input pinned to bottom inside flex column containers */
+  margin-top: auto;
+}
+
+/* Ensure chat panel fills its flex parent on mobile overlays */
+.mobile-chat-fullscreen .chat-panel {
+  flex: 1;
+  min-height: 0;
+  height: 0;
+}
+.mobile-chat-fullscreen .chat-messages {
+  flex: 1;
+  min-height: 0;
 }
 
 .chat-input {
