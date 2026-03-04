@@ -57,6 +57,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [quizToggleOn, setQuizToggleOn] = useState(false);
     const [courseToggleOn, setCourseToggleOn] = useState(false);
     const [courseSharedWithStudents, setCourseSharedWithStudents] = useState(false);
+    const [blackboardOn, setBlackboardOn] = useState(false);
     const [sessionQuizIds, setSessionQuizIds] = useState<string[]>([]);
     const [sessionCourseIds, setSessionCourseIds] = useState<string[]>([]);
     const [roomQuizzes, setRoomQuizzes] = useState<{ id: string; title: string; question_count?: number; room_id?: string }[]>([]);
@@ -298,7 +299,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
         emitCourseToggle, emitCourseNavigate, emitCourseScroll, emitCourseSidebar,
         emitDrawSegment, emitDrawPreview, emitDrawCursor, emitDrawClear, emitDrawSnapshot, emitDrawSnapshotTo,
-        emitQuizStarted, emitQuizStopped, emitQuizProgress,
+        emitQuizStarted, emitQuizStopped, emitQuizProgress, emitBlackboardToggle,
     } = useSocket({
             roomCode, roomId, roomName, name, role, isGuestRoomHost,
             onParticipantJoined: handleParticipantJoined,
@@ -344,6 +345,9 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
             },
             onDrawSnapshot: (dataUrl) => {
                 if (role !== 'teacher') setExternalDrawSnapshot(dataUrl);
+            },
+            onBlackboardToggle: (active) => {
+                if (role !== 'teacher') setBlackboardOn(active);
             },
             onQuizStudentStarted: (data) => {
                 if (role === 'teacher') {
@@ -974,6 +978,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                         setCourseSharedWithStudents(true);
                                     }
                                 }}
+                                blackboardActive={blackboardOn}
+                                onBlackboardToggle={(on) => { setBlackboardOn(on); emitBlackboardToggle(on); }}
                             />
                         ) : courseToggleOn && role !== 'teacher' ? (
                             <RoomCoursePanel
@@ -991,6 +997,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 externalCursor={externalCursor}
                                 drawClearSignal={drawClearSignal}
                                 snapshotDataUrl={externalDrawSnapshot}
+                                blackboardActive={blackboardOn}
                             />
                         ) : quizToggleOn && role === 'teacher' ? (
                             quizMonitorMode && quizStudentProgress.size > 0 ? (

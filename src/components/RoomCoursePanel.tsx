@@ -61,6 +61,8 @@ interface Props {
     snapshotDataUrl?: string | null;
     sharedWithStudents?: boolean;
     onShareToggle?: () => void;
+    blackboardActive?: boolean;
+    onBlackboardToggle?: (on: boolean) => void;
 }
 
 type DrawTool = 'pen' | 'highlight' | 'eraser' | 'text' | 'circle' | 'rect' | 'square' | 'arrow' | 'line';
@@ -160,6 +162,7 @@ export default function RoomCoursePanel({
     onSnapshot, snapshotRequest,
     snapshotDataUrl,
     sharedWithStudents, onShareToggle,
+    blackboardActive, onBlackboardToggle,
 }: Props) {
     const [courses, setCourses] = useState<CourseData[]>([]);
     const [loading, setLoading] = useState(true);
@@ -174,6 +177,7 @@ export default function RoomCoursePanel({
     const [toolbarPos, setToolbarPos] = useState<{ x: number; y: number } | null>(null);
     const [toolbarExpanded, setToolbarExpanded] = useState(false);
     const [ephemeralMode, setEphemeralMode] = useState(false);
+    const [blackboardMode, setBlackboardMode] = useState(false);
     const [lessonKey, setLessonKey] = useState(0);
     // Teacher cursor rendered on the student's canvas
     const [teacherCursor, setTeacherCursor] = useState<{ x: number; y: number } | null>(null);
@@ -223,6 +227,15 @@ export default function RoomCoursePanel({
     const isTeacher  = role === 'teacher';
     const drawActive = isTeacher && drawTool !== null;
     const cursor     = drawTool ? (TOOL_DEFS.find(t => t.id === drawTool)?.cursor ?? 'crosshair') : 'default';
+    const showBlackboard = blackboardMode || (!!blackboardActive && !isTeacher);
+
+    const handleBlackboardToggle = useCallback(() => {
+        setBlackboardMode(prev => {
+            const next = !prev;
+            onBlackboardToggle?.(next);
+            return next;
+        });
+    }, [onBlackboardToggle]);
 
     // ── Data loading ──────────────────────────────────────────────────────────
     useEffect(() => {
@@ -768,8 +781,10 @@ export default function RoomCoursePanel({
                             {/* Lesson content — fixed at exactly CANVAS_W (640 px).
                                 Teacher and student both render at 640px → same text wrap
                                 → same scrollHeight → canvas coords map identically. */}
-                            <div ref={innerContentRef} style={{ padding: '20px', boxSizing: 'border-box', width: CANVAS_W, minWidth: CANVAS_W }}>
-                                {loading ? (
+                            <div ref={innerContentRef} style={{ padding: showBlackboard ? 0 : '20px', boxSizing: 'border-box', width: CANVAS_W, minWidth: CANVAS_W }}>
+                                {showBlackboard ? (
+                                    <div style={{ width: CANVAS_W, height: 600, background: 'linear-gradient(135deg, #0d1117 0%, #0f1923 100%)', borderRadius: 0 }} />
+                                ) : loading ? (
                                     <div style={{ color: 'var(--text-muted)', padding: 40, textAlign: 'center' }}>Loading course…</div>
                                 ) : !course ? (
                                     <div style={{ color: 'var(--text-muted)', padding: 40, textAlign: 'center' }}>No courses loaded.</div>
@@ -920,6 +935,22 @@ export default function RoomCoursePanel({
                             padding: '8px 6px', boxShadow: '0 6px 24px rgba(0,0,0,0.5)',
                             display: 'flex', flexDirection: 'column', gap: 6,
                         }}>
+                        {/* ── Blackboard toggle — top of toolbar ── */}
+                            <button onClick={handleBlackboardToggle}
+                                title={blackboardMode ? 'Exit Blackboard mode' : 'Blackboard mode — blank dark surface'}
+                                style={{ width: '100%', height: 28, borderRadius: 7, border: 'none',
+                                    background: blackboardMode ? 'rgba(99,102,241,0.4)' : 'transparent',
+                                    color: blackboardMode ? '#a5b4fc' : 'var(--text-muted)',
+                                    fontSize: 10, fontWeight: 700, cursor: 'pointer',
+                                    letterSpacing: '0.05em', textTransform: 'uppercase',
+                                    boxShadow: blackboardMode ? '0 0 0 1.5px #6366f1' : 'none',
+                                    transition: 'all 0.15s' }}
+                                onMouseEnter={e => { if (!blackboardMode) e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+                                onMouseLeave={e => { if (!blackboardMode) e.currentTarget.style.background = 'transparent'; }}>
+                                {blackboardMode ? '■ Board' : '□ Board'}
+                            </button>
+                            <div style={{ height: 1, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />
+
                             {/* ── Tools: 2-column grid ── */}
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 30px)', gap: 4 }}>
                                 {TOOL_DEFS.map(({ id, icon, tip }) => (

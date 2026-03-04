@@ -52,6 +52,7 @@ interface UseSocketOptions {
     onQuizStudentInactive?: (socketId: string) => void;
     // Live quiz progress (answers + current question index) from student
     onQuizProgressUpdate?: (data: { socketId: string } & QuizProgressSlim) => void;
+    onBlackboardToggle?: (active: boolean) => void;
 }
 
 export function useSocket(options: UseSocketOptions) {
@@ -114,9 +115,11 @@ export function useSocket(options: UseSocketOptions) {
     const onQuizStudentStartedRef = useRef(options.onQuizStudentStarted);
     const onQuizStudentInactiveRef = useRef(options.onQuizStudentInactive);
     const onQuizProgressUpdateRef = useRef(options.onQuizProgressUpdate);
+    const onBlackboardToggleRef = useRef(options.onBlackboardToggle);
     onQuizStudentStartedRef.current = options.onQuizStudentStarted;
     onQuizStudentInactiveRef.current = options.onQuizStudentInactive;
     onQuizProgressUpdateRef.current = options.onQuizProgressUpdate;
+    onBlackboardToggleRef.current = options.onBlackboardToggle;
 
     const socketRef = useRef<Socket | null>(null);
     const [socketId, setSocketId] = useState('');
@@ -231,6 +234,9 @@ export function useSocket(options: UseSocketOptions) {
         socket.on('quiz:progress-update', (data: { socketId: string } & QuizProgressSlim) => {
             onQuizProgressUpdateRef.current?.(data);
         });
+        socket.on('course:blackboard', ({ active }: { active: boolean }) => {
+            onBlackboardToggleRef.current?.(active);
+        });
         socket.on('disconnect', () => setConnected(false));
 
         return () => {
@@ -323,6 +329,10 @@ export function useSocket(options: UseSocketOptions) {
         socketRef.current?.emit('course-draw-snapshot-to', { targetSocketId, dataUrl });
     }, []);
 
+    const emitBlackboardToggle = useCallback((active: boolean) => {
+        socketRef.current?.emit('course-blackboard', { roomCode, active });
+    }, [roomCode]);
+
     // Student notifies teacher they started the quiz
     const emitQuizStarted = useCallback(() => {
         socketRef.current?.emit('quiz:student-started', { roomCode });
@@ -344,6 +354,6 @@ export function useSocket(options: UseSocketOptions) {
         startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
         emitCourseToggle, emitCourseNavigate, emitCourseScroll, emitCourseSidebar,
         emitDrawSegment, emitDrawPreview, emitDrawCursor, emitDrawClear, emitDrawSnapshot, emitDrawSnapshotTo,
-        emitQuizStarted, emitQuizStopped, emitQuizProgress,
+        emitQuizStarted, emitQuizStopped, emitQuizProgress, emitBlackboardToggle,
     };
 }
