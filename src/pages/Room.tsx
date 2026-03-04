@@ -964,6 +964,16 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                     if (target) { emitDrawSnapshotTo(target, dataUrl); snapshotTargetRef.current = null; }
                                     else emitDrawSnapshot(dataUrl);
                                 }}
+                                sharedWithStudents={courseSharedWithStudents}
+                                onShareToggle={() => {
+                                    if (courseSharedWithStudents) {
+                                        emitCourseToggle(false, []);
+                                        setCourseSharedWithStudents(false);
+                                    } else {
+                                        emitCourseToggle(true, sessionCourseIds);
+                                        setCourseSharedWithStudents(true);
+                                    }
+                                }}
                             />
                         ) : courseToggleOn && role !== 'teacher' ? (
                             <RoomCoursePanel
@@ -1129,23 +1139,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                             />
                         )}
 
-                        {/* Share toggle — shown when course panel is open */}
-                        {role === 'teacher' && courseToggleOn && (
-                            <CtrlToggle
-                                label="Share"
-                                on={courseSharedWithStudents}
-                                color="#22c55e"
-                                onChange={() => {
-                                    if (courseSharedWithStudents) {
-                                        emitCourseToggle(false, []);
-                                        setCourseSharedWithStudents(false);
-                                    } else {
-                                        emitCourseToggle(true, sessionCourseIds);
-                                        setCourseSharedWithStudents(true);
-                                    }
-                                }}
-                            />
-                        )}
+                        {/* Share toggle removed from here — now lives inside the course toolbar */}
 
                         {/* Mobile chat toggle */}
                         <button id="btn-mobile-chat" className="control-btn mobile-only" onClick={() => setIsChatOpen(true)}>

@@ -59,6 +59,8 @@ interface Props {
     onSnapshot?: (dataUrl: string) => void;
     snapshotRequest?: number;
     snapshotDataUrl?: string | null;
+    sharedWithStudents?: boolean;
+    onShareToggle?: () => void;
 }
 
 type DrawTool = 'pen' | 'highlight' | 'eraser' | 'text' | 'circle' | 'rect' | 'square' | 'arrow' | 'line';
@@ -157,6 +159,7 @@ export default function RoomCoursePanel({
     externalDrawSeg, externalDrawPreview, externalCursor, drawClearSignal,
     onSnapshot, snapshotRequest,
     snapshotDataUrl,
+    sharedWithStudents, onShareToggle,
 }: Props) {
     const [courses, setCourses] = useState<CourseData[]>([]);
     const [loading, setLoading] = useState(true);
@@ -959,6 +962,24 @@ export default function RoomCoursePanel({
                                     onMouseEnter={e => { e.currentTarget.style.background = 'rgba(248,113,113,0.18)'; }}
                                     onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>🗑</button>
                             </div>
+
+                            {/* ── Share toggle ── */}
+                            {onShareToggle && (
+                                <>
+                                    <div style={{ height: 1, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />
+                                    <button onClick={onShareToggle} title={sharedWithStudents ? 'Stop sharing with students' : 'Share with students'}
+                                        style={{ width: '100%', height: 28, borderRadius: 7, border: 'none',
+                                            background: sharedWithStudents ? 'rgba(34,197,94,0.3)' : 'transparent',
+                                            color: sharedWithStudents ? '#4ade80' : 'var(--text-muted)',
+                                            fontSize: 10, fontWeight: 700, cursor: 'pointer',
+                                            boxShadow: sharedWithStudents ? '0 0 0 1.5px #22c55e' : 'none',
+                                            transition: 'all 0.15s', letterSpacing: '0.05em', textTransform: 'uppercase' }}
+                                        onMouseEnter={e => { if (!sharedWithStudents) e.currentTarget.style.background = 'rgba(34,197,94,0.12)'; }}
+                                        onMouseLeave={e => { if (!sharedWithStudents) e.currentTarget.style.background = 'transparent'; }}>
+                                        {sharedWithStudents ? '● Share' : '○ Share'}
+                                    </button>
+                                </>
+                            )}
                         </div>
                         </>
                     )}
