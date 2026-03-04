@@ -687,6 +687,9 @@ export default function RoomCoursePanel({
 
     const commitText = useCallback((text: string, cx: number, cy: number) => {
         setTextInput(null);
+        // Clear teacher's own preview canvas
+        const p = previewRef.current;
+        if (p) p.getContext('2d')?.clearRect(0, 0, p.width, p.height);
         // Always clear preview canvas on students when text input closes
         onDrawPrevCb.current?.({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
         if (!text.trim()) return;
@@ -878,6 +881,8 @@ export default function RoomCoursePanel({
                                     onDrawSegCb.current?.(seg);
                                 }
                                 // Clear preview, move anchor, clear textarea
+                                const prv = previewRef.current;
+                                if (prv) prv.getContext('2d')?.clearRect(0, 0, prv.width, prv.height);
                                 onDrawPrevCb.current?.({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
                                 e.preventDefault(); // keep textarea focused
                                 setTextInput({ vx: e.clientX, vy: e.clientY, cx: newCx, cy: newCy });
@@ -898,9 +903,16 @@ export default function RoomCoursePanel({
                                     lineHeight: 1.4, cursor: 'text',
                                 }}
                                 onChange={e => {
-                                    // Live canvas preview at the click position
                                     const { drawSizeKey: sk, drawColor: dc, textFontStyle: tfs, textFontFamily: tff, textFontSize: tfsz } = drawState.current;
-                                    onDrawPrevCb.current?.({ x1: textInput.cx, y1: textInput.cy, x2: textInput.cx, y2: textInput.cy, color: dc, size: TOOL_SIZES[sk], mode: 'text', text: e.target.value || ' ', fontStyle: tfs, fontFamily: tff, fontSizePx: tfsz });
+                                    const seg = { x1: textInput.cx, y1: textInput.cy, x2: textInput.cx, y2: textInput.cy, color: dc, size: TOOL_SIZES[sk], mode: 'text' as const, text: e.target.value || ' ', fontStyle: tfs, fontFamily: tff, fontSizePx: tfsz };
+                                    // Draw live preview on teacher's own canvas
+                                    const p = previewRef.current;
+                                    if (p) {
+                                        const ctx = p.getContext('2d');
+                                        if (ctx) { ctx.clearRect(0, 0, p.width, p.height); drawOnCanvas(ctx, seg, p.width, p.height); }
+                                    }
+                                    // Send to students
+                                    onDrawPrevCb.current?.(seg);
                                 }}
                                 onKeyDown={e => {
                                     if (e.key === 'Enter' && !typingMode) {
@@ -910,6 +922,8 @@ export default function RoomCoursePanel({
                                     }
                                     if (e.key === 'Escape') {
                                         committingRef.current = true;
+                                        const p = previewRef.current;
+                                        if (p) p.getContext('2d')?.clearRect(0, 0, p.width, p.height);
                                         onDrawPrevCb.current?.({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
                                         setTextInput(null);
                                     }
@@ -1032,7 +1046,7 @@ export default function RoomCoursePanel({
                             zIndex: 20, background: 'rgba(10,10,20,0.92)', backdropFilter: 'blur(10px)',
                             border: '1px solid rgba(99,102,241,0.35)', borderRadius: 14,
                             padding: '8px 6px', boxShadow: '0 6px 24px rgba(0,0,0,0.5)',
-                            display: 'flex', flexDirection: 'column', gap: 6,
+                            display: 'flex', flexDirection: 'column', gap: 6, cursor: 'default',
                         }}>
                         {/* ── Blackboard toggle — top of toolbar ── */}
                             <button onClick={handleBlackboardToggle}
