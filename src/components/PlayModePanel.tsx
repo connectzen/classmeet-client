@@ -195,9 +195,23 @@ export default function PlayModePanel({
     // Cleanup on unmount
     useEffect(() => () => stopInterval(), [stopInterval]);
 
-    // ── Rich text editor commands ─────────────────────────────────────────────
+    // ── Selection save/restore (so toolbar controls don't lose the selection) ─
+    const savedSelRef = useRef<Range | null>(null);
+
+    const saveSelection = () => {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0 && editorRef.current?.contains(sel.anchorNode)) {
+            savedSelRef.current = sel.getRangeAt(0).cloneRange();
+        }
+    };
+
     const exec = (cmd: string, val?: string) => {
         editorRef.current?.focus();
+        const sel = window.getSelection();
+        if (sel && savedSelRef.current) {
+            sel.removeAllRanges();
+            sel.addRange(savedSelRef.current);
+        }
         document.execCommand(cmd, false, val);
     };
 
@@ -213,12 +227,16 @@ export default function PlayModePanel({
             {/* ── Rich Text Toolbar ──────────────────────────────────────────── */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '6px 8px', borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', flexShrink: 0 }}>
                 {/* Font family */}
-                <select value={fontFamily} onChange={e => { setFontFamily(e.target.value); exec('fontName', e.target.value); }}
+                <select value={fontFamily}
+                    onFocus={saveSelection}
+                    onChange={e => { setFontFamily(e.target.value); exec('fontName', e.target.value); }}
                     style={{ background: '#1e293b', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 4, fontSize: 11, padding: '2px 4px', cursor: 'pointer' }}>
                     {FONT_FAMILIES.map(f => <option key={f} value={f}>{f}</option>)}
                 </select>
                 {/* Font size */}
-                <select value={fontSize} onChange={e => { const s = Number(e.target.value); setFontSize(s); exec('fontSize', '7'); /* then override via css */ }}
+                <select value={fontSize}
+                    onFocus={saveSelection}
+                    onChange={e => { const s = Number(e.target.value); setFontSize(s); exec('fontSize', '7'); }}
                     style={{ background: '#1e293b', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 4, fontSize: 11, padding: '2px 4px', cursor: 'pointer', width: 52 }}>
                     {FONT_SIZES.map(s => <option key={s} value={s}>{s}px</option>)}
                 </select>
@@ -232,10 +250,10 @@ export default function PlayModePanel({
                 {/* Color swatches */}
                 <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
                     {PRESET_COLORS.map(c => (
-                        <button key={c} onMouseDown={e => { e.preventDefault(); setColor(c); exec('foreColor', c); }}
+                        <button key={c} onMouseDown={e => { e.preventDefault(); saveSelection(); setColor(c); exec('foreColor', c); }}
                             style={{ width: 16, height: 16, borderRadius: '50%', background: c, border: color === c ? '2px solid #818cf8' : '1px solid #334155', cursor: 'pointer', flexShrink: 0 }} />
                     ))}
-                    <input type="color" value={color} onChange={e => { setColor(e.target.value); exec('foreColor', e.target.value); }}
+                    <input type="color" value={color} onFocus={saveSelection} onChange={e => { setColor(e.target.value); exec('foreColor', e.target.value); }}
                         style={{ width: 22, height: 22, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }} />
                 </div>
             </div>
@@ -247,12 +265,13 @@ export default function PlayModePanel({
                 suppressContentEditableWarning
                 style={{
                     flex: 1, padding: '10px 12px', overflowY: 'auto', outline: 'none',
-                    fontFamily, fontSize, color, lineHeight: 1.6,
+                    fontFamily, fontSize, color: '#e2e8f0', lineHeight: 1.6,
                     whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                     opacity: isActive ? 0.5 : 1,
                     caretColor: color,
                     minHeight: 80,
                 }}
+                onBlur={saveSelection}
                 onKeyDown={e => {
                     if (e.key === 'Tab') { e.preventDefault(); exec('insertText', '    '); }
                 }}
