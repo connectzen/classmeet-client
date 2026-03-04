@@ -245,9 +245,12 @@ export default function PlayModePanel({
         setCurrentGroupIdx(idx);
         setPlayState("playing");
 
-        const ax       = anchorRef.current?.cx ?? 0.02;
-        const animX    = isFirstOnLine ? ax : ax + prevTextWidth;
-        const animText = isFirstOnLine ? accumulated : newWords;
+        const ax    = anchorRef.current?.cx ?? 0.02;
+        const animX = isFirstOnLine ? ax : ax + prevTextWidth;
+        // Always animate + commit only the NEW words for this fly — each word
+        // gets its own DrawSeg at its exact x-position so per-word colors /
+        // fonts are preserved independently on the canvas (no replace-line).
+        const animText = newWords;
 
         const makeAnimSeg = (text: string): DrawSeg => {
             const seg = makeBaseSeg(text, lineY, flyStyle);
@@ -256,10 +259,12 @@ export default function PlayModePanel({
         };
 
         const emit = (seg: DrawSeg) => onPlayFrameRef.current(seg);
-        const finalCommit = (seg: DrawSeg) => {
+        const finalCommit = () => {
             onPlayFrameRef.current(null);
-            if (isFirstOnLine) onPlayCommitRef.current(seg);
-            else               onPlayReplaceRef.current(seg);
+            // Commit the fly as an independent segment at animX — never replace
+            const s = makeBaseSeg(newWords, lineY, flyStyle);
+            s.x1 = animX; s.x2 = animX;
+            onPlayCommitRef.current(s);
         };
 
         const anim = animTypeRef.current;
@@ -272,7 +277,7 @@ export default function PlayModePanel({
                 emit(makeAnimSeg(charBufRef.current));
                 if (charBufRef.current.length >= animText.length) {
                     stopInterval();
-                    finalCommit(makeBaseSeg(accumulated, lineY, flyStyle));
+                    finalCommit();
                     charBufRef.current = "";
                     setPlayState(idx + 1 >= groupPlanRef.current.length ? "done" : "ready-next");
                 }
@@ -293,7 +298,7 @@ export default function PlayModePanel({
                 else if (anim === "scale")        { seg.fontSizePx = Math.max(1, Math.round(fontSizePx * (0.05 + 0.95 * p))); }
                 if (frameRef.current >= FRAMES) {
                     stopInterval();
-                    finalCommit(makeBaseSeg(accumulated, lineY, flyStyle));
+                    finalCommit();
                     setPlayState(idx + 1 >= groupPlanRef.current.length ? "done" : "ready-next");
                 } else {
                     emit(seg);
