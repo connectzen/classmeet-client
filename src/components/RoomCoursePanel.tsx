@@ -843,64 +843,54 @@ export default function RoomCoursePanel({
                                     transition: 'left 0.05s linear, top 0.05s linear',
                                 }} />
                             )}
-
-                            {/* Text input — absolute inside canvas coordinate space so it scales with zoom */}
-                            {textInput && isTeacher && (
-                                <div style={{
-                                    position: 'absolute',
-                                    left: Math.min(textInput.cx * CANVAS_W, CANVAS_W - 220),
-                                    top: textInput.cy * canvasH,
-                                    zIndex: 25,
-                                    minWidth: 120,
-                                    maxWidth: CANVAS_W - Math.min(textInput.cx * CANVAS_W, CANVAS_W - 220),
-                                    pointerEvents: 'auto',
-                                }}>
-                                    <textarea autoFocus placeholder=""
-                                        style={{ display: 'block', width: '100%',
-                                            background: typingMode ? 'rgba(0,0,0,0.35)' : 'transparent',
-                                            color: drawColor,
-                                            border: typingMode ? '1px dashed rgba(255,255,255,0.35)' : 'none',
-                                            borderRadius: typingMode ? 4 : 0,
-                                            padding: typingMode ? '4px 6px' : '0',
-                                            margin: '0', outline: 'none', resize: 'none',
-                                            boxSizing: 'border-box', overflow: 'hidden',
-                                            fontSize: textFontSize, fontFamily: textFontFamily,
-                                            fontWeight: textFontStyle.includes('bold') ? 700 : 400,
-                                            fontStyle: textFontStyle.includes('italic') ? 'italic' : 'normal',
-                                            lineHeight: 1.4, caretColor: drawColor,
-                                            minHeight: Math.round(textFontSize * 1.4) + 'px',
-                                        }}
-                                        onChange={e => {
-                                            // Auto-grow
-                                            e.target.style.height = 'auto';
-                                            e.target.style.height = e.target.scrollHeight + 'px';
-                                            // Live preview to students
-                                            const { drawSizeKey: sk, drawColor: dc, textFontStyle: tfs, textFontFamily: tff, textFontSize: tfsz } = drawState.current;
-                                            onDrawPrevCb.current?.({ x1: textInput.cx, y1: textInput.cy, x2: textInput.cx, y2: textInput.cy, color: dc, size: TOOL_SIZES[sk], mode: 'text', text: e.target.value || ' ', fontStyle: tfs, fontFamily: tff, fontSizePx: tfsz });
-                                        }}
-                                        onKeyDown={e => {
-                                            if (e.key === 'Enter' && !typingMode) {
-                                                // Normal mode: Enter commits
-                                                e.preventDefault();
-                                                committingRef.current = true;
-                                                commitText(e.currentTarget.value, textInput.cx, textInput.cy);
-                                            }
-                                            // Typewriter mode: Enter naturally inserts \n (no preventDefault)
-                                            if (e.key === 'Escape') {
-                                                committingRef.current = true;
-                                                onDrawPrevCb.current?.({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
-                                                setTextInput(null);
-                                            }
-                                        }}
-                                        onBlur={e => {
-                                            if (committingRef.current) { committingRef.current = false; return; }
-                                            commitText(e.currentTarget.value, textInput.cx, textInput.cy);
-                                        }}
-                                    />
-                                </div>
-                            )}
                         </div>
                     </div>
+
+                    {/* Full-screen text input overlay — covers entire presenting area while teacher types.
+                        Teacher sees text rendered live on canvas (preview); students see the same.
+                        The textarea itself is invisible so nothing distracts from the canvas. */}
+                    {textInput && isTeacher && (
+                        <div style={{
+                            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                            zIndex: 25, cursor: 'text',
+                        }}>
+                            <textarea autoFocus placeholder=""
+                                style={{
+                                    display: 'block', width: '100%', height: '100%',
+                                    background: 'transparent',
+                                    color: 'transparent',
+                                    caretColor: drawColor,
+                                    border: 'none', outline: 'none', resize: 'none',
+                                    padding: 0, margin: 0, boxSizing: 'border-box',
+                                    fontSize: textFontSize, fontFamily: textFontFamily,
+                                    fontWeight: textFontStyle.includes('bold') ? 700 : 400,
+                                    fontStyle: textFontStyle.includes('italic') ? 'italic' : 'normal',
+                                    lineHeight: 1.4, cursor: 'text',
+                                }}
+                                onChange={e => {
+                                    // Live canvas preview at the click position
+                                    const { drawSizeKey: sk, drawColor: dc, textFontStyle: tfs, textFontFamily: tff, textFontSize: tfsz } = drawState.current;
+                                    onDrawPrevCb.current?.({ x1: textInput.cx, y1: textInput.cy, x2: textInput.cx, y2: textInput.cy, color: dc, size: TOOL_SIZES[sk], mode: 'text', text: e.target.value || ' ', fontStyle: tfs, fontFamily: tff, fontSizePx: tfsz });
+                                }}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter' && !typingMode) {
+                                        e.preventDefault();
+                                        committingRef.current = true;
+                                        commitText(e.currentTarget.value, textInput.cx, textInput.cy);
+                                    }
+                                    if (e.key === 'Escape') {
+                                        committingRef.current = true;
+                                        onDrawPrevCb.current?.({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
+                                        setTextInput(null);
+                                    }
+                                }}
+                                onBlur={e => {
+                                    if (committingRef.current) { committingRef.current = false; return; }
+                                    commitText(e.currentTarget.value, textInput.cx, textInput.cy);
+                                }}
+                            />
+                        </div>
+                    )}
 
                     {/* Prev / Next arrows */}
                     {isTeacher && (
