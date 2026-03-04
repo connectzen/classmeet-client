@@ -1139,18 +1139,6 @@ export default function RoomCoursePanel({
                                     commitText(e.currentTarget.value, textInput.cx, textInput.cy);
                                 }}
                             />
-                            {/* Mode badge — always visible while typing overlay is open */}
-                            <div style={{
-                                position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)',
-                                pointerEvents: 'none', zIndex: 18,
-                                background: typingMode ? 'rgba(99,102,241,0.85)' : 'rgba(30,30,50,0.8)',
-                                border: `1px solid ${typingMode ? '#818cf8' : 'rgba(255,255,255,0.15)'}`,
-                                color: typingMode ? '#e0e7ff' : '#94a3b8',
-                                borderRadius: 8, padding: '4px 12px', fontSize: 11, fontWeight: 600,
-                                backdropFilter: 'blur(6px)', whiteSpace: 'nowrap',
-                            }}>
-                                {typingMode ? '⌨ Typewriter — click to reposition' : '✎ Normal — Enter to commit'}
-                            </div>
                         </div>
                     )}
 
