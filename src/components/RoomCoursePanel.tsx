@@ -235,6 +235,9 @@ export default function RoomCoursePanel({
     // Always-fresh ref so drawing handlers can check blackboard mode without stale closure
     const showBlackboardRef = useRef(showBlackboard);
     showBlackboardRef.current = showBlackboard;
+    // Always-fresh contentScale ref so scroll handler never has stale closure
+    const contentScaleRef = useRef(contentScale);
+    contentScaleRef.current = contentScale;
     const onDrawSegCb    = useRef(onDrawSegment);
     onDrawSegCb.current  = onDrawSegment;
     const onDrawPrevCb   = useRef(onDrawPreview);
@@ -280,16 +283,16 @@ export default function RoomCoursePanel({
             onCoursesLoaded?.(courses[activeCourseIdx]?.lessons.length ?? 0);
     }, [courses, activeCourseIdx, onCoursesLoaded]);
 
-    // ── Scroll: teacher → emit ratio ─────────────────────────────────────────
+    // ── Scroll: teacher → emit canvas-pixel offset ───────────────────────────
+    // Send scrollTop / contentScale = scroll in canvas (zoom-independent) pixels.
+    // Student multiplies by their own contentScale to get their scrollTop.
     const handleScroll = useCallback(() => {
         if (!isTeacher || !onScrollSync) return;
         const el = contentRef.current;
         if (!el) return;
-        const max = el.scrollHeight - el.clientHeight;
-        if (max <= 0) return;
-        const ratio = el.scrollTop / max;
-        if (Math.abs(ratio - lastRatio.current) < 0.003) return;
-        lastRatio.current = ratio;
+        const canvasPx = el.scrollTop / contentScaleRef.current;
+        if (Math.abs(canvasPx - lastRatio.current) < 2) return;
+        lastRatio.current = canvasPx;
         if (scrollThrottle.current) return;
         scrollThrottle.current = setTimeout(() => {
             scrollThrottle.current = null;
@@ -298,13 +301,13 @@ export default function RoomCoursePanel({
     }, [isTeacher, onScrollSync]);
 
     // ── Scroll: student ← locked to teacher ──────────────────────────────────
+    // externalScroll is a canvas-pixel offset; convert to screen pixels via scale.
     useEffect(() => {
         if (isTeacher || externalScroll == null) return;
         const el = contentRef.current;
         if (!el) return;
-        const max = el.scrollHeight - el.clientHeight;
-        if (max > 0) el.scrollTop = externalScroll * max;
-    }, [externalScroll, isTeacher]);
+        el.scrollTop = externalScroll * contentScale;
+    }, [externalScroll, isTeacher, contentScale]);
 
     // ── Clear canvas on lesson/course change ──────────────────────────────────
     useEffect(() => {
@@ -365,8 +368,14 @@ export default function RoomCoursePanel({
 
             // Width is always exactly CANVAS_W — never depends on panel/viewport size
             const w = CANVAS_W;
-            // Height mirrors the inner content div so drawings cover all the text
-            const h = Math.max(inner.scrollHeight, content.clientHeight, 1);
+            // Height: use getBoundingClientRect().height / scale to get the NATURAL
+            // unzoomed height. inner.scrollHeight is measured inside the CSS-zoomed
+            // parent (scaleRef), so it differs between teacher and student when their
+            // zoom levels differ — causing the same cy coord to land at different
+            // canvas pixels. Dividing out the scale produces a zoom-independent height
+            // that is identical on both sides, keeping text in the same position.
+            const naturalH = Math.round(inner.getBoundingClientRect().height / scale);
+            const h = Math.max(naturalH, Math.round(content.clientHeight / scale), 1);
             setCanvasH(h);
 
             if (canvas.width !== w || canvas.height !== h) {
