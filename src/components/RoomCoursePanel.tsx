@@ -968,7 +968,7 @@ export default function RoomCoursePanel({
                                 <div>
                                     <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Size</div>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 3 }}>
-                                        {[12, 16, 20, 24, 28, 32, 40, 48].map(sz => (
+                                        {[12, 16, 20, 24, 28, 32, 40, 48, 56, 64, 72].map(sz => (
                                             <button key={sz} onClick={() => setTextFontSize(sz)}
                                                 style={{ height: 26, borderRadius: 5, border: `1px solid ${textFontSize === sz ? 'rgba(99,102,241,0.6)' : 'rgba(255,255,255,0.07)'}`,
                                                     background: textFontSize === sz ? 'rgba(99,102,241,0.35)' : 'transparent',
