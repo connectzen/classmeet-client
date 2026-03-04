@@ -184,6 +184,8 @@ export default function RoomCoursePanel({
     const [toolbarScale, setToolbarScale] = useState(1);
     // Teacher cursor rendered on the student's canvas
     const [teacherCursor, setTeacherCursor] = useState<{ x: number; y: number } | null>(null);
+    // Text-anchor indicator: shows students where the teacher is about to type
+    const [textAnchorPos, setTextAnchorPos] = useState<{ cx: number; cy: number; color: string; fontSizePx: number } | null>(null);
 
     // ── Refs ─────────────────────────────────────────────────────────────────
     const contentRef      = useRef<HTMLDivElement>(null);    // scrollable area
@@ -571,7 +573,15 @@ export default function RoomCoursePanel({
         if (!ctx) return;
         ctx.clearRect(0, 0, p.width, p.height);
         // Special sentinel: teacher committed shape, clear preview
-        if ((externalDrawPreview as DrawSeg & { text?: string }).text === '__clear_preview__') return;
+        if ((externalDrawPreview as DrawSeg & { text?: string }).text === '__clear_preview__') {
+            setTextAnchorPos(null);
+            return;
+        }
+        // Special sentinel: teacher opened text input — show blinking cursor to student
+        if ((externalDrawPreview as DrawSeg & { text?: string }).text === '__text_anchor__') {
+            setTextAnchorPos({ cx: externalDrawPreview.x1, cy: externalDrawPreview.y1, color: externalDrawPreview.color, fontSizePx: externalDrawPreview.fontSizePx ?? 20 });
+            return;
+        }
         drawOnCanvas(ctx, externalDrawPreview, p.width, p.height);
     }, [externalDrawPreview]);
 
@@ -709,7 +719,12 @@ export default function RoomCoursePanel({
         const c = canvasRef.current;
         if (!c) return;
         const r = c.getBoundingClientRect();
-        setTextInput({ vx: e.clientX, vy: e.clientY, cx: (e.clientX - r.left) / r.width, cy: (e.clientY - r.top) / r.height });
+        const cx = (e.clientX - r.left) / r.width;
+        const cy = (e.clientY - r.top) / r.height;
+        setTextInput({ vx: e.clientX, vy: e.clientY, cx, cy });
+        // Tell students where the teacher is about to type (blinking caret indicator)
+        const { drawColor: dc, textFontSize: tfsz } = drawState.current;
+        onDrawPrevCb.current?.({ x1: cx, y1: cy, x2: cx, y2: cy, color: dc, size: 0, mode: 'text', text: '__text_anchor__', fontSizePx: tfsz });
     }, [drawTool]);
 
     const commitText = useCallback((text: string, cx: number, cy: number) => {
@@ -876,6 +891,22 @@ export default function RoomCoursePanel({
                                     transition: 'left 0.05s linear, top 0.05s linear',
                                 }} />
                             )}
+                            {/* Text-anchor blink — shows students where teacher will type */}
+                            {!isTeacher && textAnchorPos && (
+                                <div style={{
+                                    position: 'absolute',
+                                    left: Math.max(0, textAnchorPos.cx * CANVAS_W - 1),
+                                    top: Math.max(0, textAnchorPos.cy * canvasH),
+                                    width: 3,
+                                    height: Math.round(textAnchorPos.fontSizePx * 1.4),
+                                    background: textAnchorPos.color,
+                                    borderRadius: 2,
+                                    pointerEvents: 'none',
+                                    zIndex: 17,
+                                    boxShadow: `0 0 8px ${textAnchorPos.color}`,
+                                    animation: 'textCursorBlink 0.9s ease-in-out infinite',
+                                }} />
+                            )}
                         </div>
                     </div>
 
@@ -919,6 +950,9 @@ export default function RoomCoursePanel({
                                     e.preventDefault(); // keep textarea focused
                                     setTextInput({ vx: e.clientX, vy: e.clientY, cx: newCx, cy: newCy });
                                     if (ta) { ta.value = ''; ta.focus(); }
+                                    // Update blinking caret position for students
+                                    const { drawColor: dc, textFontSize: tfsz } = drawState.current;
+                                    onDrawPrevCb.current?.({ x1: newCx, y1: newCy, x2: newCx, y2: newCy, color: dc, size: 0, mode: 'text', text: '__text_anchor__', fontSizePx: tfsz });
                                 } else {
                                     // ── Normal mode: close overlay; teacher can click again to open elsewhere ──
                                     committingRef.current = true;
