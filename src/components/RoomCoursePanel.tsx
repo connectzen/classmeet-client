@@ -387,10 +387,11 @@ export default function RoomCoursePanel({
         };
 
         sync();
-        // Observe inner div (content changes) AND wrapper div (panel resize)
+        // Observe inner div (content changes), wrapper div (panel resize), and toolbar (content changes)
         const ro = new ResizeObserver(sync);
         ro.observe(inner);
         if (wrapperRef.current) ro.observe(wrapperRef.current);
+        if (toolbarRef.current) ro.observe(toolbarRef.current);
         return () => ro.disconnect();
     }, [CANVAS_W, isTeacher]);
 
@@ -1008,18 +1009,21 @@ export default function RoomCoursePanel({
                         <>
                         {/* Text options floating panel — visible when T active AND no text input open */}
                         <div style={{
-                            position: 'absolute', right: 82, top: '50%',
-                            transform: `translateY(-50%) translateX(${drawTool === 'text' && textInput === null ? 0 : 14}px)`,
+                            position: 'absolute', right: 82, top: 8,
+                            transform: `translateX(${drawTool === 'text' && textInput === null ? 0 : 14}px)`,
                             zIndex: 19,
                             pointerEvents: drawTool === 'text' && textInput === null ? 'auto' : 'none',
                             opacity: drawTool === 'text' && textInput === null ? 1 : 0,
                             transition: 'opacity 0.22s ease, transform 0.22s ease',
+                            maxHeight: 'calc(100% - 16px)',
+                            display: 'flex', flexDirection: 'column',
                         }}>
                             <div style={{
                                 background: 'rgba(10,10,20,0.95)', backdropFilter: 'blur(12px)',
                                 border: '1px solid rgba(99,102,241,0.35)', borderRadius: 14,
                                 padding: '10px 10px', boxShadow: '0 6px 24px rgba(0,0,0,0.5)',
                                 display: 'flex', flexDirection: 'column', gap: 8, minWidth: 140,
+                                overflowY: 'auto', flex: 1,
                             }}>
                                 {/* Header + typewriter toggle */}
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
@@ -1094,8 +1098,9 @@ export default function RoomCoursePanel({
                         </div>
 
                         <div ref={toolbarRef} style={{
-                            position: 'absolute', right: 6, top: '50%',
-                            transform: `translateY(-50%) scale(${toolbarScale})`,
+                            position: 'absolute', right: 6, top: 8,
+                            transform: `scale(${toolbarScale})`,
+                            transformOrigin: 'top right',
                             zIndex: 20, background: 'rgba(10,10,20,0.92)', backdropFilter: 'blur(10px)',
                             border: '1px solid rgba(99,102,241,0.35)', borderRadius: 14,
                             padding: '8px 6px', boxShadow: '0 6px 24px rgba(0,0,0,0.5)',
