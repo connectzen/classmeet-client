@@ -248,23 +248,17 @@ function SizeDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
     const [open, setOpen] = useState(false);
     const [pos, setPos] = useState({ top: 0, left: 0 });
     const btnRef = useRef<HTMLButtonElement>(null);
-    const origRef = useRef<string | undefined>(undefined);
     const currentPx = (editor?.getAttributes('textStyle') as { fontSize?: string }).fontSize || '';
     const current = currentPx.replace('px', '');
 
     function apply(size: string) {
-        if (size) editor?.chain().setMark('textStyle', { fontSize: size + 'px' }).run();
-        else editor?.chain().setMark('textStyle', { fontSize: null }).run();
-    }
-    function onHover(size: string) {
-        if (origRef.current === undefined) origRef.current = current;
-        apply(size);
-    }
-    function onLeave() {
-        if (origRef.current !== undefined) { apply(origRef.current); origRef.current = undefined; }
+        // .focus() restores Tiptap's saved selection so the mark lands only on
+        // the selected range, not the entire document.
+        if (size) editor?.chain().focus().setMark('textStyle', { fontSize: size + 'px' }).run();
+        else editor?.chain().focus().setMark('textStyle', { fontSize: null }).run();
     }
     function onSelect(size: string) {
-        origRef.current = undefined; apply(size); editor?.chain().focus().run(); setOpen(false);
+        apply(size); setOpen(false);
     }
     function handleToggle(e: React.MouseEvent) {
         e.preventDefault();
@@ -277,18 +271,18 @@ function SizeDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
 
     return (
         <div style={{ position: 'relative' }}>
-            {open && <div style={{ position: 'fixed', inset: 0, zIndex: 9000 }} onMouseDown={e => e.preventDefault()} onClick={() => { onLeave(); setOpen(false); }} />}
+            {open && <div style={{ position: 'fixed', inset: 0, zIndex: 9000 }} onMouseDown={e => e.preventDefault()} onClick={() => setOpen(false)} />}
             <button ref={btnRef} type="button" onMouseDown={handleToggle}
                 style={{ padding: '3px 8px', borderRadius: 5, border: 'none', background: open ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)', color: current ? '#a5b4fc' : '#94a3b8', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
                 {current || 'Size'} <span style={{ fontSize: 9, opacity: 0.6 }}>▾</span>
             </button>
             {open && (
-                <div onMouseLeave={onLeave} onWheel={e => e.stopPropagation()}
+                <div onWheel={e => e.stopPropagation()}
                     style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9001, background: '#1e2132', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 72, padding: '4px 0', maxHeight: 280, overflowY: 'auto' }}>
-                    <div onMouseDown={e => e.preventDefault()} onMouseEnter={() => onHover('')} onClick={() => onSelect('')}
+                    <div onMouseDown={e => e.preventDefault()} onClick={() => onSelect('')}
                         style={{ padding: '5px 16px', cursor: 'pointer', fontSize: 12, color: !current ? '#a5b4fc' : '#64748b', fontWeight: !current ? 600 : 400 }}>Default</div>
                     {SIZES.map(size => (
-                        <div key={size} onMouseDown={e => e.preventDefault()} onMouseEnter={() => onHover(size)} onClick={() => onSelect(size)}
+                        <div key={size} onMouseDown={e => e.preventDefault()} onClick={() => onSelect(size)}
                             style={{ padding: '5px 16px', cursor: 'pointer', fontSize: 12, color: current === size ? '#a5b4fc' : '#94a3b8', fontWeight: current === size ? 700 : 400, background: current === size ? 'rgba(99,102,241,0.12)' : 'transparent' }}>
                             {size}
                         </div>
@@ -304,23 +298,17 @@ function FontDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
     const [open, setOpen] = useState(false);
     const [pos, setPos] = useState({ top: 0, left: 0 });
     const btnRef = useRef<HTMLButtonElement>(null);
-    const origRef = useRef<string | undefined>(undefined);
     const currentFont = (editor?.getAttributes('textStyle') as { fontFamily?: string }).fontFamily || '';
     const currentLabel = FONTS.find(f => f.value === currentFont)?.label || 'Font';
 
     function apply(fontFamily: string) {
-        if (fontFamily) editor?.chain().setMark('textStyle', { fontFamily }).run();
-        else editor?.chain().setMark('textStyle', { fontFamily: null }).run();
-    }
-    function onHover(value: string) {
-        if (origRef.current === undefined) origRef.current = currentFont;
-        apply(value);
-    }
-    function onLeave() {
-        if (origRef.current !== undefined) { apply(origRef.current); origRef.current = undefined; }
+        // .focus() restores Tiptap's saved selection so the mark lands only on
+        // the selected range, not the entire document.
+        if (fontFamily) editor?.chain().focus().setMark('textStyle', { fontFamily }).run();
+        else editor?.chain().focus().setMark('textStyle', { fontFamily: null }).run();
     }
     function onSelect(value: string) {
-        origRef.current = undefined; apply(value); editor?.chain().focus().run(); setOpen(false);
+        apply(value); setOpen(false);
     }
     function handleToggle(e: React.MouseEvent) {
         e.preventDefault();
@@ -333,17 +321,17 @@ function FontDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
 
     return (
         <div style={{ position: 'relative' }}>
-            {open && <div style={{ position: 'fixed', inset: 0, zIndex: 9000 }} onMouseDown={e => e.preventDefault()} onClick={() => { onLeave(); setOpen(false); }} />}
+            {open && <div style={{ position: 'fixed', inset: 0, zIndex: 9000 }} onMouseDown={e => e.preventDefault()} onClick={() => setOpen(false)} />}
             <button ref={btnRef} type="button" onMouseDown={handleToggle}
                 style={{ padding: '3px 8px', borderRadius: 5, border: 'none', background: open ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)', color: currentFont ? '#a5b4fc' : '#94a3b8', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3, maxWidth: 110 }}>
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentLabel}</span>
                 <span style={{ fontSize: 9, opacity: 0.6, flexShrink: 0 }}>▾</span>
             </button>
             {open && (
-                <div onMouseLeave={onLeave} onWheel={e => e.stopPropagation()}
+                <div onWheel={e => e.stopPropagation()}
                     style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9001, background: '#1e2132', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 190, padding: '4px 0', maxHeight: 300, overflowY: 'auto' }}>
                     {FONTS.map(font => (
-                        <div key={font.value} onMouseDown={e => e.preventDefault()} onMouseEnter={() => onHover(font.value)} onClick={() => onSelect(font.value)}
+                        <div key={font.value} onMouseDown={e => e.preventDefault()} onClick={() => onSelect(font.value)}
                             style={{ padding: '8px 16px', cursor: 'pointer', fontFamily: font.value || 'inherit', fontSize: 13, color: currentFont === font.value ? '#a5b4fc' : '#e2e8f0', background: currentFont === font.value ? 'rgba(99,102,241,0.12)' : 'transparent', fontWeight: currentFont === font.value ? 600 : 400 }}>
                             {font.label}
                         </div>
