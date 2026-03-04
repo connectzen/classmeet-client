@@ -1,6 +1,6 @@
 ﻿import { useCallback, useEffect, useRef, useState } from "react";
 import type { DrawSeg } from "./RoomCoursePanel";
-import RichEditor, { stripHtml, isRichEmpty } from "./RichEditor";
+import RichEditor, { isRichEmpty } from "./RichEditor";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const CANVAS_W = 640;
@@ -13,6 +13,73 @@ const SPEED_OPTIONS: { label: string; ms: number }[] = [
 type FontStyle = "normal" | "bold" | "italic" | "bold italic";
 type PlayState = "idle" | "playing" | "paused" | "ready-next" | "done";
 type AnimType  = "typing" | "fade" | "slide-right" | "slide-left" | "slide-bottom" | "scale";
+
+// ── Styled word: one word with its resolved inline style ─────────────────────
+interface StyledWord {
+    word: string;
+    textLine: number;
+    color: string;
+    fontFamily: string;
+    fontSizePx: number;
+    fontStyle: FontStyle;
+}
+
+/** Parse Tiptap HTML into a flat list of words each carrying its inline style. */
+function parseRichToStyledWords(html: string): StyledWord[] {
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    const words: StyledWord[] = [];
+    let lineIdx = 0;
+    const BLOCK = new Set(['p','div','h1','h2','h3','h4','h5','h6','li','blockquote','pre']);
+
+    function walk(
+        node: Node,
+        inh: { color: string; fontFamily: string; fontSizePx: number; fontStyle: FontStyle },
+    ) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            const text = node.textContent ?? '';
+            const re = /\S+/g; let m: RegExpExecArray | null;
+            while ((m = re.exec(text)) !== null)
+                words.push({ word: m[0], textLine: lineIdx, ...inh });
+            return;
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+        const el = node as HTMLElement;
+        const tag = el.tagName.toLowerCase();
+
+        // br = explicit line break
+        if (tag === 'br') { if (words.length) lineIdx++; return; }
+
+        const cur = { ...inh };
+        const st  = el.style;
+        if (st.color)      cur.color      = st.color;
+        if (st.fontFamily) cur.fontFamily  = st.fontFamily.replace(/['"]*/g, '').trim();
+        if (st.fontSize)   cur.fontSizePx  = parseInt(st.fontSize) || inh.fontSizePx;
+        // bold via inline style
+        const fw = st.fontWeight;
+        if (fw === 'bold' || Number(fw) >= 700)
+            cur.fontStyle = cur.fontStyle.includes('italic') ? 'bold italic' : 'bold';
+        // italic via inline style
+        if (st.fontStyle === 'italic')
+            cur.fontStyle = cur.fontStyle.includes('bold') ? 'bold italic' : 'italic';
+        // semantic tags
+        if (tag === 'strong' || tag === 'b')
+            cur.fontStyle = cur.fontStyle.includes('italic') ? 'bold italic' : 'bold';
+        if (tag === 'em' || tag === 'i')
+            cur.fontStyle = cur.fontStyle.includes('bold') ? 'bold italic' : 'italic';
+
+        const isBlock = BLOCK.has(tag);
+        // opening of a block element (except very first) starts a new line
+        if (isBlock && words.length > 0) lineIdx++;
+
+        for (const child of Array.from(el.childNodes)) walk(child, cur);
+    }
+
+    const defaults = { color: '#ffffff', fontFamily: 'Inter, sans-serif', fontSizePx: 20, fontStyle: 'normal' as FontStyle };
+
+    for (const child of Array.from(div.childNodes)) walk(child, defaults);
+    return words;
+}
 
 interface Props {
     anchor: { cx: number; cy: number } | null;
@@ -33,63 +100,62 @@ interface GroupPlan {
     isFirstOnLine: boolean;
     prevTextWidth: number;
     newWords: string;
+    // resolved style for this fly group (from first word in the group)
+    color: string;
+    fontFamily: string;
+    fontSizePx: number;
+    fontStyle: FontStyle;
 }
 
 function buildGroupPlan(
-    text: string,
+    styledWords: StyledWord[],
     wordsPerFly: number,
     wordsPerLine: number,
     anchorCy: number,
     canvasH: number,
-    fontSizePx: number,
-    fontStyle: FontStyle,
-    fontFamily: string,
 ): GroupPlan[] {
-    const wordInfos: Array<{ word: string; textLine: number }> = [];
-    text.split('\n').forEach((noteLine, lineIdx) => {
-        const re = /\S+/g;
-        let m: RegExpExecArray | null;
-        while ((m = re.exec(noteLine)) !== null)
-            wordInfos.push({ word: m[0], textLine: lineIdx });
-    });
-    if (!wordInfos.length) return [];
+    if (!styledWords.length) return [];
 
     const measCanvas = document.createElement('canvas');
     const measCtx = measCanvas.getContext('2d')!;
-    const measureWidth = (str: string) => {
+    const measureWidth = (str: string, fs: FontStyle, fpx: number, ff: string) => {
         if (!str) return 0;
-        measCtx.font = `${fontStyle} ${fontSizePx}px ${fontFamily}`;
+        measCtx.font = `${fs} ${fpx}px ${ff}`;
         return measCtx.measureText(str).width / CANVAS_W;
     };
 
-    const lineH = (fontSizePx * 1.4) / Math.max(1, canvasH);
     const plan: GroupPlan[] = [];
     let lineY         = anchorCy;
     let lineWordCount = 0;
     let lineAccum     = "";
-    let prevTextLine  = wordInfos[0].textLine;
+    let prevTextLine  = styledWords[0].textLine;
     let i             = 0;
+    let lineLeadingPx = styledWords[0].fontSizePx;
 
-    while (i < wordInfos.length) {
-        if (wordInfos[i].textLine !== prevTextLine) {
+    while (i < styledWords.length) {
+        if (styledWords[i].textLine !== prevTextLine) {
             if (lineWordCount > 0) {
-                lineY += lineH;
+                lineY += (lineLeadingPx * 1.4) / Math.max(1, canvasH);
                 lineWordCount = 0;
                 lineAccum = "";
+                lineLeadingPx = styledWords[i].fontSizePx;
             }
-            prevTextLine = wordInfos[i].textLine;
+            prevTextLine = styledWords[i].textLine;
         }
 
         const remaining = wordsPerLine - lineWordCount;
         const maxTake   = Math.min(wordsPerFly, remaining);
-        const curLine   = wordInfos[i].textLine;
+        const curLine   = styledWords[i].textLine;
         let take = 0;
-        while (take < maxTake && i + take < wordInfos.length && wordInfos[i + take].textLine === curLine)
+        while (take < maxTake && i + take < styledWords.length && styledWords[i + take].textLine === curLine)
             take++;
         if (take === 0) break;
 
-        const flySlice      = wordInfos.slice(i, i + take);
+        const flySlice = styledWords.slice(i, i + take);
         i += take;
+
+        const { color, fontFamily, fontSizePx, fontStyle } = flySlice[0];
+        lineLeadingPx = Math.max(lineLeadingPx, fontSizePx);
 
         const isFirstOnLine = lineWordCount === 0;
         const prevAccum     = lineAccum;
@@ -97,14 +163,19 @@ function buildGroupPlan(
         lineAccum           = lineAccum ? lineAccum + " " + flyText : flyText;
         lineWordCount      += take;
 
-        const prevTextWidth = prevAccum ? measureWidth(prevAccum + " ") : 0;
+        const prevTextWidth = prevAccum ? measureWidth(prevAccum + " ", fontStyle, fontSizePx, fontFamily) : 0;
 
-        plan.push({ accumulated: lineAccum, prevAccumulated: prevAccum, lineY, isFirstOnLine, prevTextWidth, newWords: flyText });
+        plan.push({
+            accumulated: lineAccum, prevAccumulated: prevAccum,
+            lineY, isFirstOnLine, prevTextWidth, newWords: flyText,
+            color, fontFamily, fontSizePx, fontStyle,
+        });
 
         if (lineWordCount >= wordsPerLine) {
-            lineY += lineH;
+            lineY += (lineLeadingPx * 1.4) / Math.max(1, canvasH);
             lineWordCount = 0;
             lineAccum = "";
+            lineLeadingPx = i < styledWords.length ? styledWords[i].fontSizePx : fontSizePx;
         }
     }
     return plan;
@@ -115,11 +186,6 @@ export default function PlayModePanel({
     anchor, canvasH, onPlayFrame, onPlayCommit, onPlayReplaceLine,
     onEnableBlackboard, isBlackboardOn, onEnableCourse,
 }: Props) {
-    const [fontFamily,      setFontFamily]   = useState("Inter, sans-serif");
-    const [fontSize,        setFontSize]     = useState(20);
-    const [fontStyle,       setFontStyle]    = useState<FontStyle>("normal");
-    const [color,           setColor]        = useState("#ffffff");
-    const [textAlign,       setTextAlign]    = useState<"left" | "center" | "right">("left");
     const [wordsPerLine,    setWordsPerLine] = useState(5);
     const [wordsPerFly,     setWordsPerFly]  = useState(1);
     const [speedIdx,        setSpeedIdx]     = useState(1);
@@ -137,11 +203,6 @@ export default function PlayModePanel({
 
     const anchorRef       = useRef(anchor);    anchorRef.current      = anchor;
     const canvasHRef      = useRef(canvasH);   canvasHRef.current     = canvasH;
-    const colorRef        = useRef(color);     colorRef.current       = color;
-    const fontFamilyRef   = useRef(fontFamily);fontFamilyRef.current  = fontFamily;
-    const fontSizeRef     = useRef(fontSize);  fontSizeRef.current    = fontSize;
-    const fontStyleRef    = useRef(fontStyle); fontStyleRef.current   = fontStyle;
-    const textAlignRef    = useRef(textAlign); textAlignRef.current   = textAlign;
     const speedRef        = useRef(speedIdx);  speedRef.current       = speedIdx;
     const animTypeRef     = useRef(animType);  animTypeRef.current    = animType;
     const wordsPerLineRef = useRef(wordsPerLine); wordsPerLineRef.current = wordsPerLine;
@@ -151,17 +212,18 @@ export default function PlayModePanel({
     const onPlayReplaceRef = useRef(onPlayReplaceLine); onPlayReplaceRef.current = onPlayReplaceLine;
     const isBlackboardOnRef = useRef(isBlackboardOn); isBlackboardOnRef.current = isBlackboardOn;
 
-    const makeBaseSeg = useCallback((text: string, lineY: number): DrawSeg => {
+    const makeBaseSeg = useCallback((
+        text: string,
+        lineY: number,
+        style: { color: string; fontFamily: string; fontSizePx: number; fontStyle: FontStyle },
+    ): DrawSeg => {
         const baseX = anchorRef.current?.cx ?? 0.02;
-        const alignedX = textAlignRef.current === 'center' ? 0.5
-                       : textAlignRef.current === 'right'  ? 0.9
-                       : baseX;
         return {
-            x1: alignedX, y1: lineY, x2: alignedX, y2: lineY,
-            color: colorRef.current, size: 1, mode: "text", text,
-            fontFamily: fontFamilyRef.current,
-            fontSizePx: fontSizeRef.current,
-            fontStyle:  fontStyleRef.current,
+            x1: baseX, y1: lineY, x2: baseX, y2: lineY,
+            color: style.color, size: 1, mode: "text", text,
+            fontFamily: style.fontFamily,
+            fontSizePx: style.fontSizePx,
+            fontStyle:  style.fontStyle,
         };
     }, []);
 
@@ -177,7 +239,9 @@ export default function PlayModePanel({
             onPlayFrameRef.current(null);
             return;
         }
-        const { accumulated, lineY, isFirstOnLine, prevTextWidth, newWords } = plan[idx];
+        const { accumulated, lineY, isFirstOnLine, prevTextWidth, newWords,
+                color, fontFamily, fontSizePx, fontStyle } = plan[idx];
+        const flyStyle = { color, fontFamily, fontSizePx, fontStyle };
         setCurrentGroupIdx(idx);
         setPlayState("playing");
 
@@ -186,7 +250,7 @@ export default function PlayModePanel({
         const animText = isFirstOnLine ? accumulated : newWords;
 
         const makeAnimSeg = (text: string): DrawSeg => {
-            const seg = makeBaseSeg(text, lineY);
+            const seg = makeBaseSeg(text, lineY, flyStyle);
             seg.x1 = animX; seg.x2 = animX;
             return seg;
         };
@@ -208,7 +272,7 @@ export default function PlayModePanel({
                 emit(makeAnimSeg(charBufRef.current));
                 if (charBufRef.current.length >= animText.length) {
                     stopInterval();
-                    finalCommit(makeBaseSeg(accumulated, lineY));
+                    finalCommit(makeBaseSeg(accumulated, lineY, flyStyle));
                     charBufRef.current = "";
                     setPlayState(idx + 1 >= groupPlanRef.current.length ? "done" : "ready-next");
                 }
@@ -226,10 +290,10 @@ export default function PlayModePanel({
                 else if (anim === "slide-right")  { seg.x1 = seg.x2 = animX + 0.35 * (1 - p); }
                 else if (anim === "slide-left")   { seg.x1 = seg.x2 = animX - 0.35 * (1 - p); }
                 else if (anim === "slide-bottom") { seg.y1 = seg.y2 = lineY + (0.15 * Math.max(1, canvasHRef.current) / 100) * (1 - p); }
-                else if (anim === "scale")        { seg.fontSizePx = Math.max(1, Math.round(fontSizeRef.current * (0.05 + 0.95 * p))); }
+                else if (anim === "scale")        { seg.fontSizePx = Math.max(1, Math.round(fontSizePx * (0.05 + 0.95 * p))); }
                 if (frameRef.current >= FRAMES) {
                     stopInterval();
-                    finalCommit(makeBaseSeg(accumulated, lineY));
+                    finalCommit(makeBaseSeg(accumulated, lineY, flyStyle));
                     setPlayState(idx + 1 >= groupPlanRef.current.length ? "done" : "ready-next");
                 } else {
                     emit(seg);
@@ -240,19 +304,17 @@ export default function PlayModePanel({
     }, [stopInterval, makeBaseSeg]);
 
     const handleStart = useCallback(() => {
-        const raw = stripHtml(editorHtml).trim();
-        if (!raw || isRichEmpty(editorHtml)) return;
+        if (isRichEmpty(editorHtml)) return;
+        const styledWords = parseRichToStyledWords(editorHtml);
+        if (!styledWords.length) return;
         if (onEnableCourse) onEnableCourse();
         if (!isBlackboardOnRef.current) onEnableBlackboard();
         const plan = buildGroupPlan(
-            raw,
+            styledWords,
             wordsPerFlyRef.current,
             wordsPerLineRef.current,
             anchorRef.current?.cy ?? 0.05,
             canvasHRef.current,
-            fontSizeRef.current,
-            fontStyleRef.current,
-            fontFamilyRef.current,
         );
         if (!plan.length) return;
         groupPlanRef.current = plan;
