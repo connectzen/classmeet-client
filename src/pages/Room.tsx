@@ -65,6 +65,10 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [playCanvasH,      setPlayCanvasH]      = useState(600);
     const [playPreviewSeg,   setPlayPreviewSeg]   = useState<DrawSeg | null>(null);
     const [playCommitSeg,    setPlayCommitSeg]    = useState<DrawSeg | null>(null);
+    const [playReplaceLineSeg,   setPlayReplaceLineSeg]   = useState<DrawSeg | null>(null);
+    const [playReplaceLineCount, setPlayReplaceLineCount] = useState(0);
+    const [externalDrawReplaceSeg,   setExternalDrawReplaceSeg]   = useState<DrawSeg | null>(null);
+    const [externalDrawReplaceCount, setExternalDrawReplaceCount] = useState(0);
     const [sessionQuizIds, setSessionQuizIds] = useState<string[]>([]);
     const [sessionCourseIds, setSessionCourseIds] = useState<string[]>([]);
     const [roomQuizzes, setRoomQuizzes] = useState<{ id: string; title: string; question_count?: number; room_id?: string; status?: string }[]>([]);
@@ -310,7 +314,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         sendSignal, sendMessage, endRoom, muteParticipant, camParticipant, broadcastSelfCam, changeSpotlight,
         startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
         emitCourseToggle, emitCourseNavigate, emitCourseScroll, emitCourseSidebar,
-        emitDrawSegment, emitDrawPreview, emitDrawCursor, emitDrawClear, emitDrawSnapshot, emitDrawSnapshotTo,
+        emitDrawSegment, emitDrawPreview, emitDrawCursor, emitDrawClear, emitDrawSnapshot, emitDrawSnapshotTo, emitDrawReplaceLast,
         emitQuizStarted, emitQuizStopped, emitQuizProgress, emitBlackboardToggle,
     } = useSocket({
             roomCode, roomId, roomName, name, role, isGuestRoomHost,
@@ -345,6 +349,12 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
             },
             onDrawSegment: (seg) => {
                 if (role !== 'teacher') setExternalDrawSeg(seg);
+            },
+            onDrawReplaceLast: (seg) => {
+                if (role !== 'teacher') {
+                    setExternalDrawReplaceSeg(seg);
+                    setExternalDrawReplaceCount(prev => prev + 1);
+                }
             },
             onDrawPreview: (seg) => {
                 if (role !== 'teacher') setExternalDrawPreview(seg);
@@ -1000,6 +1010,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 onCanvasHChange={h => setPlayCanvasH(h)}
                                 externalPlaySeg={playPreviewSeg}
                                 externalPlayCommitSeg={playCommitSeg}
+                                externalPlayReplaceLineSeg={playReplaceLineSeg}
+                                externalPlayReplaceLineCount={playReplaceLineCount}
                             />
                         ) : courseToggleOn && role !== 'teacher' ? (
                             <RoomCoursePanel
@@ -1018,6 +1030,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 drawClearSignal={drawClearSignal}
                                 snapshotDataUrl={externalDrawSnapshot}
                                 blackboardActive={blackboardOn}
+                                externalDrawReplaceSeg={externalDrawReplaceSeg}
+                                externalDrawReplaceCount={externalDrawReplaceCount}
                             />
                         ) : quizToggleOn && role === 'teacher' ? (
                             quizMonitorMode && quizStudentProgress.size > 0 ? (
@@ -1234,6 +1248,12 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                     // Commit to teacher's own canvas
                                     setPlayCommitSeg({ ...seg });
                                     // Clear preview
+                                    setPlayPreviewSeg(null);
+                                }}
+                                onPlayReplaceLine={seg => {
+                                    setPlayReplaceLineSeg({ ...seg });
+                                    setPlayReplaceLineCount(prev => prev + 1);
+                                    emitDrawReplaceLast(seg);
                                     setPlayPreviewSeg(null);
                                 }}
                             />

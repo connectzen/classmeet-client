@@ -34,6 +34,7 @@ export interface DrawSeg {
     fontStyle?: string;
     fontFamily?: string;
     fontSizePx?: number;
+    opacity?: number;
 }
 
 interface Props {
@@ -71,6 +72,12 @@ interface Props {
     externalPlaySeg?: DrawSeg | null;
     // Final committed play-mode segment — written to blackboardSegs + main canvas
     externalPlayCommitSeg?: DrawSeg | null;
+    // Replace-last: replaces the last blackboardSeg with accumulated line text (teacher canvas)
+    externalPlayReplaceLineSeg?: DrawSeg | null;
+    externalPlayReplaceLineCount?: number;
+    // Student receives replace-last from server
+    externalDrawReplaceSeg?: DrawSeg | null;
+    externalDrawReplaceCount?: number;
 }
 
 type DrawTool = 'pen' | 'highlight' | 'eraser' | 'text' | 'circle' | 'rect' | 'square' | 'arrow' | 'line';
@@ -147,7 +154,7 @@ function drawOnCanvas(ctx: CanvasRenderingContext2D, seg: DrawSeg, w: number, h:
         ctx.closePath(); ctx.fill();
     } else if (seg.mode === 'text') {
         ctx.globalCompositeOperation = 'source-over';
-        ctx.globalAlpha = 1; ctx.fillStyle = seg.color;
+        ctx.globalAlpha = seg.opacity ?? 1; ctx.fillStyle = seg.color;
         const fStyle  = seg.fontStyle  || 'bold';
         const fFamily = seg.fontFamily || 'sans-serif';
         const fSize   = seg.fontSizePx ?? Math.round(15 * seg.size);
@@ -204,6 +211,8 @@ export default function RoomCoursePanel({
     onDrawSegment, onDrawPreview, onDrawCursor, onDrawClear,
     externalDrawSeg, externalDrawPreview, externalCursor, drawClearSignal,
     onTextAnchorSet, onCanvasHChange, externalPlaySeg, externalPlayCommitSeg,
+    externalPlayReplaceLineSeg, externalPlayReplaceLineCount,
+    externalDrawReplaceSeg, externalDrawReplaceCount,
     onSnapshot, snapshotRequest,
     snapshotDataUrl,
     sharedWithStudents, onShareToggle,
@@ -276,7 +285,7 @@ export default function RoomCoursePanel({
     const isTeacher  = role === 'teacher';
     const drawActive = isTeacher && drawTool !== null;
     const cursor     = drawTool ? (TOOL_DEFS.find(t => t.id === drawTool)?.cursor ?? 'crosshair') : 'default';
-    const showBlackboard = blackboardMode || (!!blackboardActive && !isTeacher);
+    const showBlackboard = blackboardMode || !!blackboardActive;
 
     const drawState   = useRef({ drawTool, drawColor, drawSizeKey, ephemeralMode, textFontStyle, textFontFamily, textFontSize });
     drawState.current = { drawTool, drawColor, drawSizeKey, ephemeralMode, textFontStyle, textFontFamily, textFontSize };
@@ -300,6 +309,12 @@ export default function RoomCoursePanel({
             return next;
         });
     }, [onBlackboardToggle]);
+
+    // Sync internal blackboardMode when blackboardActive prop becomes true
+    // (e.g. Play Mode auto-enables the blackboard for the teacher)
+    useEffect(() => {
+        if (blackboardActive) setBlackboardMode(true);
+    }, [blackboardActive]);
 
     // ── Data loading ──────────────────────────────────────────────────────────
     useEffect(() => {
@@ -665,6 +680,33 @@ export default function RoomCoursePanel({
         const p = previewRef.current;
         if (p) p.getContext('2d')?.clearRect(0, 0, p.width, p.height);
     }, [externalPlayCommitSeg]);
+
+    // ── Play Mode: replace-last line segment (line accumulation, teacher canvas) ──
+    useEffect(() => {
+        if (!externalPlayReplaceLineSeg) return;
+        if (blackboardSegs.current.length > 0) blackboardSegs.current.pop();
+        blackboardSegs.current.push(externalPlayReplaceLineSeg);
+        const c = canvasRef.current;
+        if (!c) return;
+        const ctx = c.getContext('2d');
+        if (!ctx) return;
+        ctx.clearRect(0, 0, c.width, c.height);
+        for (const s of blackboardSegs.current) drawOnCanvas(ctx, s, c.width, c.height);
+        previewRef.current?.getContext('2d')?.clearRect(0, 0, previewRef.current.width, previewRef.current.height);
+    }, [externalPlayReplaceLineCount]);
+
+    // ── Student: replace-last from server ──────────────────────────────────────
+    useEffect(() => {
+        if (!externalDrawReplaceSeg) return;
+        if (blackboardSegs.current.length > 0) blackboardSegs.current.pop();
+        blackboardSegs.current.push(externalDrawReplaceSeg);
+        const c = canvasRef.current;
+        if (!c) return;
+        const ctx = c.getContext('2d');
+        if (!ctx) return;
+        ctx.clearRect(0, 0, c.width, c.height);
+        for (const s of blackboardSegs.current) drawOnCanvas(ctx, s, c.width, c.height);
+    }, [externalDrawReplaceCount]);
 
     // ── Receive live preview from teacher (student) ───────────────────────────
     useEffect(() => {

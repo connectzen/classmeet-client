@@ -53,6 +53,7 @@ interface UseSocketOptions {
     // Live quiz progress (answers + current question index) from student
     onQuizProgressUpdate?: (data: { socketId: string } & QuizProgressSlim) => void;
     onBlackboardToggle?: (active: boolean) => void;
+    onDrawReplaceLast?: (seg: DrawSeg) => void;
     // Quiz start error (e.g. quiz is still a draft)
     onQuizError?: (error: string) => void;
 }
@@ -113,6 +114,8 @@ export function useSocket(options: UseSocketOptions) {
     onDrawCursorRef.current  = onDrawCursor;
     onDrawClearRef.current = onDrawClear;
     onDrawSnapshotRef.current = onDrawSnapshot;
+    const onDrawReplaceLastRef = useRef(options.onDrawReplaceLast);
+    onDrawReplaceLastRef.current = options.onDrawReplaceLast;
 
     const onQuizStudentStartedRef = useRef(options.onQuizStudentStarted);
     const onQuizStudentInactiveRef = useRef(options.onQuizStudentInactive);
@@ -229,6 +232,9 @@ export function useSocket(options: UseSocketOptions) {
         socket.on('course:draw-snapshot', ({ dataUrl }: { dataUrl: string }) => {
             onDrawSnapshotRef.current?.(dataUrl);
         });
+        socket.on('course:draw-replace-last', (seg: DrawSeg) => {
+            onDrawReplaceLastRef.current?.(seg);
+        });
         socket.on('quiz:student-started', (data: { socketId: string; name: string }) => {
             onQuizStudentStartedRef.current?.(data);
         });
@@ -336,6 +342,10 @@ export function useSocket(options: UseSocketOptions) {
         socketRef.current?.emit('course-draw-snapshot-to', { targetSocketId, dataUrl });
     }, []);
 
+    const emitDrawReplaceLast = useCallback((seg: DrawSeg) => {
+        socketRef.current?.emit('course-draw-replace-last', { roomCode, ...seg });
+    }, [roomCode]);
+
     const emitBlackboardToggle = useCallback((active: boolean) => {
         socketRef.current?.emit('course-blackboard', { roomCode, active });
     }, [roomCode]);
@@ -360,7 +370,7 @@ export function useSocket(options: UseSocketOptions) {
         sendSignal, sendMessage, endRoom, muteParticipant, camParticipant, broadcastSelfCam, changeSpotlight,
         startRoomQuiz, stopRoomQuiz, submitRoomQuiz, revealRoomQuiz,
         emitCourseToggle, emitCourseNavigate, emitCourseScroll, emitCourseSidebar,
-        emitDrawSegment, emitDrawPreview, emitDrawCursor, emitDrawClear, emitDrawSnapshot, emitDrawSnapshotTo,
+        emitDrawSegment, emitDrawPreview, emitDrawCursor, emitDrawClear, emitDrawSnapshot, emitDrawSnapshotTo, emitDrawReplaceLast,
         emitQuizStarted, emitQuizStopped, emitQuizProgress, emitBlackboardToggle,
     };
 }

@@ -1,7 +1,7 @@
 ﻿import { useCallback, useEffect, useRef, useState } from "react";
 import type { DrawSeg } from "./RoomCoursePanel";
 
-// ── Constants - mirror RoomCoursePanel exactly ────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 const CANVAS_W = 640;
 const SPEED_OPTIONS: { label: string; ms: number }[] = [
     { label: "Slow",   ms: 80 },
@@ -21,50 +21,117 @@ const SIZE_LIST = [12, 16, 20, 24, 28, 32, 40, 48, 56, 64, 72];
 
 type FontStyle = "normal" | "bold" | "italic" | "bold italic";
 type PlayState = "idle" | "playing" | "paused" | "ready-next" | "done";
+type AnimType  = "typing" | "fade" | "slide-right" | "slide-left" | "slide-bottom" | "scale";
 
 interface Props {
     anchor: { cx: number; cy: number } | null;
     canvasH: number;
     onPlayFrame: (seg: DrawSeg | null) => void;
     onPlayCommit: (seg: DrawSeg) => void;
+    onPlayReplaceLine: (seg: DrawSeg) => void;
     onEnableBlackboard: () => void;
     isBlackboardOn: boolean;
     onEnableCourse?: () => void;
 }
 
+// ── GroupPlan: pre-computed animation schedule ────────────────────────────────
+interface GroupPlan {
+    accumulated: string;    // full text shown on this line up to and including this fly
+    lineY: number;          // normalised Y coordinate for this line
+    isFirstOnLine: boolean; // true = push new seg; false = replace-last seg
+}
+
+function buildGroupPlan(
+    text: string,
+    wordsPerFly: number,
+    wordsPerLine: number,
+    anchorCy: number,
+    canvasH: number,
+    fontSizePx: number,
+): GroupPlan[] {
+    const words = text.split(/\s+/).filter(Boolean);
+    if (!words.length) return [];
+    const lineH      = (fontSizePx * 1.4) / Math.max(1, canvasH);
+    const plan: GroupPlan[] = [];
+    let lineY        = anchorCy;
+    let lineWordCount = 0;   // words consumed on current line so far
+    let lineAccum     = "";  // accumulated text on current line
+
+    for (let i = 0; i < words.length; i += wordsPerFly) {
+        const flyWords   = words.slice(i, i + wordsPerFly);
+        const flyCount   = flyWords.length;
+        const isFirstOnLine = lineWordCount === 0;
+
+        // Would adding these words overflow the line?
+        if (!isFirstOnLine && lineWordCount + flyCount > wordsPerLine) {
+            // Start a new line
+            lineY        += lineH;
+            lineWordCount = 0;
+            lineAccum     = "";
+        }
+
+        lineAccum     = lineAccum ? lineAccum + " " + flyWords.join(" ") : flyWords.join(" ");
+        lineWordCount += flyCount;
+        plan.push({
+            accumulated: lineAccum,
+            lineY,
+            isFirstOnLine: lineWordCount === flyCount && (lineAccum === flyWords.join(" ")),
+        });
+
+        // If the line is now full, the NEXT fly starts on a new line
+        if (lineWordCount >= wordsPerLine) {
+            lineY        += lineH;
+            lineWordCount = 0;
+            lineAccum     = "";
+        }
+    }
+    return plan;
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 export default function PlayModePanel({
-    anchor, canvasH, onPlayFrame, onPlayCommit, onEnableBlackboard, isBlackboardOn, onEnableCourse,
+    anchor, canvasH, onPlayFrame, onPlayCommit, onPlayReplaceLine,
+    onEnableBlackboard, isBlackboardOn, onEnableCourse,
 }: Props) {
-    const [fontFamily,  setFontFamily]  = useState("Inter, sans-serif");
-    const [fontSize,    setFontSize]    = useState(20);
-    const [fontStyle,   setFontStyle]   = useState<FontStyle>("bold");
-    const [color,       setColor]       = useState("#ffffff");
-    const [wordsPerStep, setWordsPerStep] = useState(3);
+    const [fontFamily,   setFontFamily]   = useState("Inter, sans-serif");
+    const [fontSize,     setFontSize]     = useState(20);
+    const [fontStyle,    setFontStyle]    = useState<FontStyle>("bold");
+    const [color,        setColor]        = useState("#ffffff");
+    const [wordsPerLine, setWordsPerLine] = useState(5);
+    const [wordsPerFly,  setWordsPerFly]  = useState(1);
     const [speedIdx,     setSpeedIdx]     = useState(1);
+    const [animType,     setAnimType]     = useState<AnimType>("typing");
     const [playState,       setPlayState]       = useState<PlayState>("idle");
     const [currentGroupIdx, setCurrentGroupIdx] = useState(0);
     const [totalGroups,     setTotalGroups]     = useState(0);
 
-    const editorRef       = useRef<HTMLTextAreaElement>(null);
-    const cursorPosRef    = useRef(0); // saved on blur so button-click doesn't reset it
-    const wordGroupsRef = useRef<string[][]>([]);
-    const charBufRef    = useRef("");
-    const intervalRef   = useRef<ReturnType<typeof setInterval> | null>(null);
-    const lineYRef      = useRef(0);
-    const playStateRef  = useRef<PlayState>("idle");
+    const editorRef      = useRef<HTMLTextAreaElement>(null);
+    const cursorPosRef   = useRef(0);
+    const groupPlanRef   = useRef<GroupPlan[]>([]);
+    const charBufRef     = useRef("");
+    const intervalRef    = useRef<ReturnType<typeof setInterval> | null>(null);
+    const frameRef       = useRef(0);
+    const playStateRef   = useRef<PlayState>("idle");
     playStateRef.current = playState;
 
-    const anchorRef      = useRef(anchor);     anchorRef.current     = anchor;
-    const canvasHRef     = useRef(canvasH);    canvasHRef.current    = canvasH;
-    const colorRef       = useRef(color);      colorRef.current      = color;
-    const fontFamilyRef  = useRef(fontFamily); fontFamilyRef.current = fontFamily;
-    const fontSizeRef    = useRef(fontSize);   fontSizeRef.current   = fontSize;
-    const fontStyleRef   = useRef(fontStyle);  fontStyleRef.current  = fontStyle;
-    const speedRef       = useRef(speedIdx);   speedRef.current      = speedIdx;
-    const onPlayFrameRef  = useRef(onPlayFrame);  onPlayFrameRef.current  = onPlayFrame;
-    const onPlayCommitRef = useRef(onPlayCommit); onPlayCommitRef.current = onPlayCommit;
+    // Stable refs for values used inside setInterval
+    const anchorRef           = useRef(anchor);           anchorRef.current      = anchor;
+    const canvasHRef          = useRef(canvasH);          canvasHRef.current     = canvasH;
+    const colorRef            = useRef(color);            colorRef.current       = color;
+    const fontFamilyRef       = useRef(fontFamily);       fontFamilyRef.current  = fontFamily;
+    const fontSizeRef         = useRef(fontSize);         fontSizeRef.current    = fontSize;
+    const fontStyleRef        = useRef(fontStyle);        fontStyleRef.current   = fontStyle;
+    const speedRef            = useRef(speedIdx);         speedRef.current       = speedIdx;
+    const animTypeRef         = useRef(animType);         animTypeRef.current    = animType;
+    const wordsPerLineRef     = useRef(wordsPerLine);     wordsPerLineRef.current = wordsPerLine;
+    const wordsPerFlyRef      = useRef(wordsPerFly);      wordsPerFlyRef.current  = wordsPerFly;
+    const onPlayFrameRef      = useRef(onPlayFrame);      onPlayFrameRef.current  = onPlayFrame;
+    const onPlayCommitRef     = useRef(onPlayCommit);     onPlayCommitRef.current = onPlayCommit;
+    const onPlayReplaceRef    = useRef(onPlayReplaceLine); onPlayReplaceRef.current = onPlayReplaceLine;
+    const isBlackboardOnRef   = useRef(isBlackboardOn);  isBlackboardOnRef.current = isBlackboardOn;
 
-    const makeSeg = useCallback((text: string, lineY: number): DrawSeg => ({
+    // ── helpers ──────────────────────────────────────────────────────────────
+    const makeBaseSeg = useCallback((text: string, lineY: number): DrawSeg => ({
         x1: anchorRef.current?.cx ?? 0.02,
         y1: lineY,
         x2: anchorRef.current?.cx ?? 0.02,
@@ -75,68 +142,118 @@ export default function PlayModePanel({
         text,
         fontFamily: fontFamilyRef.current,
         fontSizePx: fontSizeRef.current,
-        fontStyle: fontStyleRef.current,
+        fontStyle:  fontStyleRef.current,
     }), []);
 
     const stopInterval = useCallback(() => {
         if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
     }, []);
 
-    const advanceLine = useCallback((lineY: number) => {
-        const lineH = (fontSizeRef.current * 1.4) / Math.max(1, canvasHRef.current);
-        return lineY + lineH;
-    }, []);
-
-    const animateGroup = useCallback((groupIdx: number, lineY: number) => {
+    // ── animate one group plan entry ─────────────────────────────────────────
+    const animateGroup = useCallback((idx: number) => {
         stopInterval();
-        const groups = wordGroupsRef.current;
-        if (groupIdx >= groups.length) { setPlayState("done"); onPlayFrameRef.current(null); return; }
-        const target = groups[groupIdx].join(" ");
-        charBufRef.current = "";
-        lineYRef.current   = lineY;
-        setCurrentGroupIdx(groupIdx);
+        const plan = groupPlanRef.current;
+        if (idx >= plan.length) {
+            setPlayState("done");
+            onPlayFrameRef.current(null);
+            return;
+        }
+        const { accumulated, lineY, isFirstOnLine } = plan[idx];
+        setCurrentGroupIdx(idx);
         setPlayState("playing");
-        intervalRef.current = setInterval(() => {
-            if (playStateRef.current === "paused") return;
-            const next = charBufRef.current.length + 1;
-            charBufRef.current = target.slice(0, next);
-            onPlayFrameRef.current(makeSeg(charBufRef.current, lineYRef.current));
-            if (charBufRef.current.length >= target.length) {
-                stopInterval();
-                onPlayCommitRef.current(makeSeg(target, lineYRef.current));
-                charBufRef.current = "";
-                setPlayState(groupIdx + 1 >= wordGroupsRef.current.length ? "done" : "ready-next");
+
+        const commit = (seg: DrawSeg) => {
+            if (isFirstOnLine) {
+                onPlayCommitRef.current(seg);
+            } else {
+                onPlayReplaceRef.current(seg);
             }
-        }, SPEED_OPTIONS[speedRef.current].ms);
+        };
+
+        const anim = animTypeRef.current;
+
+        if (anim === "typing") {
+            charBufRef.current = "";
+            intervalRef.current = setInterval(() => {
+                if (playStateRef.current === "paused") return;
+                const next = charBufRef.current.length + 1;
+                charBufRef.current = accumulated.slice(0, next);
+                onPlayFrameRef.current(makeBaseSeg(charBufRef.current, lineY));
+                if (charBufRef.current.length >= accumulated.length) {
+                    stopInterval();
+                    // show nothing on preview; commit the full text
+                    onPlayFrameRef.current(null);
+                    commit(makeBaseSeg(accumulated, lineY));
+                    charBufRef.current = "";
+                    setPlayState(idx + 1 >= groupPlanRef.current.length ? "done" : "ready-next");
+                }
+            }, SPEED_OPTIONS[speedRef.current].ms);
+        } else {
+            // Frame-based animations: 20 frames
+            const FRAMES = 20;
+            frameRef.current = 0;
+            const ax = anchorRef.current?.cx ?? 0.02;
+            const targetFontSize = fontSizeRef.current;
+            const ms = Math.max(10, SPEED_OPTIONS[speedRef.current].ms * 1.5);
+
+            intervalRef.current = setInterval(() => {
+                if (playStateRef.current === "paused") return;
+                frameRef.current += 1;
+                const raw = frameRef.current / FRAMES;
+                const progress = Math.min(1, 1 - Math.pow(1 - raw, 2)); // ease-out
+
+                const seg = makeBaseSeg(accumulated, lineY);
+
+                if (anim === "fade") {
+                    seg.opacity = progress;
+                } else if (anim === "slide-right") {
+                    seg.x1 = seg.x2 = ax + 0.35 * (1 - progress);
+                } else if (anim === "slide-left") {
+                    seg.x1 = seg.x2 = ax - 0.35 * (1 - progress);
+                } else if (anim === "slide-bottom") {
+                    seg.y1 = seg.y2 = lineY + (0.15 * Math.max(1, canvasHRef.current) / 100) * (1 - progress);
+                } else if (anim === "scale") {
+                    seg.fontSizePx = Math.max(1, Math.round(targetFontSize * (0.05 + 0.95 * progress)));
+                }
+
+                if (frameRef.current >= FRAMES) {
+                    stopInterval();
+                    onPlayFrameRef.current(null);
+                    commit(makeBaseSeg(accumulated, lineY));
+                    setPlayState(idx + 1 >= groupPlanRef.current.length ? "done" : "ready-next");
+                } else {
+                    onPlayFrameRef.current(seg);
+                }
+            }, ms);
+        }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [stopInterval, makeSeg]);
+    }, [stopInterval, makeBaseSeg]);
 
     const handleStart = useCallback(() => {
         const ta = editorRef.current;
         if (!ta) return;
-        // Use saved cursor position (textarea loses focus when button is clicked)
-        const cursorPos = cursorPosRef.current;
-        const raw = ta.value.slice(cursorPos).trim();
+        const raw = ta.value.slice(cursorPosRef.current).trim();
         if (!raw) return;
         if (onEnableCourse) onEnableCourse();
-        if (!isBlackboardOn) onEnableBlackboard();
-        const words  = raw.split(/\s+/).filter(Boolean);
-        const groups: string[][] = [];
-        for (let i = 0; i < words.length; i += wordsPerStep) groups.push(words.slice(i, i + wordsPerStep));
-        if (!groups.length) return;
-        wordGroupsRef.current = groups;
-        setTotalGroups(groups.length);
-        const startY = anchorRef.current?.cy ?? 0.05;
-        lineYRef.current = startY;
-        animateGroup(0, startY);
-    }, [isBlackboardOn, onEnableBlackboard, onEnableCourse, wordsPerStep, animateGroup]);
+        if (!isBlackboardOnRef.current) onEnableBlackboard();
+        const plan = buildGroupPlan(
+            raw,
+            wordsPerFlyRef.current,
+            wordsPerLineRef.current,
+            anchorRef.current?.cy ?? 0.05,
+            canvasHRef.current,
+            fontSizeRef.current,
+        );
+        if (!plan.length) return;
+        groupPlanRef.current = plan;
+        setTotalGroups(plan.length);
+        animateGroup(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [onEnableBlackboard, onEnableCourse, animateGroup]);
 
     const handleNext = useCallback(() => {
-        const nextIdx = currentGroupIdx + 1;
-        const nextY   = advanceLine(lineYRef.current);
-        lineYRef.current = nextY;
-        animateGroup(nextIdx, nextY);
-    }, [currentGroupIdx, advanceLine, animateGroup]);
+        animateGroup(currentGroupIdx + 1);
+    }, [currentGroupIdx, animateGroup]);
 
     const handlePauseResume = useCallback(() => {
         setPlayState(p => p === "paused" ? "playing" : "paused");
@@ -146,11 +263,12 @@ export default function PlayModePanel({
         stopInterval();
         onPlayFrameRef.current(null);
         setPlayState("idle"); setCurrentGroupIdx(0); setTotalGroups(0);
-        charBufRef.current = ""; wordGroupsRef.current = [];
+        charBufRef.current = ""; groupPlanRef.current = [];
     }, [stopInterval]);
 
     useEffect(() => () => stopInterval(), [stopInterval]);
 
+    // ── UI helpers ───────────────────────────────────────────────────────────
     const activeBtn = (on: boolean) => ({
         borderRadius: 6 as const,
         border: `1px solid ${on ? "rgba(99,102,241,0.6)" : "rgba(255,255,255,0.08)"}`,
@@ -162,6 +280,15 @@ export default function PlayModePanel({
 
     const isActive = playState !== "idle";
     const progress = totalGroups > 0 ? `${Math.min(currentGroupIdx + 1, totalGroups)} / ${totalGroups}` : "";
+
+    const ANIM_OPTIONS: { id: AnimType; label: string }[] = [
+        { id: "typing",       label: "Type" },
+        { id: "fade",         label: "Fade" },
+        { id: "slide-right",  label: "→" },
+        { id: "slide-left",   label: "←" },
+        { id: "slide-bottom", label: "↑" },
+        { id: "scale",        label: "Scale" },
+    ];
 
     return (
         <div style={{ display: "flex", height: "100%", background: "#111827", color: "#e2e8f0", fontSize: 13, overflow: "hidden" }}>
@@ -262,24 +389,45 @@ export default function PlayModePanel({
                             t.selectionStart = t.selectionEnd = s + 4;
                         }
                     }}
-                onBlur={e => { cursorPosRef.current = e.currentTarget.selectionStart; }}
-                onMouseUp={e => { cursorPosRef.current = e.currentTarget.selectionStart; }}
-                onKeyUp={e => { cursorPosRef.current = (e.currentTarget as HTMLTextAreaElement).selectionStart; }}
+                    onBlur={e => { cursorPosRef.current = e.currentTarget.selectionStart; }}
+                    onMouseUp={e => { cursorPosRef.current = e.currentTarget.selectionStart; }}
+                    onKeyUp={e => { cursorPosRef.current = (e.currentTarget as HTMLTextAreaElement).selectionStart; }}
                 />
 
                 {/* Controls */}
                 <div style={{ padding: "8px 10px", borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                        <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#94a3b8" }}>
-                            Words / step
-                            <input type="number" min={1} max={20} value={wordsPerStep}
-                                onChange={e => setWordsPerStep(Math.max(1, Math.min(20, Number(e.target.value))))}
-                                style={{ width: 46, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "2px 6px", fontSize: 12, textAlign: "center" }} />
+
+                    {/* Animation type */}
+                    <div>
+                        <div style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.08em" }}>Animation</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 3 }}>
+                            {ANIM_OPTIONS.map(({ id, label }) => (
+                                <button key={id} onClick={() => setAnimType(id)}
+                                    style={{ height: 24, fontSize: 10, fontWeight: 600, ...activeBtn(animType === id) }}>
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Words Per Line / Words Per Fly + Speed */}
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#94a3b8" }}>
+                            Per line
+                            <input type="number" min={1} max={30} value={wordsPerLine}
+                                onChange={e => setWordsPerLine(Math.max(1, Math.min(30, Number(e.target.value))))}
+                                style={{ width: 40, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "2px 4px", fontSize: 12, textAlign: "center" }} />
                         </label>
-                        <div style={{ display: "flex", gap: 3 }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#94a3b8" }}>
+                            Per fly
+                            <input type="number" min={1} max={20} value={wordsPerFly}
+                                onChange={e => setWordsPerFly(Math.max(1, Math.min(20, Number(e.target.value))))}
+                                style={{ width: 40, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "2px 4px", fontSize: 12, textAlign: "center" }} />
+                        </label>
+                        <div style={{ display: "flex", gap: 2 }}>
                             {SPEED_OPTIONS.map((s, i) => (
                                 <button key={s.label} onClick={() => setSpeedIdx(i)}
-                                    style={{ padding: "2px 8px", fontSize: 11, borderRadius: 4, cursor: "pointer", border: "none",
+                                    style={{ padding: "2px 6px", fontSize: 10, borderRadius: 4, cursor: "pointer", border: "none",
                                         background: speedIdx === i ? "#6366f1" : "#1e293b", color: speedIdx === i ? "#fff" : "#94a3b8" }}>
                                     {s.label}
                                 </button>
@@ -332,7 +480,7 @@ export default function PlayModePanel({
                     </div>
 
                     {playState === "done" && (
-                        <div style={{ textAlign: "center", fontSize: 11, color: "#22c55e" }}>All words completed</div>
+                        <div style={{ fontSize: 11, color: "#22c55e", textAlign: "center" }}>✓ All text displayed</div>
                     )}
                 </div>
             </div>
