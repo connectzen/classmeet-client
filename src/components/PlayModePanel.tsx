@@ -288,7 +288,6 @@ export default function PlayModePanel({
         boxShadow: active ? "0 0 0 1px rgba(99,102,241,0.6)" : "none",
         ...extra,
     });
-    const divider = <div style={{ width: 1, background: "rgba(255,255,255,0.1)", margin: "2px 1px", alignSelf: "stretch" as const }} />;
 
     const isActive = playState !== "idle";
     const progress = totalGroups > 0 ? `${Math.min(currentGroupIdx + 1, totalGroups)} / ${totalGroups}` : "";
@@ -303,36 +302,24 @@ export default function PlayModePanel({
     return (
         <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#111827", color: "#e2e8f0", fontSize: 13, overflow: "hidden" }}>
 
-            {/* ── Horizontal toolbar (RichEditor-style) ── */}
-            <div style={{ display: "flex", gap: 3, padding: "5px 8px", borderBottom: "1px solid rgba(255,255,255,0.07)", flexWrap: "nowrap", overflowX: "auto", alignItems: "center", background: "rgba(255,255,255,0.02)", flexShrink: 0 }}>
-
-                {/* Heading/style dropdown */}
-                <select value={fontStyle}
-                    onChange={e => setFontStyle(e.target.value as FontStyle)}
-                    style={{ padding: "3px 6px", borderRadius: 5, border: "none", background: "rgba(255,255,255,0.07)", color: "#94a3b8", fontSize: 12, cursor: "pointer", colorScheme: "dark" }}>
-                    <option value="normal">Normal</option>
-                    <option value="bold">Bold</option>
-                    <option value="italic">Italic</option>
-                    <option value="bold italic">Bold Italic</option>
-                </select>
+            {/* ── Horizontal toolbar (compact, fits narrow panel) ── */}
+            <div style={{ display: "flex", gap: 2, padding: "4px 6px", borderBottom: "1px solid rgba(255,255,255,0.07)", flexWrap: "nowrap", overflowX: "hidden", alignItems: "center", background: "rgba(255,255,255,0.02)", flexShrink: 0 }}>
 
                 {/* Font family */}
                 <select value={fontFamily} onChange={e => setFontFamily(e.target.value)}
-                    style={{ padding: "3px 6px", borderRadius: 5, border: "none", background: "rgba(255,255,255,0.07)", color: "#94a3b8", fontSize: 12, cursor: "pointer", colorScheme: "dark", maxWidth: 90 }}>
+                    style={{ padding: "2px 2px", borderRadius: 5, border: "none", background: "rgba(255,255,255,0.07)", color: "#94a3b8", fontSize: 11, cursor: "pointer", colorScheme: "dark", width: 56, minWidth: 56 }}>
                     {FONT_LIST.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
                 </select>
 
                 {/* Font size */}
                 <select value={fontSize} onChange={e => setFontSize(Number(e.target.value))}
-                    style={{ padding: "3px 4px", borderRadius: 5, border: "none", background: "rgba(255,255,255,0.07)", color: "#94a3b8", fontSize: 12, cursor: "pointer", colorScheme: "dark", width: 54 }}>
+                    style={{ padding: "2px 2px", borderRadius: 5, border: "none", background: "rgba(255,255,255,0.07)", color: "#94a3b8", fontSize: 11, cursor: "pointer", colorScheme: "dark", width: 40, minWidth: 40 }}>
                     {SIZE_LIST.map(sz => <option key={sz} value={sz}>{sz}</option>)}
                 </select>
 
-                {divider}
-
-                {/* B / I / U */}
-                <button style={tbBtn(fontStyle.includes("bold"), { fontWeight: 900 })} onClick={() => setFontStyle(s => s.includes("bold") ? (s.includes("italic") ? "italic" : "normal") : (s.includes("italic") ? "bold italic" : "bold"))} title="Bold">B</button>
-                <button style={tbBtn(fontStyle.includes("italic"), { fontStyle: "italic" })} onClick={() => setFontStyle(s => s.includes("italic") ? (s.includes("bold") ? "bold" : "normal") : (s.includes("bold") ? "bold italic" : "italic"))} title="Italic">I</button>
+                {/* B / I toggles */}
+                <button style={tbBtn(fontStyle.includes("bold"), { fontWeight: 900, minWidth: 22, padding: "2px 4px" })} onClick={() => setFontStyle(s => s.includes("bold") ? (s.includes("italic") ? "italic" : "normal") : (s.includes("italic") ? "bold italic" : "bold"))} title="Bold">B</button>
+                <button style={tbBtn(fontStyle.includes("italic"), { fontStyle: "italic", minWidth: 22, padding: "2px 4px" })} onClick={() => setFontStyle(s => s.includes("italic") ? (s.includes("bold") ? "bold" : "normal") : (s.includes("bold") ? "bold italic" : "italic"))} title="Italic">I</button>
 
                 {/* Color picker */}
                 <div style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}>
@@ -345,9 +332,9 @@ export default function PlayModePanel({
                             }
                             setShowColorPicker(v => !v);
                         }}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 7px", borderRadius: 5, background: showColorPicker ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.07)", cursor: "pointer", border: "none", userSelect: "none" }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", borderBottom: `3px solid ${color}`, paddingBottom: 1, lineHeight: 1 }}>A</span>
-                        <span style={{ fontSize: 11, color: "#64748b" }}>▾</span>
+                        style={{ display: "inline-flex", alignItems: "center", gap: 2, padding: "2px 5px", borderRadius: 5, background: showColorPicker ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.07)", cursor: "pointer", border: "none", userSelect: "none" }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8", borderBottom: `3px solid ${color}`, paddingBottom: 1, lineHeight: 1 }}>A</span>
+                        <span style={{ fontSize: 10, color: "#64748b" }}>▾</span>
                     </button>
                     {showColorPicker && (
                         <>
@@ -370,21 +357,17 @@ export default function PlayModePanel({
                     )}
                 </div>
 
-                {divider}
-
                 {/* Alignment */}
                 <select value={textAlign} onChange={e => setTextAlign(e.target.value as "left" | "center" | "right")}
-                    style={{ padding: "3px 5px", borderRadius: 5, border: "none", background: "rgba(255,255,255,0.07)", color: "#94a3b8", fontSize: 12, cursor: "pointer", colorScheme: "dark" }}>
-                    <option value="left">← Left</option>
-                    <option value="center">≡ Center</option>
-                    <option value="right">→ Right</option>
+                    style={{ padding: "2px 2px", borderRadius: 5, border: "none", background: "rgba(255,255,255,0.07)", color: "#94a3b8", fontSize: 11, cursor: "pointer", colorScheme: "dark", width: 38, minWidth: 38 }}>
+                    <option value="left">←</option>
+                    <option value="center">≡</option>
+                    <option value="right">→</option>
                 </select>
-
-                {divider}
 
                 {/* Animation type */}
                 <select value={animType} onChange={e => setAnimType(e.target.value as AnimType)}
-                    style={{ padding: "3px 5px", borderRadius: 5, border: "none", background: "rgba(255,255,255,0.07)", color: "#94a3b8", fontSize: 12, cursor: "pointer", colorScheme: "dark" }}>
+                    style={{ padding: "2px 2px", borderRadius: 5, border: "none", background: "rgba(255,255,255,0.07)", color: "#94a3b8", fontSize: 11, cursor: "pointer", colorScheme: "dark", width: 52, minWidth: 52 }}>
                     <option value="typing">Type</option>
                     <option value="fade">Fade</option>
                     <option value="slide-right">Slide →</option>

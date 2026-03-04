@@ -1144,8 +1144,10 @@ export default function RoomCoursePanel({
                                     // Absolutely position the textarea starting exactly at the click point.
                                     // Width is explicitly capped to (1 - cx) * CANVAS_W * scale - 24*scale
                                     // so the browser wraps at the same boundary as drawOnCanvas (maxW).
+                                    // Subtract contentRef.scrollTop so the indicator tracks the canvas
+                                    // position even when the content area is scrolled.
                                     position: 'absolute',
-                                    top: `${textInput.cy * canvasH * contentScale}px`,
+                                    top: `${textInput.cy * canvasH * contentScale - (contentRef.current?.scrollTop ?? 0)}px`,
                                     left: `${textInput.cx * CANVAS_W * contentScale}px`,
                                     width: `${Math.max(20, (1 - textInput.cx) * CANVAS_W * contentScale - 24 * contentScale)}px`,
                                     height: `${Math.max(40, (1 - textInput.cy) * canvasH * contentScale)}px`,
