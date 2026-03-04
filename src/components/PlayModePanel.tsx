@@ -128,12 +128,14 @@ interface GroupPlan {
     fontSizePx: number;
     fontStyle: FontStyle;
     underline: boolean;
+    blockIdx: number; // which "block" of N lines this group belongs to
 }
 
 function buildGroupPlan(
     styledWords: StyledWord[],
     wordsPerFly: number,
     wordsPerLine: number,
+    linesPerBlock: number,
     anchorCy: number,
     canvasH: number,
 ): GroupPlan[] {
@@ -155,6 +157,8 @@ function buildGroupPlan(
     let prevTextLine  = styledWords[0].textLine;
     let i             = 0;
     let lineLeadingPx = styledWords[0].fontSizePx;
+    let canvasLineIdx = 0; // how many canvas lines have been started (each lineWordCount reset = new line)
+    let blockIdx      = 0;
 
     while (i < styledWords.length) {
         if (styledWords[i].textLine !== prevTextLine) {
@@ -164,6 +168,8 @@ function buildGroupPlan(
                 lineAccum = "";
                 lineXOffset = 0;
                 lineLeadingPx = styledWords[i].fontSizePx;
+                canvasLineIdx++;
+                blockIdx = Math.floor(canvasLineIdx / Math.max(1, linesPerBlock));
             }
             prevTextLine = styledWords[i].textLine;
         }
@@ -215,7 +221,7 @@ function buildGroupPlan(
         plan.push({
             accumulated: lineAccum, prevAccumulated: prevAccum,
             lineY, isFirstOnLine, prevTextWidth, newWords: flyText,
-            color, fontFamily, fontSizePx, fontStyle, underline,
+            color, fontFamily, fontSizePx, fontStyle, underline, blockIdx,
         });
 
         if (lineWordCount >= wordsPerLine) {
@@ -224,6 +230,8 @@ function buildGroupPlan(
             lineAccum = "";
             lineXOffset = 0;
             lineLeadingPx = i < styledWords.length ? styledWords[i].fontSizePx : fontSizePx;
+            canvasLineIdx++;
+            blockIdx = Math.floor(canvasLineIdx / Math.max(1, linesPerBlock));
         }
     }
     return plan;
@@ -234,9 +242,10 @@ export default function PlayModePanel({
     anchor, canvasH, onPlayFrame, onPlayCommit, onPlayReplaceLine,
     onEnableBlackboard, isBlackboardOn, onEnableCourse,
 }: Props) {
-    const [wordsPerLine,    setWordsPerLine] = useState(5);
-    const [wordsPerFly,     setWordsPerFly]  = useState(1);
-    const [speedIdx,        setSpeedIdx]     = useState(1);
+    const [wordsPerLine,    setWordsPerLine]   = useState(5);
+    const [wordsPerFly,     setWordsPerFly]    = useState(1);
+    const [linesPerBlock,   setLinesPerBlock]  = useState(1);
+    const [speedIdx,        setSpeedIdx]       = useState(1);
     const [animType,        setAnimType]     = useState<AnimType>("typing");
     const [playState,       setPlayState]    = useState<PlayState>("idle");
     const [currentGroupIdx, setCurrentGroupIdx] = useState(0);
@@ -253,8 +262,9 @@ export default function PlayModePanel({
     const canvasHRef      = useRef(canvasH);   canvasHRef.current     = canvasH;
     const speedRef        = useRef(speedIdx);  speedRef.current       = speedIdx;
     const animTypeRef     = useRef(animType);  animTypeRef.current    = animType;
-    const wordsPerLineRef = useRef(wordsPerLine); wordsPerLineRef.current = wordsPerLine;
-    const wordsPerFlyRef  = useRef(wordsPerFly);  wordsPerFlyRef.current  = wordsPerFly;
+    const wordsPerLineRef   = useRef(wordsPerLine);   wordsPerLineRef.current   = wordsPerLine;
+    const wordsPerFlyRef    = useRef(wordsPerFly);    wordsPerFlyRef.current    = wordsPerFly;
+    const linesPerBlockRef  = useRef(linesPerBlock);  linesPerBlockRef.current  = linesPerBlock;
     const onPlayFrameRef  = useRef(onPlayFrame);  onPlayFrameRef.current  = onPlayFrame;
     const onPlayCommitRef = useRef(onPlayCommit); onPlayCommitRef.current = onPlayCommit;
     const onPlayReplaceRef = useRef(onPlayReplaceLine); onPlayReplaceRef.current = onPlayReplaceLine;
@@ -315,6 +325,18 @@ export default function PlayModePanel({
             const s = makeBaseSeg(newWords, lineY, flyStyle);
             s.x1 = animX; s.x2 = animX;
             onPlayCommitRef.current(s);
+            // Auto-advance if the next group is in the same block; pause between blocks
+            const plan = groupPlanRef.current;
+            const nextIdx = idx + 1;
+            if (nextIdx >= plan.length) {
+                setPlayState("done");
+            } else if (plan[nextIdx].blockIdx === plan[idx].blockIdx) {
+                // same block → auto-advance without requiring Next click
+                setTimeout(() => animateGroup(nextIdx), 80);
+            } else {
+                // block boundary → pause and wait for Next
+                setPlayState("ready-next");
+            }
         };
 
         const anim = animTypeRef.current;
@@ -327,9 +349,8 @@ export default function PlayModePanel({
                 emit(makeAnimSeg(charBufRef.current));
                 if (charBufRef.current.length >= animText.length) {
                     stopInterval();
-                    finalCommit();
                     charBufRef.current = "";
-                    setPlayState(idx + 1 >= groupPlanRef.current.length ? "done" : "ready-next");
+                    finalCommit();
                 }
             }, SPEED_OPTIONS[speedRef.current].ms);
         } else {
@@ -349,7 +370,6 @@ export default function PlayModePanel({
                 if (frameRef.current >= FRAMES) {
                     stopInterval();
                     finalCommit();
-                    setPlayState(idx + 1 >= groupPlanRef.current.length ? "done" : "ready-next");
                 } else {
                     emit(seg);
                 }
@@ -368,6 +388,7 @@ export default function PlayModePanel({
             styledWords,
             wordsPerFlyRef.current,
             wordsPerLineRef.current,
+            linesPerBlockRef.current,
             anchorRef.current?.cy ?? 0.05,
             canvasHRef.current,
         );
@@ -425,16 +446,22 @@ export default function PlayModePanel({
 
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                     <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#94a3b8" }}>
+                        Lines
+                        <input type="number" min={1} max={10} value={linesPerBlock}
+                            onChange={e => setLinesPerBlock(Math.max(1, Math.min(10, Number(e.target.value))))}
+                            style={{ width: 36, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "2px 4px", fontSize: 12, textAlign: "center" }} />
+                    </label>
+                    <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#94a3b8" }}>
                         Per line
                         <input type="number" min={1} max={30} value={wordsPerLine}
                             onChange={e => setWordsPerLine(Math.max(1, Math.min(30, Number(e.target.value))))}
-                            style={{ width: 40, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "2px 4px", fontSize: 12, textAlign: "center" }} />
+                            style={{ width: 36, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "2px 4px", fontSize: 12, textAlign: "center" }} />
                     </label>
                     <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#94a3b8" }}>
                         Per fly
                         <input type="number" min={1} max={20} value={wordsPerFly}
                             onChange={e => setWordsPerFly(Math.max(1, Math.min(20, Number(e.target.value))))}
-                            style={{ width: 40, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "2px 4px", fontSize: 12, textAlign: "center" }} />
+                            style={{ width: 36, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "2px 4px", fontSize: 12, textAlign: "center" }} />
                     </label>
                     <div style={{ display: "flex", gap: 2 }}>
                         {SPEED_OPTIONS.map((s, i) => (
