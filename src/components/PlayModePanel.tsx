@@ -31,7 +31,7 @@ function parseRichToStyledWords(html: string): StyledWord[] {
     div.innerHTML = html;
     const words: StyledWord[] = [];
     let lineIdx = 0;
-    const BLOCK = new Set(['p','div','h1','h2','h3','h4','h5','h6','li','blockquote','pre']);
+    const BLOCK = new Set(['p','div','h1','h2','h3','h4','h5','h6','blockquote','pre']);
 
     function walk(
         node: Node,
@@ -71,6 +71,24 @@ function parseRichToStyledWords(html: string): StyledWord[] {
             cur.fontStyle = cur.fontStyle.includes('italic') ? 'bold italic' : 'bold';
         if (tag === 'em' || tag === 'i')
             cur.fontStyle = cur.fontStyle.includes('bold') ? 'bold italic' : 'italic';
+
+        // <li>: start a new line, inject bullet, then flatten any inner <p> so it
+        // doesn't trigger another lineIdx++ and separate the bullet from its text.
+        if (tag === 'li') {
+            if (words.length > 0) lineIdx++;
+            words.push({ word: '•', textLine: lineIdx, ...cur });
+            for (const child of Array.from(el.childNodes)) {
+                const ctag = child.nodeType === Node.ELEMENT_NODE
+                    ? (child as HTMLElement).tagName.toLowerCase() : '';
+                if (ctag === 'p') {
+                    // walk p's children directly — skip the p's own block newline
+                    for (const gc of Array.from(child.childNodes)) walk(gc, cur);
+                } else {
+                    walk(child, cur);
+                }
+            }
+            return;
+        }
 
         const isBlock = BLOCK.has(tag);
         // opening of a block element (except very first) starts a new line
