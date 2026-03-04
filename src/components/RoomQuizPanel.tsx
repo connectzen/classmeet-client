@@ -702,7 +702,7 @@ function StudentAvatar({ name }: { name: string }) {
 // ─── RoomQuizHost (Teacher) ────────────────────────────────────────────────
 interface RoomQuizHostProps {
     roomId: string;
-    quizzes: { id: string; title: string; question_count?: number; room_id?: string }[];
+    quizzes: { id: string; title: string; question_count?: number; room_id?: string; status?: string }[];
     loadingQuizzes: boolean;
     activeQuiz: { quizId: string; quiz: unknown } | null;
     submissions: { submissionId: string; studentId: string; studentName: string; score: number | null }[];
@@ -830,6 +830,12 @@ export function RoomQuizHost({
                 )}
                 {quizzes.length > 0 && (
                     queueIndex < quizzes.length ? (
+                        quizzes[queueIndex]?.status && quizzes[queueIndex].status !== 'published' ? (
+                            <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontSize: 16 }}>⚠️</span>
+                                <span style={{ fontSize: 13, color: '#f59e0b' }}>This quiz is a <strong>draft</strong>. Publish it in the Quiz editor before starting.</span>
+                            </div>
+                        ) : (
                         <button
                             onClick={() => onStartQuiz(quizzes[queueIndex].id)}
                             style={{
@@ -840,6 +846,7 @@ export function RoomQuizHost({
                         >
                             {queueIndex === 0 ? 'Start First Quiz' : `Start Quiz ${queueIndex + 1} of ${quizzes.length}`}
                         </button>
+                        )
                     ) : (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)' }}>
                             <span style={{ fontSize: 18 }}>🎉</span>

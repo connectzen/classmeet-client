@@ -53,6 +53,8 @@ interface UseSocketOptions {
     // Live quiz progress (answers + current question index) from student
     onQuizProgressUpdate?: (data: { socketId: string } & QuizProgressSlim) => void;
     onBlackboardToggle?: (active: boolean) => void;
+    // Quiz start error (e.g. quiz is still a draft)
+    onQuizError?: (error: string) => void;
 }
 
 export function useSocket(options: UseSocketOptions) {
@@ -116,10 +118,12 @@ export function useSocket(options: UseSocketOptions) {
     const onQuizStudentInactiveRef = useRef(options.onQuizStudentInactive);
     const onQuizProgressUpdateRef = useRef(options.onQuizProgressUpdate);
     const onBlackboardToggleRef = useRef(options.onBlackboardToggle);
+    const onQuizErrorRef = useRef(options.onQuizError);
     onQuizStudentStartedRef.current = options.onQuizStudentStarted;
     onQuizStudentInactiveRef.current = options.onQuizStudentInactive;
     onQuizProgressUpdateRef.current = options.onQuizProgressUpdate;
     onBlackboardToggleRef.current = options.onBlackboardToggle;
+    onQuizErrorRef.current = options.onQuizError;
 
     const socketRef = useRef<Socket | null>(null);
     const [socketId, setSocketId] = useState('');
@@ -236,6 +240,9 @@ export function useSocket(options: UseSocketOptions) {
         });
         socket.on('course:blackboard', ({ active }: { active: boolean }) => {
             onBlackboardToggleRef.current?.(active);
+        });
+        socket.on('room:quiz-error', ({ error }: { error: string }) => {
+            onQuizErrorRef.current?.(error);
         });
         socket.on('disconnect', () => setConnected(false));
 

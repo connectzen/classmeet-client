@@ -60,7 +60,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [blackboardOn, setBlackboardOn] = useState(false);
     const [sessionQuizIds, setSessionQuizIds] = useState<string[]>([]);
     const [sessionCourseIds, setSessionCourseIds] = useState<string[]>([]);
-    const [roomQuizzes, setRoomQuizzes] = useState<{ id: string; title: string; question_count?: number; room_id?: string }[]>([]);
+    const [roomQuizzes, setRoomQuizzes] = useState<{ id: string; title: string; question_count?: number; room_id?: string; status?: string }[]>([]);
     const [loadingRoomQuizzes, setLoadingRoomQuizzes] = useState(false);
     const [roomQuizSubmitted, setRoomQuizSubmitted] = useState(false);
     const [studentQuizStarted, setStudentQuizStarted] = useState(false);
@@ -387,6 +387,9 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                     });
                 }
             },
+            onQuizError: (error) => {
+                alert(`Cannot start quiz: ${error}`);
+            },
         });
 
     // Keep refs in sync
@@ -448,6 +451,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                 (results.filter(Boolean) as any[]).map(q => ({
                     id: q.id, title: q.title,
                     question_count: Array.isArray(q.questions) ? q.questions.length : q.question_count,
+                    status: q.status,
                 }))
             );
         }).catch(() => setRoomQuizzes([]))
