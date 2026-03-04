@@ -46,6 +46,8 @@ interface GroupPlan {
     prevAccumulated: string; // text already committed before this fly ("" for first on line)
     lineY: number;           // normalised Y coordinate for this line
     isFirstOnLine: boolean;  // true = push new seg; false = replace-last seg
+    prevTextWidth: number;   // normalised (0-1) canvas-pixel width of prevAccumulated text
+    newWords: string;        // only the new word(s) added this fly (for animation frames)
     // Per-fly resolved style (from annotation or global)
     segColor: string; segFontFamily: string; segFontSize: number; segFontStyle: FontStyle;
 }
@@ -72,6 +74,15 @@ function buildGroupPlan(
         return ann ? { color: ann.color, fontFamily: ann.fontFamily, fontSize: ann.fontSize, fontStyle: ann.fontStyle } : globalStyle;
     };
 
+    // Offscreen canvas for measuring rendered text widths
+    const measCanvas = document.createElement('canvas');
+    const measCtx = measCanvas.getContext('2d')!;
+    const measureWidth = (str: string, style: typeof globalStyle) => {
+        if (!str) return 0;
+        measCtx.font = `${style.fontStyle} ${style.fontSize}px ${style.fontFamily}`;
+        return measCtx.measureText(str).width / CANVAS_W; // normalised 0-1
+    };
+
     const lineH = (fontSizePx * 1.4) / Math.max(1, canvasH);
     const plan: GroupPlan[] = [];
     let lineY        = anchorCy;
@@ -94,11 +105,18 @@ function buildGroupPlan(
         const flyText    = flySlice.map(w => w.word).join(" ");
         lineAccum        = lineAccum ? lineAccum + " " + flyText : flyText;
         lineWordCount   += flyCount;
+
+        // Width of the already-committed text + trailing space, so animation only
+        // shows & positions the NEW word(s) right after the committed word(s).
+        const prevTextWidth = prevAccum ? measureWidth(prevAccum + " ", style) : 0;
+
         plan.push({
             accumulated: lineAccum,
             prevAccumulated: prevAccum,
             lineY,
             isFirstOnLine: lineWordCount === flyCount && (lineAccum === flyText),
+            prevTextWidth,
+            newWords: flyText,
             segColor: style.color,
             segFontFamily: style.fontFamily,
             segFontSize: style.fontSize,
@@ -230,39 +248,57 @@ export default function PlayModePanel({
             return;
         }
         const { accumulated, prevAccumulated, lineY, isFirstOnLine,
+                prevTextWidth, newWords,
                 segColor, segFontFamily, segFontSize, segFontStyle } = plan[idx];
         setCurrentGroupIdx(idx);
         setPlayState("playing");
 
         const style: SegStyle = { color: segColor, fontFamily: segFontFamily, fontSize: segFontSize, fontStyle: segFontStyle };
+        const ax = anchorRef.current?.cx ?? 0.02;
 
-        // Always animate on the preview canvas so opacity/slides start smoothly
-        // without disturbing the already-committed word(s) on the main canvas.
-        // At finalCommit:
-        //   • isFirstOnLine  → clear preview + push new seg (onPlayCommit)
-        //   • !isFirstOnLine → clear preview + replace-last (pop old committed
-        //                      word, push full accumulated text at full opacity)
+        // For !isFirstOnLine flies we animate ONLY the new word(s), positioned
+        // right after the already-committed word on the main canvas. This avoids
+        // double-drawing: the committed word stays untouched while only the new
+        // word(s) appear on the preview canvas next to it.
+        // animX  = where the new word(s) start (anchor + committed-text width)
+        // animText = just the new word(s) (not the full accumulated string)
+        const animX    = isFirstOnLine ? ax : ax + prevTextWidth;
+        const animText = isFirstOnLine ? accumulated : newWords;
+
+        // Build a preview seg for animation frames (new words only, offset X)
+        const makeAnimSeg = (text: string): DrawSeg => {
+            const seg = makeBaseSeg(text, lineY, style);
+            seg.x1 = animX;
+            seg.x2 = animX;
+            return seg;
+        };
+
+        // All animation frames go to the preview canvas.
+        // finalCommit: clear preview, then either push new (isFirstOnLine) or
+        // replace-last with full accumulated text (!isFirstOnLine).
         const emit = (seg: DrawSeg) => onPlayFrameRef.current(seg);
 
         const finalCommit = (seg: DrawSeg) => {
             onPlayFrameRef.current(null);   // clear preview canvas
             if (isFirstOnLine) {
-                onPlayCommitRef.current(seg);      // push brand-new seg
+                onPlayCommitRef.current(seg);      // push brand-new full-line seg
             } else {
-                onPlayReplaceRef.current(seg);     // swap old word → full line text
+                onPlayReplaceRef.current(seg);     // swap old committed → full accumulated
             }
         };
+
+        void prevAccumulated; // used only via prevTextWidth / newWords
 
         const anim = animTypeRef.current;
 
         if (anim === "typing") {
-            // Start from prevAccumulated so only the NEW word(s) type in.
-            charBufRef.current = prevAccumulated;
+            // Type only the new word(s) character by character, at the offset position.
+            charBufRef.current = "";
             intervalRef.current = setInterval(() => {
                 if (playStateRef.current === "paused") return;
-                charBufRef.current = accumulated.slice(0, charBufRef.current.length + 1);
-                emit(makeBaseSeg(charBufRef.current, lineY, style));
-                if (charBufRef.current.length >= accumulated.length) {
+                charBufRef.current = animText.slice(0, charBufRef.current.length + 1);
+                emit(makeAnimSeg(charBufRef.current));
+                if (charBufRef.current.length >= animText.length) {
                     stopInterval();
                     finalCommit(makeBaseSeg(accumulated, lineY, style));
                     charBufRef.current = "";
@@ -270,24 +306,23 @@ export default function PlayModePanel({
                 }
             }, SPEED_OPTIONS[speedRef.current].ms);
         } else {
-            // Frame-based animations: 20 frames
+            // Frame-based animations: 20 frames — animate only the new word(s) at offset X
             const FRAMES = 20;
             frameRef.current = 0;
-            const ax = anchorRef.current?.cx ?? 0.02;
             const ms = Math.max(10, SPEED_OPTIONS[speedRef.current].ms * 1.5);
 
             intervalRef.current = setInterval(() => {
                 if (playStateRef.current === "paused") return;
                 frameRef.current += 1;
                 const progress = Math.min(1, 1 - Math.pow(1 - frameRef.current / FRAMES, 2));
-                const seg = makeBaseSeg(accumulated, lineY, style);
+                const seg = makeAnimSeg(animText);
 
                 if (anim === "fade") {
                     seg.opacity = progress;
                 } else if (anim === "slide-right") {
-                    seg.x1 = seg.x2 = ax + 0.35 * (1 - progress);
+                    seg.x1 = seg.x2 = animX + 0.35 * (1 - progress);
                 } else if (anim === "slide-left") {
-                    seg.x1 = seg.x2 = ax - 0.35 * (1 - progress);
+                    seg.x1 = seg.x2 = animX - 0.35 * (1 - progress);
                 } else if (anim === "slide-bottom") {
                     seg.y1 = seg.y2 = lineY + (0.15 * Math.max(1, canvasHRef.current) / 100) * (1 - progress);
                 } else if (anim === "scale") {
