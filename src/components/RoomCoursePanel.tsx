@@ -201,6 +201,10 @@ export default function RoomCoursePanel({
     const ephemeralStrokes = useRef<Array<{ seg: DrawSeg; drawnAt: number }>>([]);
     const ephemeralRaf     = useRef<number | null>(null);
     const persistentSnapshot = useRef<ImageData | null>(null);
+    // All permanent (non-ephemeral) segments — replayed on canvas resize so drawings persist
+    const committedSegs  = useRef<DrawSeg[]>([]);
+    // Last received snapshot (student late-join) — drawn before segs on replay
+    const snapshotImgRef = useRef<HTMLImageElement | null>(null);
 
     // Always-fresh refs so document-level handlers never have stale closures
     const drawState   = useRef({ drawTool, drawColor, drawSizeKey, ephemeralMode, textFontStyle, textFontFamily, textFontSize });
@@ -276,6 +280,8 @@ export default function RoomCoursePanel({
     useEffect(() => {
         if (contentRef.current) contentRef.current.scrollTop = 0;
         lastRatio.current = 0;
+        committedSegs.current = [];
+        snapshotImgRef.current = null;
         const c = canvasRef.current;
         if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
         const p = previewRef.current;
@@ -283,6 +289,21 @@ export default function RoomCoursePanel({
         setTeacherCursor(null);
         setLessonKey(k => k + 1);
     }, [activeLessonIdx, activeCourseIdx]);
+
+    // ── Canvas replay helper ───────────────────────────────────────────────────
+    // Redraws all committed segments (+ any snapshot base) onto the canvas.
+    // Called whenever the canvas buffer is re-created due to resize.
+    const replayOnCanvas = useCallback(() => {
+        const c = canvasRef.current;
+        if (!c) return;
+        const ctx = c.getContext('2d');
+        if (!ctx) return;
+        ctx.clearRect(0, 0, c.width, c.height);
+        if (snapshotImgRef.current) ctx.drawImage(snapshotImgRef.current, 0, 0, c.width, c.height);
+        for (const seg of committedSegs.current) drawOnCanvas(ctx, seg, c.width, c.height);
+    }, []);
+    const replayRef = useRef(replayOnCanvas);
+    replayRef.current = replayOnCanvas;
 
     // ── Canvas sizing ─────────────────────────────────────────────────────────
     // Canvas is always CANVAS_W (640) pixels wide — identical to the fixed inner
@@ -314,14 +335,11 @@ export default function RoomCoursePanel({
             const h = Math.max(inner.scrollHeight, content.clientHeight, 1);
 
             if (canvas.width !== w || canvas.height !== h) {
-                const saved = canvas.toDataURL();
                 canvas.width = w; canvas.height = h;
                 preview.width = w; preview.height = h;
-                if (saved !== 'data:,') {
-                    const img = new Image();
-                    img.onload = () => canvas.getContext('2d')?.drawImage(img, 0, 0);
-                    img.src = saved;
-                }
+                // Replay committed strokes onto the freshly-sized canvas buffer
+                // instead of relying on toDataURL (which fails on zero-sized canvas).
+                replayRef.current();
             }
             canvas.style.width   = canvas.width  + 'px';
             canvas.style.height  = canvas.height + 'px';
@@ -420,6 +438,7 @@ export default function RoomCoursePanel({
                     if (drawState.current.ephemeralMode) {
                         ephemeralStrokes.current.push({ seg, drawnAt: Date.now() });
                     } else {
+                        committedSegs.current.push(seg);
                         const ctx = canvas.getContext('2d');
                         if (ctx) drawOnCanvas(ctx, seg, canvas.width, canvas.height);
                         onDrawSegCb.current?.(seg);
@@ -442,6 +461,7 @@ export default function RoomCoursePanel({
                 if (drawState.current.ephemeralMode) {
                     ephemeralStrokes.current.push({ seg, drawnAt: Date.now() });
                 } else {
+                    committedSegs.current.push(seg);
                     const ctx = canvas.getContext('2d');
                     if (ctx) drawOnCanvas(ctx, seg, canvas.width, canvas.height);
                     onDrawSegCb.current?.(seg);
@@ -480,6 +500,7 @@ export default function RoomCoursePanel({
     // ── Receive segments from teacher (student) ───────────────────────────────
     useEffect(() => {
         if (!externalDrawSeg) return;
+        committedSegs.current.push(externalDrawSeg);
         const c = canvasRef.current;
         if (c) { const ctx = c.getContext('2d'); if (ctx) drawOnCanvas(ctx, externalDrawSeg, c.width, c.height); }
     }, [externalDrawSeg]);
@@ -506,6 +527,8 @@ export default function RoomCoursePanel({
     // ── Clear signal ──────────────────────────────────────────────────────────
     useEffect(() => {
         if (drawClearSignal == null) return;
+        committedSegs.current = [];
+        snapshotImgRef.current = null;
         const c = canvasRef.current;
         if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
         ephemeralStrokes.current = [];
@@ -567,7 +590,12 @@ export default function RoomCoursePanel({
         const ctx = c.getContext('2d');
         if (!ctx) return;
         const img = new Image();
-        img.onload = () => { ctx.clearRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height); };
+        img.onload = () => {
+            snapshotImgRef.current = img;
+            committedSegs.current = []; // snapshot subsumes all prior segs
+            ctx.clearRect(0, 0, c.width, c.height);
+            ctx.drawImage(img, 0, 0, c.width, c.height);
+        };
         img.src = snapshotDataUrl;
     }, [snapshotDataUrl]);
 
@@ -610,12 +638,15 @@ export default function RoomCoursePanel({
         if (!text.trim()) return;
         const { drawColor, drawSizeKey, textFontStyle, textFontFamily, textFontSize } = drawState.current;
         const seg: DrawSeg = { x1: cx, y1: cy, x2: cx, y2: cy, color: drawColor, size: TOOL_SIZES[drawSizeKey], mode: 'text', text, fontStyle: textFontStyle, fontFamily: textFontFamily, fontSizePx: textFontSize };
+        committedSegs.current.push(seg);
         const c = canvasRef.current;
         if (c) { const ctx = c.getContext('2d'); if (ctx) drawOnCanvas(ctx, seg, c.width, c.height); }
         onDrawSegCb.current?.(seg);
     }, []);
 
     const handleClear = useCallback(() => {
+        committedSegs.current = [];
+        snapshotImgRef.current = null;
         const c = canvasRef.current;
         if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
         const p = previewRef.current;
