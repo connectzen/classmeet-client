@@ -293,15 +293,6 @@ export default function PlayModePanel({
     const isActive = playState !== "idle";
     const progress = totalGroups > 0 ? `${Math.min(currentGroupIdx + 1, totalGroups)} / ${totalGroups}` : "";
 
-    const ANIM_OPTIONS: { id: AnimType; label: string }[] = [
-        { id: "typing",       label: "Type" },
-        { id: "fade",         label: "Fade" },
-        { id: "slide-right",  label: "→" },
-        { id: "slide-left",   label: "←" },
-        { id: "slide-bottom", label: "↑" },
-        { id: "scale",        label: "Scale" },
-    ];
-
     const COLOR_PRESETS = [
         "#000000","#374151","#6b7280","#9ca3af","#d1d5db","#ffffff",
         "#dc2626","#ef4444","#f97316","#f59e0b","#facc15","#84cc16",
@@ -382,16 +373,25 @@ export default function PlayModePanel({
                 {divider}
 
                 {/* Alignment */}
-                <button style={tbBtn(textAlign === "left")}   onClick={() => setTextAlign("left")}   title="Align left">←</button>
-                <button style={tbBtn(textAlign === "center")} onClick={() => setTextAlign("center")} title="Align center">≡</button>
-                <button style={tbBtn(textAlign === "right")}  onClick={() => setTextAlign("right")}  title="Align right">→</button>
+                <select value={textAlign} onChange={e => setTextAlign(e.target.value as "left" | "center" | "right")}
+                    style={{ padding: "3px 5px", borderRadius: 5, border: "none", background: "rgba(255,255,255,0.07)", color: "#94a3b8", fontSize: 12, cursor: "pointer", colorScheme: "dark" }}>
+                    <option value="left">← Left</option>
+                    <option value="center">≡ Center</option>
+                    <option value="right">→ Right</option>
+                </select>
 
                 {divider}
 
                 {/* Animation type */}
-                {ANIM_OPTIONS.map(({ id, label }) => (
-                    <button key={id} style={tbBtn(animType === id, { fontSize: 11, padding: "3px 6px" })} onClick={() => setAnimType(id)} title={id}>{label}</button>
-                ))}
+                <select value={animType} onChange={e => setAnimType(e.target.value as AnimType)}
+                    style={{ padding: "3px 5px", borderRadius: 5, border: "none", background: "rgba(255,255,255,0.07)", color: "#94a3b8", fontSize: 12, cursor: "pointer", colorScheme: "dark" }}>
+                    <option value="typing">Type</option>
+                    <option value="fade">Fade</option>
+                    <option value="slide-right">Slide →</option>
+                    <option value="slide-left">Slide ←</option>
+                    <option value="slide-bottom">Slide ↑</option>
+                    <option value="scale">Scale</option>
+                </select>
             </div>
 
             {/* ── Textarea ── */}
