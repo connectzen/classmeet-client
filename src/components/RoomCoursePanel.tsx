@@ -380,13 +380,20 @@ export default function RoomCoursePanel({
 
             // Width is always exactly CANVAS_W — never depends on panel/viewport size
             const w = CANVAS_W;
-            // Height: use getBoundingClientRect().height / scale to get the NATURAL
-            // unzoomed height. inner.scrollHeight is measured inside the CSS-zoomed
-            // parent (scaleRef), so it differs between teacher and student when their
-            // zoom levels differ — causing the same cy coord to land at different
-            // canvas pixels. Dividing out the scale produces a zoom-independent height
-            // that is identical on both sides, keeping text in the same position.
-            const naturalH = Math.round(inner.getBoundingClientRect().height / scale);
+            // Height: divide inner.getBoundingClientRect().height by the CURRENTLY-APPLIED
+            // zoom (contentScaleRef.current), not the newly-computed scale.
+            // Reason: getBoundingClientRect is measured in the viewport coordinate space,
+            // which reflects the CSS zoom that React has already committed (old scale).
+            // Dividing by that same old scale gives the true natural (unzoomed) height.
+            // Using the new scale here creates a two-sync cascade:
+            //   sync1 measures with old zoom / new scale → wrong naturalH → canvas reset
+            //   React re-renders, zoom updates → ResizeObserver fires → sync2
+            //   sync2 measures with new zoom / new scale → correct → canvas reset AGAIN
+            // Two resets = two buffer clears, creating a visible flash and races with
+            // the ephemeral RAF loop. Dividing by the currently-applied scale eliminates
+            // the wrong measurement in sync1 so the canvas only ever resizes correctly.
+            const appliedScale = contentScaleRef.current > 0 ? contentScaleRef.current : scale;
+            const naturalH = Math.round(inner.getBoundingClientRect().height / appliedScale);
             const h = Math.max(naturalH, Math.round(content.clientHeight / scale), 1);
             setCanvasH(h);
 
