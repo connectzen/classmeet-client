@@ -594,7 +594,8 @@ export default function RoomCoursePanel({
     // ── Receive segments from teacher (student) ───────────────────────────────
     useEffect(() => {
         if (!externalDrawSeg) return;
-        committedSegs.current.push(externalDrawSeg);
+        // Store incoming segment in the correct surface (blackboard or lesson)
+        (showBlackboardRef.current ? blackboardSegs.current : committedSegs.current).push(externalDrawSeg);
         const c = canvasRef.current;
         if (c) { const ctx = c.getContext('2d'); if (ctx) drawOnCanvas(ctx, externalDrawSeg, c.width, c.height); }
     }, [externalDrawSeg]);
