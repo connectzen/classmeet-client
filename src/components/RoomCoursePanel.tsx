@@ -182,6 +182,9 @@ export default function RoomCoursePanel({
     const [lessonKey, setLessonKey] = useState(0);
     const [canvasH, setCanvasH] = useState(600);
     const [toolbarScale, setToolbarScale] = useState(1);
+    // Horizontal padding applied to student view so content is centered and
+    // matches the teacher's content area width (teacher has toolbar on the right).
+    const [contentPaddingX, setContentPaddingX] = useState(0);
     // Teacher cursor rendered on the student's canvas
     const [teacherCursor, setTeacherCursor] = useState<{ x: number; y: number } | null>(null);
     // Text-anchor indicator: shows students where the teacher is about to type
@@ -356,11 +359,17 @@ export default function RoomCoursePanel({
         const sync = () => {
             // Compute scale so content fills the available panel width.
             // For teachers, subtract the toolbar width so content doesn't hide behind it.
+            // For students, use the same effective toolbar width (natural toolbar offsetWidth
+            // ≈ 78px based on 2×30px cols + 4px gap + 12px padding + 2px border, plus the
+            // 10px margin used in the teacher formula) so both sides have identical scale.
+            // The extra space is split equally left/right to center the student's content.
+            const TOOLBAR_OCCUPIED_W = (toolbarRef.current?.offsetWidth ?? 78) + 10;
             const totalW    = wrapperRef.current?.clientWidth ?? CANVAS_W;
-            const tbW       = isTeacher ? ((toolbarRef.current?.offsetWidth ?? 0) + 10) : 0;
+            const tbW       = TOOLBAR_OCCUPIED_W;
             const availW    = Math.max(totalW - tbW, 1);
             const scale     = availW / CANVAS_W;
             setContentScale(scale);
+            setContentPaddingX(isTeacher ? 0 : tbW / 2);
 
             // Collapse canvas height so it doesn't inflate inner.scrollHeight
             canvas.style.height  = '0px';
@@ -856,9 +865,12 @@ export default function RoomCoursePanel({
                 {/* Content wrapper */}
                 <div ref={wrapperRef} style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
 
-                    {/* Scrollable area — overflowX hidden because content scales via zoom */}
+                    {/* Scrollable area — overflowX hidden because content scales via zoom.
+                        For students, horizontal padding is added so the 640px content is
+                        centered: padding = toolbarWidth / 2 on each side, matching the
+                        teacher whose toolbar occupies the same width on the right. */}
                     <div ref={contentRef} onScroll={isTeacher ? handleScroll : undefined}
-                        style={{ width: '100%', height: '100%', overflowY: isTeacher ? 'auto' : 'hidden', overflowX: 'hidden', position: 'relative', userSelect: drawActive ? 'none' : 'text' }}>
+                        style={{ width: '100%', height: '100%', overflowY: isTeacher ? 'auto' : 'hidden', overflowX: 'hidden', position: 'relative', userSelect: drawActive ? 'none' : 'text', paddingLeft: contentPaddingX, paddingRight: contentPaddingX, boxSizing: 'border-box' }}>
 
                         {/* Scale wrapper — shrinks all content + canvas proportionally
                             so the panel is fully visible on narrow screens without
