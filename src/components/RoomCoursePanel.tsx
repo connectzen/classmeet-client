@@ -592,6 +592,24 @@ export default function RoomCoursePanel({
             return;
         }
         drawOnCanvas(ctx, externalDrawPreview, p.width, p.height);
+        // If this is a live text preview, move the blinking caret to end-of-text
+        // so the student's indicator matches where the teacher's cursor actually is.
+        if (externalDrawPreview.mode === 'text') {
+            const rawText = (externalDrawPreview as DrawSeg & { text?: string }).text ?? '';
+            const displayText = rawText && rawText !== ' ' ? rawText : '';
+            const fStyle  = externalDrawPreview.fontStyle  || 'bold';
+            const fFamily = externalDrawPreview.fontFamily || 'sans-serif';
+            const fSize   = externalDrawPreview.fontSizePx ?? 20;
+            ctx.save();
+            ctx.font = `${fStyle} ${fSize}px ${fFamily}`;
+            const lines   = displayText.split('\n');
+            const lastLine = lines[lines.length - 1];
+            const textW   = displayText ? ctx.measureText(lastLine).width : 0;
+            ctx.restore();
+            const newCx = externalDrawPreview.x1 + textW / p.width;
+            const newCy = externalDrawPreview.y1 + (lines.length - 1) * (fSize * 1.4) / p.height;
+            setTextAnchorPos({ cx: newCx, cy: newCy, color: externalDrawPreview.color, fontSizePx: fSize });
+        }
     }, [externalDrawPreview]);
 
     // ── Receive teacher cursor position (student) ─────────────────────────────
