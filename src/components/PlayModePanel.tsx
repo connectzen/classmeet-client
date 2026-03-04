@@ -93,19 +93,23 @@ export default function PlayModePanel({
     anchor, canvasH, onPlayFrame, onPlayCommit, onPlayReplaceLine,
     onEnableBlackboard, isBlackboardOn, onEnableCourse,
 }: Props) {
-    const [fontFamily,   setFontFamily]   = useState("Inter, sans-serif");
-    const [fontSize,     setFontSize]     = useState(20);
-    const [fontStyle,    setFontStyle]    = useState<FontStyle>("bold");
-    const [color,        setColor]        = useState("#ffffff");
-    const [wordsPerLine, setWordsPerLine] = useState(5);
-    const [wordsPerFly,  setWordsPerFly]  = useState(1);
-    const [speedIdx,     setSpeedIdx]     = useState(1);
-    const [animType,     setAnimType]     = useState<AnimType>("typing");
+    const [fontFamily,      setFontFamily]      = useState("Inter, sans-serif");
+    const [fontSize,        setFontSize]        = useState(20);
+    const [fontStyle,       setFontStyle]       = useState<FontStyle>("bold");
+    const [color,           setColor]           = useState("#ffffff");
+    const [textAlign,       setTextAlign]       = useState<"left" | "center" | "right">("left");
+    const [wordsPerLine,    setWordsPerLine]    = useState(5);
+    const [wordsPerFly,     setWordsPerFly]     = useState(1);
+    const [speedIdx,        setSpeedIdx]        = useState(1);
+    const [animType,        setAnimType]        = useState<AnimType>("typing");
     const [playState,       setPlayState]       = useState<PlayState>("idle");
     const [currentGroupIdx, setCurrentGroupIdx] = useState(0);
     const [totalGroups,     setTotalGroups]     = useState(0);
+    const [showColorPicker, setShowColorPicker] = useState(false);
+    const [colorPickerPos,  setColorPickerPos]  = useState({ top: 0, left: 0 });
 
     const editorRef      = useRef<HTMLTextAreaElement>(null);
+    const colorBtnRef    = useRef<HTMLButtonElement>(null);
     const cursorPosRef   = useRef(0);
     const groupPlanRef   = useRef<GroupPlan[]>([]);
     const charBufRef     = useRef("");
@@ -121,6 +125,7 @@ export default function PlayModePanel({
     const fontFamilyRef       = useRef(fontFamily);       fontFamilyRef.current  = fontFamily;
     const fontSizeRef         = useRef(fontSize);         fontSizeRef.current    = fontSize;
     const fontStyleRef        = useRef(fontStyle);        fontStyleRef.current   = fontStyle;
+    const textAlignRef        = useRef(textAlign);        textAlignRef.current   = textAlign;
     const speedRef            = useRef(speedIdx);         speedRef.current       = speedIdx;
     const animTypeRef         = useRef(animType);         animTypeRef.current    = animType;
     const wordsPerLineRef     = useRef(wordsPerLine);     wordsPerLineRef.current = wordsPerLine;
@@ -131,10 +136,15 @@ export default function PlayModePanel({
     const isBlackboardOnRef   = useRef(isBlackboardOn);  isBlackboardOnRef.current = isBlackboardOn;
 
     // ── helpers ──────────────────────────────────────────────────────────────
-    const makeBaseSeg = useCallback((text: string, lineY: number): DrawSeg => ({
-        x1: anchorRef.current?.cx ?? 0.02,
+    const makeBaseSeg = useCallback((text: string, lineY: number): DrawSeg => {
+        const baseX = anchorRef.current?.cx ?? 0.02;
+        const alignedX = textAlignRef.current === 'center' ? 0.5
+                       : textAlignRef.current === 'right'  ? 0.9
+                       : baseX;
+        return {
+        x1: alignedX,
         y1: lineY,
-        x2: anchorRef.current?.cx ?? 0.02,
+        x2: alignedX,
         y2: lineY,
         color: colorRef.current,
         size: 1,
@@ -143,7 +153,8 @@ export default function PlayModePanel({
         fontFamily: fontFamilyRef.current,
         fontSizePx: fontSizeRef.current,
         fontStyle:  fontStyleRef.current,
-    }), []);
+        };
+    }, []);
 
     const stopInterval = useCallback(() => {
         if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
@@ -269,14 +280,15 @@ export default function PlayModePanel({
     useEffect(() => () => stopInterval(), [stopInterval]);
 
     // ── UI helpers ───────────────────────────────────────────────────────────
-    const activeBtn = (on: boolean) => ({
-        borderRadius: 6 as const,
-        border: `1px solid ${on ? "rgba(99,102,241,0.6)" : "rgba(255,255,255,0.08)"}`,
-        background: on ? "rgba(99,102,241,0.35)" : "transparent",
-        color: (on ? "#a5b4fc" : "var(--text-muted, #64748b)") as string,
-        cursor: "pointer" as const,
-        transition: "all 0.15s",
+    const tbBtn = (active: boolean, extra?: React.CSSProperties) => ({
+        padding: "3px 8px", borderRadius: 5, border: "none" as const,
+        background: active ? "#6366f1" : "rgba(255,255,255,0.07)",
+        color: active ? "#fff" : "#94a3b8",
+        fontSize: 13, fontWeight: 700, cursor: "pointer" as const,
+        boxShadow: active ? "0 0 0 1px rgba(99,102,241,0.6)" : "none",
+        ...extra,
     });
+    const divider = <div style={{ width: 1, background: "rgba(255,255,255,0.1)", margin: "2px 1px", alignSelf: "stretch" as const }} />;
 
     const isActive = playState !== "idle";
     const progress = totalGroups > 0 ? `${Math.min(currentGroupIdx + 1, totalGroups)} / ${totalGroups}` : "";
@@ -290,199 +302,201 @@ export default function PlayModePanel({
         { id: "scale",        label: "Scale" },
     ];
 
+    const COLOR_PRESETS = [
+        "#000000","#374151","#6b7280","#9ca3af","#d1d5db","#ffffff",
+        "#dc2626","#ef4444","#f97316","#f59e0b","#facc15","#84cc16",
+        "#16a34a","#22c55e","#14b8a6","#06b6d4","#3b82f6","#2563eb",
+        "#6366f1","#8b5cf6","#a78bfa","#ec4899","#f472b6","#a5b4fc",
+    ];
+
     return (
-        <div style={{ display: "flex", height: "100%", background: "#111827", color: "#e2e8f0", fontSize: 13, overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#111827", color: "#e2e8f0", fontSize: 13, overflow: "hidden" }}>
 
-            {/* Left: Text Options panel */}
-            <div style={{
-                width: 148, flexShrink: 0, borderRight: "1px solid rgba(255,255,255,0.08)",
-                background: "rgba(10,10,20,0.92)", backdropFilter: "blur(10px)",
-                padding: "10px 10px", display: "flex", flexDirection: "column", gap: 10,
-                overflowY: "auto",
-            }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(163,163,163,0.7)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Text Options</div>
+            {/* ── Horizontal toolbar (RichEditor-style) ── */}
+            <div style={{ display: "flex", gap: 3, padding: "5px 8px", borderBottom: "1px solid rgba(255,255,255,0.07)", flexWrap: "nowrap", overflowX: "auto", alignItems: "center", background: "rgba(255,255,255,0.02)", flexShrink: 0 }}>
 
-                {/* Style */}
-                <div>
-                    <div style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.08em" }}>Style</div>
-                    <div style={{ display: "flex", gap: 4 }}>
-                        {(["normal", "bold", "italic", "bold italic"] as const).map(fs => (
-                            <button key={fs} onClick={() => setFontStyle(fs)} title={fs}
-                                style={{ flex: 1, height: 28, fontSize: 12,
-                                    fontWeight: fs.includes("bold") ? 700 : 400,
-                                    fontStyle: fs.includes("italic") ? "italic" : "normal",
-                                    ...activeBtn(fontStyle === fs) }}>
-                                {fs === "normal" ? "N" : fs === "bold" ? "B" : fs === "italic" ? "I" : "BI"}
-                            </button>
-                        ))}
-                    </div>
+                {/* Heading/style dropdown */}
+                <select value={fontStyle}
+                    onChange={e => setFontStyle(e.target.value as FontStyle)}
+                    style={{ padding: "3px 6px", borderRadius: 5, border: "none", background: "rgba(255,255,255,0.07)", color: "#94a3b8", fontSize: 12, cursor: "pointer", colorScheme: "dark" }}>
+                    <option value="normal">Normal</option>
+                    <option value="bold">Bold</option>
+                    <option value="italic">Italic</option>
+                    <option value="bold italic">Bold Italic</option>
+                </select>
+
+                {/* Font family */}
+                <select value={fontFamily} onChange={e => setFontFamily(e.target.value)}
+                    style={{ padding: "3px 6px", borderRadius: 5, border: "none", background: "rgba(255,255,255,0.07)", color: "#94a3b8", fontSize: 12, cursor: "pointer", colorScheme: "dark", maxWidth: 90 }}>
+                    {FONT_LIST.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                </select>
+
+                {/* Font size */}
+                <select value={fontSize} onChange={e => setFontSize(Number(e.target.value))}
+                    style={{ padding: "3px 4px", borderRadius: 5, border: "none", background: "rgba(255,255,255,0.07)", color: "#94a3b8", fontSize: 12, cursor: "pointer", colorScheme: "dark", width: 54 }}>
+                    {SIZE_LIST.map(sz => <option key={sz} value={sz}>{sz}</option>)}
+                </select>
+
+                {divider}
+
+                {/* B / I / U */}
+                <button style={tbBtn(fontStyle.includes("bold"), { fontWeight: 900 })} onClick={() => setFontStyle(s => s.includes("bold") ? (s.includes("italic") ? "italic" : "normal") : (s.includes("italic") ? "bold italic" : "bold"))} title="Bold">B</button>
+                <button style={tbBtn(fontStyle.includes("italic"), { fontStyle: "italic" })} onClick={() => setFontStyle(s => s.includes("italic") ? (s.includes("bold") ? "bold" : "normal") : (s.includes("bold") ? "bold italic" : "italic"))} title="Italic">I</button>
+
+                {/* Color picker */}
+                <div style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}>
+                    <button ref={colorBtnRef} title="Text color"
+                        onMouseDown={e => {
+                            e.preventDefault();
+                            if (!showColorPicker && colorBtnRef.current) {
+                                const r = colorBtnRef.current.getBoundingClientRect();
+                                setColorPickerPos({ top: r.bottom + 4, left: r.left });
+                            }
+                            setShowColorPicker(v => !v);
+                        }}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 7px", borderRadius: 5, background: showColorPicker ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.07)", cursor: "pointer", border: "none", userSelect: "none" }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", borderBottom: `3px solid ${color}`, paddingBottom: 1, lineHeight: 1 }}>A</span>
+                        <span style={{ fontSize: 11, color: "#64748b" }}>▾</span>
+                    </button>
+                    {showColorPicker && (
+                        <>
+                            <div style={{ position: "fixed", inset: 0, zIndex: 9998 }} onMouseDown={e => { e.preventDefault(); setShowColorPicker(false); }} />
+                            <div style={{ position: "fixed", top: colorPickerPos.top, left: colorPickerPos.left, zIndex: 9999, background: "#1a1a2e", border: "1px solid rgba(99,102,241,0.35)", borderRadius: 10, padding: 10, boxShadow: "0 8px 32px rgba(0,0,0,0.6)", minWidth: 158, maxHeight: 260, overflowY: "auto" }}>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 5, marginBottom: 8 }}>
+                                    {COLOR_PRESETS.map(c => (
+                                        <button key={c} title={c}
+                                            onMouseDown={e => { e.preventDefault(); setColor(c); setShowColorPicker(false); }}
+                                            style={{ width: 22, height: 22, borderRadius: 5, background: c, border: color === c ? "2px solid #fff" : "2px solid rgba(255,255,255,0.15)", cursor: "pointer", padding: 0 }} />
+                                    ))}
+                                </div>
+                                <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                                    <span style={{ fontSize: 11, color: "#64748b" }}>Custom</span>
+                                    <input type="color" value={color} onChange={e => setColor(e.target.value)}
+                                        style={{ width: 32, height: 22, padding: 0, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, cursor: "pointer", background: "none" }} />
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
 
-                {/* Size */}
-                <div>
-                    <div style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.08em" }}>Size</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 3 }}>
-                        {SIZE_LIST.map(sz => (
-                            <button key={sz} onClick={() => setFontSize(sz)}
-                                style={{ height: 26, fontSize: 10, fontWeight: 600, ...activeBtn(fontSize === sz) }}>
-                                {sz}
-                            </button>
-                        ))}
-                    </div>
-                </div>
+                {divider}
 
-                {/* Font */}
-                <div>
-                    <div style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.08em" }}>Font</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                        {FONT_LIST.map(({ label, value }) => (
-                            <button key={value} onClick={() => setFontFamily(value)}
-                                style={{ height: 26, fontFamily: value, fontSize: 11,
-                                    textAlign: "left", paddingLeft: 8, ...activeBtn(fontFamily === value) }}>
-                                {label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
+                {/* Alignment */}
+                <button style={tbBtn(textAlign === "left")}   onClick={() => setTextAlign("left")}   title="Align left">←</button>
+                <button style={tbBtn(textAlign === "center")} onClick={() => setTextAlign("center")} title="Align center">≡</button>
+                <button style={tbBtn(textAlign === "right")}  onClick={() => setTextAlign("right")}  title="Align right">→</button>
 
-                {/* Color */}
-                <div>
-                    <div style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.08em" }}>Color</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 5, justifyItems: "center" }}>
-                        {DRAW_COLORS.map(c => (
-                            <button key={c} onClick={() => setColor(c)}
-                                style={{ width: 20, height: 20, borderRadius: "50%",
-                                    border: `2px solid ${color === c ? "#fff" : "transparent"}`,
-                                    background: c, cursor: "pointer", padding: 0,
-                                    boxShadow: color === c ? `0 0 0 1px ${c}` : "none",
-                                    transition: "border-color 0.15s" }} />
-                        ))}
-                    </div>
-                    <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 5 }}>
-                        <input type="color" value={color} onChange={e => setColor(e.target.value)}
-                            style={{ width: 22, height: 22, border: "none", background: "none", cursor: "pointer", padding: 0, flexShrink: 0 }} />
-                        <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", fontFamily: "monospace" }}>{color}</span>
-                    </div>
-                </div>
+                {divider}
+
+                {/* Animation type */}
+                {ANIM_OPTIONS.map(({ id, label }) => (
+                    <button key={id} style={tbBtn(animType === id, { fontSize: 11, padding: "3px 6px" })} onClick={() => setAnimType(id)} title={id}>{label}</button>
+                ))}
             </div>
 
-            {/* Right: textarea + controls */}
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-                <textarea
-                    ref={editorRef}
-                    disabled={isActive}
-                    placeholder="Type text here, then click Start Playing..."
-                    style={{
-                        flex: 1, padding: "10px 12px", resize: "none", outline: "none",
-                        background: "transparent", color, border: "none",
-                        fontFamily, fontSize, lineHeight: 1.6,
-                        fontStyle: fontStyle.includes("italic") ? "italic" : "normal",
-                        fontWeight: fontStyle.includes("bold") ? 700 : 400,
-                        whiteSpace: "pre-wrap", wordBreak: "break-word",
-                        opacity: isActive ? 0.5 : 1, caretColor: color,
-                    }}
-                    onKeyDown={e => {
-                        if (e.key === "Tab") {
-                            e.preventDefault();
-                            const t = e.currentTarget; const s = t.selectionStart;
-                            t.value = t.value.slice(0, s) + "    " + t.value.slice(t.selectionEnd);
-                            t.selectionStart = t.selectionEnd = s + 4;
-                        }
-                    }}
-                    onBlur={e => { cursorPosRef.current = e.currentTarget.selectionStart; }}
-                    onMouseUp={e => { cursorPosRef.current = e.currentTarget.selectionStart; }}
-                    onKeyUp={e => { cursorPosRef.current = (e.currentTarget as HTMLTextAreaElement).selectionStart; }}
-                />
+            {/* ── Textarea ── */}
+            <textarea
+                ref={editorRef}
+                disabled={isActive}
+                placeholder="Type text here, then click Start Playing..."
+                style={{
+                    flex: 1, padding: "10px 12px", resize: "none", outline: "none",
+                    background: "transparent", color, border: "none",
+                    fontFamily, fontSize, lineHeight: 1.6,
+                    fontStyle: fontStyle.includes("italic") ? "italic" : "normal",
+                    fontWeight: fontStyle.includes("bold") ? 700 : 400,
+                    textAlign,
+                    whiteSpace: "pre-wrap", wordBreak: "break-word",
+                    opacity: isActive ? 0.5 : 1, caretColor: color,
+                }}
+                onKeyDown={e => {
+                    if (e.key === "Tab") {
+                        e.preventDefault();
+                        const t = e.currentTarget; const s = t.selectionStart;
+                        t.value = t.value.slice(0, s) + "    " + t.value.slice(t.selectionEnd);
+                        t.selectionStart = t.selectionEnd = s + 4;
+                    }
+                }}
+                onBlur={e => { cursorPosRef.current = e.currentTarget.selectionStart; }}
+                onMouseUp={e => { cursorPosRef.current = e.currentTarget.selectionStart; }}
+                onKeyUp={e => { cursorPosRef.current = (e.currentTarget as HTMLTextAreaElement).selectionStart; }}
+            />
 
-                {/* Controls */}
-                <div style={{ padding: "8px 10px", borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
+            {/* ── Bottom controls ── */}
+            <div style={{ padding: "8px 10px", borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", display: "flex", flexDirection: "column", gap: 7, flexShrink: 0 }}>
 
-                    {/* Animation type */}
-                    <div>
-                        <div style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.08em" }}>Animation</div>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 3 }}>
-                            {ANIM_OPTIONS.map(({ id, label }) => (
-                                <button key={id} onClick={() => setAnimType(id)}
-                                    style={{ height: 24, fontSize: 10, fontWeight: 600, ...activeBtn(animType === id) }}>
-                                    {label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Words Per Line / Words Per Fly + Speed */}
-                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                        <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#94a3b8" }}>
-                            Per line
-                            <input type="number" min={1} max={30} value={wordsPerLine}
-                                onChange={e => setWordsPerLine(Math.max(1, Math.min(30, Number(e.target.value))))}
-                                style={{ width: 40, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "2px 4px", fontSize: 12, textAlign: "center" }} />
-                        </label>
-                        <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#94a3b8" }}>
-                            Per fly
-                            <input type="number" min={1} max={20} value={wordsPerFly}
-                                onChange={e => setWordsPerFly(Math.max(1, Math.min(20, Number(e.target.value))))}
-                                style={{ width: 40, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "2px 4px", fontSize: 12, textAlign: "center" }} />
-                        </label>
-                        <div style={{ display: "flex", gap: 2 }}>
-                            {SPEED_OPTIONS.map((s, i) => (
-                                <button key={s.label} onClick={() => setSpeedIdx(i)}
-                                    style={{ padding: "2px 6px", fontSize: 10, borderRadius: 4, cursor: "pointer", border: "none",
-                                        background: speedIdx === i ? "#6366f1" : "#1e293b", color: speedIdx === i ? "#fff" : "#94a3b8" }}>
-                                    {s.label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div style={{ fontSize: 10, color: anchor ? "#6366f1" : "#475569" }}>
-                        {anchor
-                            ? `Anchor (${Math.round(anchor.cx * CANVAS_W)}px, ~${Math.round(anchor.cy * 100)}%)`
-                            : "Click blackboard with text tool to set start position"}
-                    </div>
-
-                    {totalGroups > 0 && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div style={{ flex: 1, height: 4, background: "#1e293b", borderRadius: 2, overflow: "hidden" }}>
-                                <div style={{ height: "100%", background: "#6366f1", borderRadius: 2,
-                                    width: `${(Math.min(currentGroupIdx + 1, totalGroups) / totalGroups) * 100}%`,
-                                    transition: "width 0.3s" }} />
-                            </div>
-                            <span style={{ fontSize: 10, color: "#94a3b8", whiteSpace: "nowrap" }}>{progress}</span>
-                        </div>
-                    )}
-
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        {playState === "idle" || playState === "done" ? (
-                            <button onClick={handleStart}
-                                style={{ flex: 1, padding: "7px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#6366f1", color: "#fff" }}>
-                                {playState === "done" ? "Restart" : "Start Playing"}
+                {/* Words Per Line / Words Per Fly + Speed */}
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#94a3b8" }}>
+                        Per line
+                        <input type="number" min={1} max={30} value={wordsPerLine}
+                            onChange={e => setWordsPerLine(Math.max(1, Math.min(30, Number(e.target.value))))}
+                            style={{ width: 40, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "2px 4px", fontSize: 12, textAlign: "center" }} />
+                    </label>
+                    <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#94a3b8" }}>
+                        Per fly
+                        <input type="number" min={1} max={20} value={wordsPerFly}
+                            onChange={e => setWordsPerFly(Math.max(1, Math.min(20, Number(e.target.value))))}
+                            style={{ width: 40, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "2px 4px", fontSize: 12, textAlign: "center" }} />
+                    </label>
+                    <div style={{ display: "flex", gap: 2 }}>
+                        {SPEED_OPTIONS.map((s, i) => (
+                            <button key={s.label} onClick={() => setSpeedIdx(i)}
+                                style={{ padding: "2px 6px", fontSize: 10, borderRadius: 4, cursor: "pointer", border: "none",
+                                    background: speedIdx === i ? "#6366f1" : "#1e293b", color: speedIdx === i ? "#fff" : "#94a3b8" }}>
+                                {s.label}
                             </button>
-                        ) : (
-                            <>
-                                <button onClick={handlePauseResume}
-                                    style={{ flex: 1, padding: "7px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12,
-                                        background: playState === "paused" ? "#22c55e" : "#f59e0b", color: "#fff" }}>
-                                    {playState === "paused" ? "Resume" : "Pause"}
-                                </button>
-                                {playState === "ready-next" && (
-                                    <button onClick={handleNext}
-                                        style={{ flex: 1, padding: "7px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#3b82f6", color: "#fff" }}>
-                                        Next
-                                    </button>
-                                )}
-                                <button onClick={handleStop}
-                                    style={{ padding: "7px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, background: "#374151", color: "#9ca3af" }}>
-                                    Stop
-                                </button>
-                            </>
-                        )}
+                        ))}
                     </div>
+                </div>
 
-                    {playState === "done" && (
-                        <div style={{ fontSize: 11, color: "#22c55e", textAlign: "center" }}>✓ All text displayed</div>
+                <div style={{ fontSize: 10, color: anchor ? "#6366f1" : "#475569" }}>
+                    {anchor
+                        ? `Anchor (${Math.round(anchor.cx * CANVAS_W)}px, ~${Math.round(anchor.cy * 100)}%)`
+                        : "Click blackboard with text tool to set start position"}
+                </div>
+
+                {totalGroups > 0 && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ flex: 1, height: 4, background: "#1e293b", borderRadius: 2, overflow: "hidden" }}>
+                            <div style={{ height: "100%", background: "#6366f1", borderRadius: 2,
+                                width: `${(Math.min(currentGroupIdx + 1, totalGroups) / totalGroups) * 100}%`,
+                                transition: "width 0.3s" }} />
+                        </div>
+                        <span style={{ fontSize: 10, color: "#94a3b8", whiteSpace: "nowrap" }}>{progress}</span>
+                    </div>
+                )}
+
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {playState === "idle" || playState === "done" ? (
+                        <button onClick={handleStart}
+                            style={{ flex: 1, padding: "7px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#6366f1", color: "#fff" }}>
+                            {playState === "done" ? "Restart" : "Start Playing"}
+                        </button>
+                    ) : (
+                        <>
+                            <button onClick={handlePauseResume}
+                                style={{ flex: 1, padding: "7px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12,
+                                    background: playState === "paused" ? "#22c55e" : "#f59e0b", color: "#fff" }}>
+                                {playState === "paused" ? "Resume" : "Pause"}
+                            </button>
+                            {playState === "ready-next" && (
+                                <button onClick={handleNext}
+                                    style={{ flex: 1, padding: "7px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#3b82f6", color: "#fff" }}>
+                                    Next
+                                </button>
+                            )}
+                            <button onClick={handleStop}
+                                style={{ padding: "7px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, background: "#374151", color: "#9ca3af" }}>
+                                Stop
+                            </button>
+                        </>
                     )}
                 </div>
+
+                {playState === "done" && (
+                    <div style={{ fontSize: 11, color: "#22c55e", textAlign: "center" }}>✓ All text displayed</div>
+                )}
             </div>
         </div>
     );
