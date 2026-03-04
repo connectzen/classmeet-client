@@ -92,11 +92,13 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         courseToggleOn: false, courseSharedWithStudents: false,
         sessionCourseIds: [] as string[], courseLessonIdx: 0,
         courseCourseIdx: 0, courseSidebarOpen: false,
+        blackboardOn: false,
     });
     const emittersRef = useRef<{
         emitCourseToggle?: (active: boolean, courseIds: string[]) => void;
         emitCourseNavigate?: (courseIdx: number, lessonIdx: number) => void;
         emitCourseSidebar?: (open: boolean) => void;
+        emitBlackboardToggle?: (active: boolean) => void;
     }>({});
 
     const copyRoomCode = () => {
@@ -189,6 +191,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     liveStateRef.current = {
         courseToggleOn, courseSharedWithStudents, sessionCourseIds,
         courseLessonIdx, courseCourseIdx, courseSidebarOpen,
+        blackboardOn,
     };
 
     // ── Socket event handlers ────────────────────────────────────────────
@@ -208,6 +211,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                     setTimeout(() => {
                         e.emitCourseNavigate?.(s.courseCourseIdx, s.courseLessonIdx);
                         e.emitCourseSidebar?.(s.courseSidebarOpen);
+                        // Sync blackboard state so rejoiners see the blackboard if it's active
+                        if (s.blackboardOn) e.emitBlackboardToggle?.(true);
                         // Snapshot only the canvas for this specific late joiner
                         snapshotTargetRef.current = p.socketId;
                         setSnapshotRequest(prev => prev + 1);
@@ -386,7 +391,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
 
     // Keep refs in sync
     socketIdRef.current = socketId;
-    emittersRef.current = { emitCourseToggle, emitCourseNavigate, emitCourseSidebar };
+    emittersRef.current = { emitCourseToggle, emitCourseNavigate, emitCourseSidebar, emitBlackboardToggle };
 
     // Course navigation — shared by teacher (broadcasts) and student (local only)
     const handleCourseNav = useCallback((courseIdx: number, lessonIdx: number) => {
