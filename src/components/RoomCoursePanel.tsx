@@ -363,7 +363,14 @@ export default function RoomCoursePanel({
 
         const onDown = (e: MouseEvent) => {
             const { drawTool } = drawState.current;
-            if (!drawTool || drawTool === 'text' || e.target !== canvas) return;
+            if (!drawTool || drawTool === 'text') return;
+            // Use bounding-rect check instead of e.target comparison — the target
+            // may be a sibling element that sits above the canvas in z-order (e.g.
+            // nav buttons, overlays) even though the click is inside the canvas area.
+            const r = canvas.getBoundingClientRect();
+            const inCanvas = e.clientX >= r.left && e.clientX <= r.right
+                           && e.clientY >= r.top  && e.clientY <= r.bottom;
+            if (!inCanvas) return;
             e.preventDefault();
             isDrawing.current = true;
             const p = pt(e);
@@ -698,7 +705,7 @@ export default function RoomCoursePanel({
                             so the panel is fully visible on narrow screens without
                             horizontal scroll. zoom affects layout too, so scrollHeight
                             stays proportional and teacher/student scroll stays in sync. */}
-                        <div ref={scaleRef} style={{ width: CANVAS_W, position: 'relative', zoom: contentScale, zIndex: 1 }}>
+                        <div ref={scaleRef} style={{ width: CANVAS_W, position: 'relative', zoom: contentScale }}>
 
                             {/* Lesson content — fixed at exactly CANVAS_W (640 px).
                                 Teacher and student both render at 640px → same text wrap
