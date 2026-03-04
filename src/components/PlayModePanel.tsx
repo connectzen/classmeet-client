@@ -159,6 +159,8 @@ export default function PlayModePanel({
     const colorBtnRef    = useRef<HTMLButtonElement>(null);
     const fontBtnRef     = useRef<HTMLButtonElement>(null);
     const styleRangesRef = useRef<StyleRange[]>([]); styleRangesRef.current = styleRanges;
+    // Persists textarea selection across focus loss (toolbar clicks clear the live selection)
+    const savedSelRef = useRef<{ start: number; end: number } | null>(null);
     const cursorPosRef   = useRef(0);
     const groupPlanRef   = useRef<GroupPlan[]>([]);
     const charBufRef     = useRef("");
@@ -201,13 +203,11 @@ export default function PlayModePanel({
         };
     }, []);
 
-    // Helper: returns current textarea selection, or null
+    // Helper: returns saved textarea selection (persists after focus loss), or null
     const getSelection = () => {
-        const ta = editorRef.current;
-        if (!ta) return null;
-        const { selectionStart: s, selectionEnd: e } = ta;
-        if (s === e) return null;
-        return { start: Math.min(s, e), end: Math.max(s, e) };
+        const s = savedSelRef.current;
+        if (!s || s.start === s.end) return null;
+        return s;
     };
 
     // Apply style to selected range, or update global if no selection
@@ -226,6 +226,7 @@ export default function PlayModePanel({
                     .filter(Boolean) as StyleRange[];
                 return [...filtered, { ...base, ...patch, start: sel.start, end: sel.end }];
             });
+            // Don't clear savedSelRef so user can apply multiple styles to same selection
         } else {
             if (patch.color      !== undefined) setColor(patch.color);
             if (patch.fontFamily !== undefined) setFontFamily(patch.fontFamily);
@@ -448,8 +449,8 @@ export default function PlayModePanel({
                 </select>
 
                 {/* B / I toggles */}
-                <button style={tbBtn(fontStyle.includes("bold"), { fontWeight: 900, minWidth: 22, padding: "2px 4px" })} onClick={() => { const next: FontStyle = fontStyle.includes("bold") ? (fontStyle.includes("italic") ? "italic" : "normal") : (fontStyle.includes("italic") ? "bold italic" : "bold"); applyStyle({ fontStyle: next }); }} title="Bold">B</button>
-                <button style={tbBtn(fontStyle.includes("italic"), { fontStyle: "italic", minWidth: 22, padding: "2px 4px" })} onClick={() => { const next: FontStyle = fontStyle.includes("italic") ? (fontStyle.includes("bold") ? "bold" : "normal") : (fontStyle.includes("bold") ? "bold italic" : "italic"); applyStyle({ fontStyle: next }); }} title="Italic">I</button>
+                <button style={tbBtn(fontStyle.includes("bold"), { fontWeight: 900, minWidth: 22, padding: "2px 4px" })} onMouseDown={e => e.preventDefault()} onClick={() => { const next: FontStyle = fontStyle.includes("bold") ? (fontStyle.includes("italic") ? "italic" : "normal") : (fontStyle.includes("italic") ? "bold italic" : "bold"); applyStyle({ fontStyle: next }); }} title="Bold">B</button>
+                <button style={tbBtn(fontStyle.includes("italic"), { fontStyle: "italic", minWidth: 22, padding: "2px 4px" })} onMouseDown={e => e.preventDefault()} onClick={() => { const next: FontStyle = fontStyle.includes("italic") ? (fontStyle.includes("bold") ? "bold" : "normal") : (fontStyle.includes("bold") ? "bold italic" : "italic"); applyStyle({ fontStyle: next }); }} title="Italic">I</button>
 
                 {/* Color picker */}
                 <div style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}>
@@ -531,8 +532,27 @@ export default function PlayModePanel({
                     }
                 }}
                 onBlur={e => { cursorPosRef.current = e.currentTarget.selectionStart; }}
-                onMouseUp={e => { cursorPosRef.current = e.currentTarget.selectionStart; }}
-                onKeyUp={e => { cursorPosRef.current = (e.currentTarget as HTMLTextAreaElement).selectionStart; }}
+                onSelect={e => {
+                    const ta = e.currentTarget;
+                    const s = Math.min(ta.selectionStart, ta.selectionEnd);
+                    const en = Math.max(ta.selectionStart, ta.selectionEnd);
+                    savedSelRef.current = s !== en ? { start: s, end: en } : null;
+                }}
+                onChange={() => { savedSelRef.current = null; }}
+                onMouseUp={e => {
+                    cursorPosRef.current = e.currentTarget.selectionStart;
+                    const ta = e.currentTarget;
+                    const s = Math.min(ta.selectionStart, ta.selectionEnd);
+                    const en = Math.max(ta.selectionStart, ta.selectionEnd);
+                    savedSelRef.current = s !== en ? { start: s, end: en } : null;
+                }}
+                onKeyUp={e => {
+                    const ta = e.currentTarget as HTMLTextAreaElement;
+                    cursorPosRef.current = ta.selectionStart;
+                    const s = Math.min(ta.selectionStart, ta.selectionEnd);
+                    const en = Math.max(ta.selectionStart, ta.selectionEnd);
+                    savedSelRef.current = s !== en ? { start: s, end: en } : null;
+                }}
             />
 
             {/* ── Bottom controls ── */}
