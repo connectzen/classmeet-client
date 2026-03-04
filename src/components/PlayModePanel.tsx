@@ -107,9 +107,12 @@ export default function PlayModePanel({
     const [totalGroups,     setTotalGroups]     = useState(0);
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [colorPickerPos,  setColorPickerPos]  = useState({ top: 0, left: 0 });
+    const [showFontPicker,  setShowFontPicker]  = useState(false);
+    const [fontPickerPos,   setFontPickerPos]   = useState({ top: 0, left: 0 });
 
     const editorRef      = useRef<HTMLTextAreaElement>(null);
     const colorBtnRef    = useRef<HTMLButtonElement>(null);
+    const fontBtnRef     = useRef<HTMLButtonElement>(null);
     const cursorPosRef   = useRef(0);
     const groupPlanRef   = useRef<GroupPlan[]>([]);
     const charBufRef     = useRef("");
@@ -305,11 +308,36 @@ export default function PlayModePanel({
             {/* ── Horizontal toolbar (compact, fits narrow panel) ── */}
             <div style={{ display: "flex", gap: 2, padding: "4px 6px", borderBottom: "1px solid rgba(255,255,255,0.07)", flexWrap: "nowrap", overflowX: "hidden", alignItems: "center", background: "rgba(255,255,255,0.02)", flexShrink: 0 }}>
 
-                {/* Font family */}
-                <select value={fontFamily} onChange={e => setFontFamily(e.target.value)}
-                    style={{ padding: "2px 2px", borderRadius: 5, border: "none", background: "rgba(255,255,255,0.07)", color: "#94a3b8", fontSize: 11, cursor: "pointer", colorScheme: "dark", width: 56, minWidth: 56 }}>
-                    {FONT_LIST.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-                </select>
+                {/* Font family — shows first letter in button, full name in dropdown */}
+                <div style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}>
+                    <button ref={fontBtnRef} title="Font family"
+                        onMouseDown={e => {
+                            e.preventDefault();
+                            if (!showFontPicker && fontBtnRef.current) {
+                                const r = fontBtnRef.current.getBoundingClientRect();
+                                setFontPickerPos({ top: r.bottom + 4, left: r.left });
+                            }
+                            setShowFontPicker(v => !v);
+                        }}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 2, padding: "2px 5px", borderRadius: 5, background: showFontPicker ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.07)", cursor: "pointer", border: "none", userSelect: "none", color: "#94a3b8", fontSize: 11, fontWeight: 600 }}>
+                        <span>{(FONT_LIST.find(f => f.value === fontFamily)?.label ?? "S")[0]}</span>
+                        <span style={{ fontSize: 10, color: "#64748b" }}>▾</span>
+                    </button>
+                    {showFontPicker && (
+                        <>
+                            <div style={{ position: "fixed", inset: 0, zIndex: 9998 }} onMouseDown={e => { e.preventDefault(); setShowFontPicker(false); }} />
+                            <div style={{ position: "fixed", top: fontPickerPos.top, left: fontPickerPos.left, zIndex: 9999, background: "#1e293b", border: "1px solid rgba(99,102,241,0.35)", borderRadius: 8, padding: "4px 0", boxShadow: "0 8px 32px rgba(0,0,0,0.6)", minWidth: 110 }}>
+                                {FONT_LIST.map(f => (
+                                    <button key={f.value}
+                                        onMouseDown={e => { e.preventDefault(); setFontFamily(f.value); setShowFontPicker(false); }}
+                                        style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 12px", background: fontFamily === f.value ? "rgba(99,102,241,0.25)" : "transparent", color: fontFamily === f.value ? "#a5b4fc" : "#94a3b8", border: "none", cursor: "pointer", fontSize: 12, fontFamily: f.value }}>
+                                        {f.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </div>
 
                 {/* Font size */}
                 <select value={fontSize} onChange={e => setFontSize(Number(e.target.value))}
