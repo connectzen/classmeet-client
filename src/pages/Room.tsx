@@ -1186,74 +1186,6 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                     </div>
 
 
-                    {/* Controls */}
-                    <div className="room-controls">
-                        <button id="btn-toggle-mic" className={`control-btn ${micOn ? '' : 'control-btn-off'}`} onClick={toggleMic}>
-                            {micOn ? '🎙️' : '🔇'}
-                            <span className="control-label">{micOn ? 'Mute' : 'Unmute'}</span>
-                        </button>
-
-                        <button id="btn-toggle-cam" className={`control-btn ${camOn ? '' : 'control-btn-off'}`} onClick={toggleCam}>
-                            {camOn ? '📷' : '🚫'}
-                            <span className="control-label">{camOn ? 'Camera' : 'No Cam'}</span>
-                        </button>
-
-                        <button id="btn-devices" className="control-btn" onClick={() => setShowDevicePicker(true)}>
-                            ⚙️ <span className="control-label">Devices</span>
-                        </button>
-
-                        {/* Quiz toggle switch (teacher only) */}
-                        {role === 'teacher' && (
-                            <CtrlToggle
-                                label="Quiz"
-                                on={quizToggleOn}
-                                onChange={() => {
-                                    const next = !quizToggleOn;
-                                    if (quizToggleOn && roomQuiz) stopRoomQuiz();
-                                    setQuizToggleOn(next);
-                                    if (next) { setCourseToggleOn(false); emitCourseToggle(false, []); setCourseSharedWithStudents(false); setRoomQuizSubmitted(false); }
-                                }}
-                            />
-                        )}
-
-                        {/* Course toggle switch (teacher only, when session has courses) */}
-                        {role === 'teacher' && sessionCourseIds.length > 0 && (
-                            <CtrlToggle
-                                label="Course"
-                                on={courseToggleOn}
-                                onChange={() => {
-                                    const next = !courseToggleOn;
-                                    setCourseToggleOn(next);
-                                    if (!next) { emitCourseToggle(false, []); setCourseSharedWithStudents(false); }
-                                    if (next) { if (quizToggleOn && roomQuiz) stopRoomQuiz(); setQuizToggleOn(false); }
-                                }}
-                            />
-                        )}
-
-                        {/* Share toggle removed from here — now lives inside the course toolbar */}
-
-                        {/* Mobile chat toggle */}
-                        <button id="btn-mobile-chat" className="control-btn mobile-only" onClick={() => setIsChatOpen(true)}>
-                            💬 <span className="control-label">Chat</span>
-                        </button>
-
-                        {/* Mobile play toggle — teachers only */}
-                        {role === 'teacher' && (
-                            <button id="btn-mobile-play" className="control-btn mobile-only" onClick={() => setIsMobilePlayOpen(true)}>
-                                ▶ <span className="control-label">Play</span>
-                            </button>
-                        )}
-
-                        {role === 'teacher' && (
-                            <button id="btn-end-room" className="control-btn control-btn-danger" onClick={handleEndRoom}>
-                                📴 <span className="control-label">End Class</span>
-                            </button>
-                        )}
-
-                        <button id="btn-leave-room" className="control-btn control-btn-leave" onClick={handleLeaveIntentional}>
-                            🚪 <span className="control-label">Leave</span>
-                        </button>
-                    </div>
                 </div>
 
                 {/* RIGHT: Chat / Play sidebar (desktop only) */}
@@ -1294,6 +1226,75 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                             <ChatPanel messages={messages} mySocketId={socketId} onSend={sendMessage} hideHeader />
                         )}
                     </div>
+                </div>
+
+                {/* CONTROLS: Vertical strip (desktop) / bottom bar (mobile) */}
+                <div className="room-controls">
+                    <button id="btn-toggle-mic" className={`control-btn ${micOn ? '' : 'control-btn-off'}`} onClick={toggleMic}>
+                        {micOn ? '🎙️' : '🔇'}
+                        <span className="control-label">{micOn ? 'Mute' : 'Unmute'}</span>
+                    </button>
+
+                    <button id="btn-toggle-cam" className={`control-btn ${camOn ? '' : 'control-btn-off'}`} onClick={toggleCam}>
+                        {camOn ? '📷' : '🚫'}
+                        <span className="control-label">{camOn ? 'Camera' : 'No Cam'}</span>
+                    </button>
+
+                    <button id="btn-devices" className="control-btn" onClick={() => setShowDevicePicker(true)}>
+                        ⚙️ <span className="control-label">Devices</span>
+                    </button>
+
+                    {/* Quiz toggle switch (teacher only) */}
+                    {role === 'teacher' && (
+                        <CtrlToggle
+                            label="Quiz"
+                            on={quizToggleOn}
+                            onChange={() => {
+                                const next = !quizToggleOn;
+                                if (quizToggleOn && roomQuiz) stopRoomQuiz();
+                                setQuizToggleOn(next);
+                                if (next) { setCourseToggleOn(false); emitCourseToggle(false, []); setCourseSharedWithStudents(false); setRoomQuizSubmitted(false); }
+                            }}
+                        />
+                    )}
+
+                    {/* Course toggle switch (teacher only, when session has courses) */}
+                    {role === 'teacher' && sessionCourseIds.length > 0 && (
+                        <CtrlToggle
+                            label="Course"
+                            on={courseToggleOn}
+                            onChange={() => {
+                                const next = !courseToggleOn;
+                                setCourseToggleOn(next);
+                                if (!next) { emitCourseToggle(false, []); setCourseSharedWithStudents(false); }
+                                if (next) { if (quizToggleOn && roomQuiz) stopRoomQuiz(); setQuizToggleOn(false); }
+                            }}
+                        />
+                    )}
+
+                    {/* Share toggle removed from here — now lives inside the course toolbar */}
+
+                    {/* Mobile chat toggle */}
+                    <button id="btn-mobile-chat" className="control-btn mobile-only" onClick={() => setIsChatOpen(true)}>
+                        💬 <span className="control-label">Chat</span>
+                    </button>
+
+                    {/* Mobile play toggle — teachers only */}
+                    {role === 'teacher' && (
+                        <button id="btn-mobile-play" className="control-btn mobile-only" onClick={() => setIsMobilePlayOpen(true)}>
+                            ▶ <span className="control-label">Play</span>
+                        </button>
+                    )}
+
+                    {role === 'teacher' && (
+                        <button id="btn-end-room" className="control-btn control-btn-danger" onClick={handleEndRoom}>
+                            📴 <span className="control-label">End Class</span>
+                        </button>
+                    )}
+
+                    <button id="btn-leave-room" className="control-btn control-btn-leave" onClick={handleLeaveIntentional}>
+                        🚪 <span className="control-label">Leave</span>
+                    </button>
                 </div>
 
             </div>
