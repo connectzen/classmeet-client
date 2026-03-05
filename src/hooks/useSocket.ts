@@ -56,6 +56,8 @@ interface UseSocketOptions {
     onDrawReplaceLast?: (seg: DrawSeg) => void;
     // Quiz start error (e.g. quiz is still a draft)
     onQuizError?: (error: string) => void;
+    /** Called when teacher's play overlay HTML changes; html='' means clear. */
+    onPlayHtml?: (html: string) => void;
 }
 
 export function useSocket(options: UseSocketOptions) {
@@ -122,11 +124,13 @@ export function useSocket(options: UseSocketOptions) {
     const onQuizProgressUpdateRef = useRef(options.onQuizProgressUpdate);
     const onBlackboardToggleRef = useRef(options.onBlackboardToggle);
     const onQuizErrorRef = useRef(options.onQuizError);
+    const onPlayHtmlRef = useRef(options.onPlayHtml);
     onQuizStudentStartedRef.current = options.onQuizStudentStarted;
     onQuizStudentInactiveRef.current = options.onQuizStudentInactive;
     onQuizProgressUpdateRef.current = options.onQuizProgressUpdate;
     onBlackboardToggleRef.current = options.onBlackboardToggle;
     onQuizErrorRef.current = options.onQuizError;
+    onPlayHtmlRef.current = options.onPlayHtml;
 
     const socketRef = useRef<Socket | null>(null);
     const [socketId, setSocketId] = useState('');
@@ -250,6 +254,9 @@ export function useSocket(options: UseSocketOptions) {
         socket.on('room:quiz-error', ({ error }: { error: string }) => {
             onQuizErrorRef.current?.(error);
         });
+        socket.on('play:html', ({ html }: { html: string }) => {
+            onPlayHtmlRef.current?.(html);
+        });
         socket.on('disconnect', () => setConnected(false));
 
         return () => {
@@ -350,6 +357,14 @@ export function useSocket(options: UseSocketOptions) {
         socketRef.current?.emit('course-blackboard', { roomCode, active });
     }, [roomCode]);
 
+    const emitPlayShow = useCallback((html: string) => {
+        socketRef.current?.emit('play:show', { roomCode, html });
+    }, [roomCode]);
+
+    const emitPlayClear = useCallback(() => {
+        socketRef.current?.emit('play:clear', { roomCode });
+    }, [roomCode]);
+
     // Student notifies teacher they started the quiz
     const emitQuizStarted = useCallback(() => {
         socketRef.current?.emit('quiz:student-started', { roomCode });
@@ -372,5 +387,6 @@ export function useSocket(options: UseSocketOptions) {
         emitCourseToggle, emitCourseNavigate, emitCourseScroll, emitCourseSidebar,
         emitDrawSegment, emitDrawPreview, emitDrawCursor, emitDrawClear, emitDrawSnapshot, emitDrawSnapshotTo, emitDrawReplaceLast,
         emitQuizStarted, emitQuizStopped, emitQuizProgress, emitBlackboardToggle,
+        emitPlayShow, emitPlayClear,
     };
 }

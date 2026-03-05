@@ -1,5 +1,4 @@
 ﻿import { useCallback, useEffect, useRef, useState } from "react";
-import type { DrawSeg } from "./RoomCoursePanel";
 import RichEditor, { isRichEmpty } from "./RichEditor";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -118,12 +117,36 @@ function parseRichToStyledWords(html: string): StyledWord[] {
 interface Props {
     anchor: { cx: number; cy: number } | null;
     canvasH: number;
-    onPlayFrame: (seg: DrawSeg | null) => void;
-    onPlayCommit: (seg: DrawSeg) => void;
-    onPlayReplaceLine: (seg: DrawSeg) => void;
+    /** Called each time the teacher's play overlay HTML changes (teacher's own blackboard needs to mirror it). */
+    onPlayHtml: (html: string) => void;
+    /** Emit the current HTML block to students via socket. */
+    emitPlayShow: (html: string) => void;
+    /** Clear the play overlay from students' blackboards. */
+    emitPlayClear: () => void;
     onEnableBlackboard: () => void;
     isBlackboardOn: boolean;
     onEnableCourse?: () => void;
+}
+
+/** Escape user text for safe HTML injection. */
+function escHtml(s: string): string {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** Build a CSS style string for a styled word group. */
+function buildSpanCss(plan: {
+    color: string; fontFamily: string; fontSizePx: number; fontStyle: FontStyle; underline: boolean;
+}): string {
+    const { color, fontFamily, fontSizePx, fontStyle, underline } = plan;
+    const parts = [
+        `color:${color}`,
+        fontFamily ? `font-family:${fontFamily}` : '',
+        `font-size:${fontSizePx}px`,
+        fontStyle.includes('bold')   ? 'font-weight:bold'   : 'font-weight:normal',
+        fontStyle.includes('italic') ? 'font-style:italic'  : 'font-style:normal',
+        underline ? 'text-decoration:underline' : '',
+    ].filter(Boolean);
+    return parts.join(';');
 }
 
 // ── GroupPlan: pre-computed animation schedule ────────────────────────────────
@@ -139,6 +162,7 @@ interface GroupPlan {
     underline: boolean;
     blockIdx: number; // block of linesPerBlock canvas lines
     colIdx: number;   // fly-column within the block (same blockIdx+colIdx = auto-advance)
+    lineIdxInBlock: number; // which line within the current block (0-based)
 }
 
 function buildGroupPlan(
@@ -243,7 +267,7 @@ function buildGroupPlan(
                 plan.push({
                     lineY: lineYs[li], isFirstOnLine, prevTextWidth, newWords: flyText,
                     color, fontFamily, fontSizePx, fontStyle, underline,
-                    blockIdx, colIdx,
+                    blockIdx, colIdx, lineIdxInBlock: li,
                 });
             }
             colIdx++;
@@ -254,7 +278,8 @@ function buildGroupPlan(
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function PlayModePanel({
-    anchor, canvasH, onPlayFrame, onPlayCommit, onPlayReplaceLine,
+    anchor, canvasH,
+    onPlayHtml, emitPlayShow, emitPlayClear,
     onEnableBlackboard, isBlackboardOn, onEnableCourse,
 }: Props) {
     const [wordsPerLine,    setWordsPerLine]   = useState(5);
@@ -272,8 +297,9 @@ export default function PlayModePanel({
     const frameRef        = useRef(0);
     const playStateRef    = useRef<PlayState>("idle");
     playStateRef.current  = playState;
-    // Tiptap editor instance — set via onEditorReady so we can call formatting commands
-    // from the play-panel toolbar without needing to bubble events through RichEditor.
+    // Per-line accumulated HTML for the current block (cleared on each new block)
+    const lineHtmlsRef    = useRef<string[]>([]);
+    // Tiptap editor instance
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const editorRef = useRef<any>(null);
 
@@ -284,27 +310,29 @@ export default function PlayModePanel({
     const wordsPerLineRef   = useRef(wordsPerLine);   wordsPerLineRef.current   = wordsPerLine;
     const wordsPerFlyRef    = useRef(wordsPerFly);    wordsPerFlyRef.current    = wordsPerFly;
     const linesPerBlockRef  = useRef(linesPerBlock);  linesPerBlockRef.current  = linesPerBlock;
-    const onPlayFrameRef  = useRef(onPlayFrame);  onPlayFrameRef.current  = onPlayFrame;
-    const onPlayCommitRef = useRef(onPlayCommit); onPlayCommitRef.current = onPlayCommit;
-    const onPlayReplaceRef = useRef(onPlayReplaceLine); onPlayReplaceRef.current = onPlayReplaceLine;
+    const onPlayHtmlRef   = useRef(onPlayHtml);   onPlayHtmlRef.current   = onPlayHtml;
+    const emitPlayShowRef = useRef(emitPlayShow); emitPlayShowRef.current = emitPlayShow;
+    const emitPlayClearRef = useRef(emitPlayClear); emitPlayClearRef.current = emitPlayClear;
     const isBlackboardOnRef = useRef(isBlackboardOn); isBlackboardOnRef.current = isBlackboardOn;
 
-    const makeBaseSeg = useCallback((
-        text: string,
-        lineY: number,
-        style: { color: string; fontFamily: string; fontSizePx: number; fontStyle: FontStyle; underline: boolean },
-    ): DrawSeg => {
-        const baseX = anchorRef.current?.cx ?? 0.02;
-        return {
-            x1: baseX, y1: lineY, x2: baseX, y2: lineY,
-            color: style.color, size: 1, mode: "text", text,
-            fontFamily: style.fontFamily,
-            fontSizePx: style.fontSizePx,
-            fontStyle:  style.fontStyle,
-            underline:  style.underline,
-            noWrap: true, // pre-positioned; never let canvas word-wrap reflow these
-        };
+    /** Assemble the block HTML from per-line accumulated spans and broadcast it. */
+    const broadcastBlock = useCallback(() => {
+        const html = lineHtmlsRef.current
+            .map(l => `<div style="margin:0;line-height:1.6;white-space:pre-wrap;">${l}</div>`)
+            .join('');
+        onPlayHtmlRef.current(html);
+        emitPlayShowRef.current(html);
     }, []);
+
+    /** Append a fly group's HTML to the appropriate line and broadcast. */
+    const commitFlyHtml = useCallback((plan: GroupPlan) => {
+        const { lineIdxInBlock, newWords } = plan;
+        const css = buildSpanCss(plan);
+        const span = `<span style="${css}">${escHtml(newWords)} </span>`;
+        if (!lineHtmlsRef.current[lineIdxInBlock]) lineHtmlsRef.current[lineIdxInBlock] = '';
+        lineHtmlsRef.current[lineIdxInBlock] += span;
+        broadcastBlock();
+    }, [broadcastBlock]);
 
     const stopInterval = useCallback(() => {
         if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
@@ -315,37 +343,22 @@ export default function PlayModePanel({
         const plan = groupPlanRef.current;
         if (idx >= plan.length) {
             setPlayState("done");
-            onPlayFrameRef.current(null);
             return;
         }
-        const { lineY, isFirstOnLine, prevTextWidth, newWords,
-                color, fontFamily, fontSizePx, fontStyle, underline } = plan[idx];
-        const flyStyle = { color, fontFamily, fontSizePx, fontStyle, underline };
+
+        // Detect block boundary — clear accumulated HTML for the new block
+        if (idx > 0 && plan[idx].blockIdx !== plan[idx - 1].blockIdx) {
+            lineHtmlsRef.current = [];
+            onPlayHtmlRef.current('');
+            emitPlayClearRef.current();
+        }
+
+        const entry = plan[idx];
         setCurrentGroupIdx(idx);
         setPlayState("playing");
 
-        const ax    = anchorRef.current?.cx ?? 0.02;
-        const animX = isFirstOnLine ? ax : ax + prevTextWidth;
-        // Always animate + commit only the NEW words for this fly — each word
-        // gets its own DrawSeg at its exact x-position so per-word colors /
-        // fonts are preserved independently on the canvas (no replace-line).
-        const animText = newWords;
-
-        const makeAnimSeg = (text: string): DrawSeg => {
-            const seg = makeBaseSeg(text, lineY, flyStyle);
-            seg.x1 = animX; seg.x2 = animX;
-            return seg;
-        };
-
-        const emit = (seg: DrawSeg) => onPlayFrameRef.current(seg);
         const finalCommit = () => {
-            onPlayFrameRef.current(null);
-            // Commit the fly as an independent segment at animX — never replace
-            const s = makeBaseSeg(newWords, lineY, flyStyle);
-            s.x1 = animX; s.x2 = animX;
-            onPlayCommitRef.current(s);
-            // Auto-advance if next group is in the same block+column; pause between columns
-            const plan = groupPlanRef.current;
+            commitFlyHtml(entry);
             const nextIdx = idx + 1;
             if (nextIdx >= plan.length) {
                 setPlayState("done");
@@ -353,10 +366,8 @@ export default function PlayModePanel({
                 plan[nextIdx].blockIdx === plan[idx].blockIdx &&
                 plan[nextIdx].colIdx   === plan[idx].colIdx
             ) {
-                // same column within same block → auto-advance to next line
                 setTimeout(() => animateGroup(nextIdx), 80);
             } else {
-                // column boundary → wait for Next
                 setPlayState("ready-next");
             }
         };
@@ -364,11 +375,12 @@ export default function PlayModePanel({
         const anim = animTypeRef.current;
 
         if (anim === "typing") {
+            // Teacher side: char-by-char in the preview; students receive commit only
             charBufRef.current = "";
+            const animText = entry.newWords;
             intervalRef.current = setInterval(() => {
                 if (playStateRef.current === "paused") return;
                 charBufRef.current = animText.slice(0, charBufRef.current.length + 1);
-                emit(makeAnimSeg(charBufRef.current));
                 if (charBufRef.current.length >= animText.length) {
                     stopInterval();
                     charBufRef.current = "";
@@ -376,29 +388,21 @@ export default function PlayModePanel({
                 }
             }, SPEED_OPTIONS[speedRef.current].ms);
         } else {
+            // Non-typing animations: just wait the equivalent duration then commit
             const FRAMES = 20;
             frameRef.current = 0;
             const ms = Math.max(10, SPEED_OPTIONS[speedRef.current].ms * 1.5);
             intervalRef.current = setInterval(() => {
                 if (playStateRef.current === "paused") return;
                 frameRef.current += 1;
-                const p = Math.min(1, 1 - Math.pow(1 - frameRef.current / FRAMES, 2));
-                const seg = makeAnimSeg(animText);
-                if      (anim === "fade")         { seg.opacity = p; }
-                else if (anim === "slide-right")  { seg.x1 = seg.x2 = animX + 0.35 * (1 - p); }
-                else if (anim === "slide-left")   { seg.x1 = seg.x2 = animX - 0.35 * (1 - p); }
-                else if (anim === "slide-bottom") { seg.y1 = seg.y2 = lineY + (0.15 * Math.max(1, canvasHRef.current) / 100) * (1 - p); }
-                else if (anim === "scale")        { seg.fontSizePx = Math.max(1, Math.round(fontSizePx * (0.05 + 0.95 * p))); }
                 if (frameRef.current >= FRAMES) {
                     stopInterval();
                     finalCommit();
-                } else {
-                    emit(seg);
                 }
             }, ms);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [stopInterval, makeBaseSeg]);
+    }, [stopInterval, commitFlyHtml]);
 
     const handleStart = useCallback(() => {
         if (isRichEmpty(editorHtml)) return;
@@ -415,6 +419,7 @@ export default function PlayModePanel({
             canvasHRef.current,
         );
         if (!plan.length) return;
+        lineHtmlsRef.current = [];
         groupPlanRef.current = plan;
         setTotalGroups(plan.length);
         animateGroup(0);
@@ -424,7 +429,10 @@ export default function PlayModePanel({
     const handleNext        = useCallback(() => animateGroup(currentGroupIdx + 1), [currentGroupIdx, animateGroup]);
     const handlePauseResume = useCallback(() => setPlayState(p => p === "paused" ? "playing" : "paused"), []);
     const handleStop        = useCallback(() => {
-        stopInterval(); onPlayFrameRef.current(null);
+        stopInterval();
+        lineHtmlsRef.current = [];
+        onPlayHtmlRef.current('');
+        emitPlayClearRef.current();
         setPlayState("idle"); setCurrentGroupIdx(0); setTotalGroups(0);
         charBufRef.current = ""; groupPlanRef.current = [];
     }, [stopInterval]);

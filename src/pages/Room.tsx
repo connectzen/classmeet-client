@@ -64,10 +64,9 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [rightTab,         setRightTab]         = useState<'chat' | 'play'>('chat');
     const [playAnchor,       setPlayAnchor]       = useState<{ cx: number; cy: number } | null>(null);
     const [playCanvasH,      setPlayCanvasH]      = useState(600);
-    const [playPreviewSeg,   setPlayPreviewSeg]   = useState<DrawSeg | null>(null);
-    const [playCommitSeg,    setPlayCommitSeg]    = useState<DrawSeg | null>(null);
-    const [playReplaceLineSeg,   setPlayReplaceLineSeg]   = useState<DrawSeg | null>(null);
-    const [playReplaceLineCount, setPlayReplaceLineCount] = useState(0);
+    // HTML overlay produced by teacher's PlayModePanel — shown on blackboard for all
+    const [teacherPlayHtml,  setTeacherPlayHtml]  = useState('');
+    const [studentPlayHtml,  setStudentPlayHtml]  = useState('');
     const [externalDrawReplaceSeg,   setExternalDrawReplaceSeg]   = useState<DrawSeg | null>(null);
     const [externalDrawReplaceCount, setExternalDrawReplaceCount] = useState(0);
     const [sessionQuizIds, setSessionQuizIds] = useState<string[]>([]);
@@ -318,6 +317,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         emitCourseToggle, emitCourseNavigate, emitCourseScroll, emitCourseSidebar,
         emitDrawSegment, emitDrawPreview, emitDrawCursor, emitDrawClear, emitDrawSnapshot, emitDrawSnapshotTo, emitDrawReplaceLast,
         emitQuizStarted, emitQuizStopped, emitQuizProgress, emitBlackboardToggle,
+        emitPlayShow, emitPlayClear,
     } = useSocket({
             roomCode, roomId, roomName, name, role, isGuestRoomHost,
             onParticipantJoined: handleParticipantJoined,
@@ -372,6 +372,10 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
             },
             onBlackboardToggle: (active) => {
                 if (role !== 'teacher') setBlackboardOn(active);
+            },
+            onPlayHtml: (html) => {
+                // Only students receive this; teacher's overlay is set via onPlayHtml prop
+                if (role !== 'teacher') setStudentPlayHtml(html);
             },
             onQuizStudentStarted: (data) => {
                 if (role === 'teacher') {
@@ -808,22 +812,9 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 if (!courseToggleOn) { setCourseToggleOn(true); emitCourseToggle(true, sessionCourseIds); }
                             }}
                             onEnableBlackboard={() => { setBlackboardOn(true); emitBlackboardToggle(true); }}
-                            onPlayFrame={seg => {
-                                setPlayPreviewSeg(seg ? { ...seg } : null);
-                                if (seg) emitDrawPreview(seg);
-                                else emitDrawPreview({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
-                            }}
-                            onPlayCommit={seg => {
-                                emitDrawSegment(seg);
-                                setPlayCommitSeg({ ...seg });
-                                setPlayPreviewSeg(null);
-                            }}
-                            onPlayReplaceLine={seg => {
-                                setPlayReplaceLineSeg({ ...seg });
-                                setPlayReplaceLineCount(prev => prev + 1);
-                                emitDrawReplaceLast(seg);
-                                setPlayPreviewSeg(null);
-                            }}
+                            onPlayHtml={html => setTeacherPlayHtml(html)}
+                            emitPlayShow={html => emitPlayShow(html)}
+                            emitPlayClear={() => emitPlayClear()}
                         />
                     </div>
                 </div>
@@ -1065,10 +1056,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 onBlackboardToggle={(on) => { setBlackboardOn(on); emitBlackboardToggle(on); }}
                                 onTextAnchorSet={(cx, cy) => setPlayAnchor({ cx, cy })}
                                 onCanvasHChange={h => setPlayCanvasH(h)}
-                                externalPlaySeg={playPreviewSeg}
-                                externalPlayCommitSeg={playCommitSeg}
-                                externalPlayReplaceLineSeg={playReplaceLineSeg}
-                                externalPlayReplaceLineCount={playReplaceLineCount}
+                                playHtml={teacherPlayHtml}
+                                playAnchor={playAnchor}
                             />
                         ) : courseToggleOn && role !== 'teacher' ? (
                             <RoomCoursePanel
@@ -1089,6 +1078,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 blackboardActive={blackboardOn}
                                 externalDrawReplaceSeg={externalDrawReplaceSeg}
                                 externalDrawReplaceCount={externalDrawReplaceCount}
+                                playHtml={studentPlayHtml}
+                                playAnchor={playAnchor}
                             />
                         ) : quizToggleOn && role === 'teacher' ? (
                             quizMonitorMode && quizStudentProgress.size > 0 ? (
@@ -1301,25 +1292,9 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                     setBlackboardOn(true);
                                     emitBlackboardToggle(true);
                                 }}
-                                onPlayFrame={seg => {
-                                    setPlayPreviewSeg(seg ? { ...seg } : null);
-                                    if (seg) emitDrawPreview(seg);
-                                    else emitDrawPreview({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
-                                }}
-                                onPlayCommit={seg => {
-                                    // Commit to students
-                                    emitDrawSegment(seg);
-                                    // Commit to teacher's own canvas
-                                    setPlayCommitSeg({ ...seg });
-                                    // Clear preview
-                                    setPlayPreviewSeg(null);
-                                }}
-                                onPlayReplaceLine={seg => {
-                                    setPlayReplaceLineSeg({ ...seg });
-                                    setPlayReplaceLineCount(prev => prev + 1);
-                                    emitDrawReplaceLast(seg);
-                                    setPlayPreviewSeg(null);
-                                }}
+                                onPlayHtml={html => setTeacherPlayHtml(html)}
+                                emitPlayShow={html => emitPlayShow(html)}
+                                emitPlayClear={() => emitPlayClear()}
                             />
                         ) : (
                             <ChatPanel messages={messages} mySocketId={socketId} onSend={sendMessage} hideHeader />

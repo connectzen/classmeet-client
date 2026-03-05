@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import DOMPurify from 'dompurify';
 import { RichContent } from './RichEditor';
 
 interface Lesson {
@@ -80,6 +81,10 @@ interface Props {
     // Student receives replace-last from server
     externalDrawReplaceSeg?: DrawSeg | null;
     externalDrawReplaceCount?: number;
+    /** HTML content to display as an overlay on the blackboard (play mode). Empty string = hidden. */
+    playHtml?: string;
+    /** Anchor position (fraction of canvas) where the play HTML overlay starts. */
+    playAnchor?: { cx: number; cy: number } | null;
 }
 
 type DrawTool = 'pen' | 'highlight' | 'eraser' | 'text' | 'circle' | 'rect' | 'square' | 'arrow' | 'line';
@@ -237,6 +242,7 @@ export default function RoomCoursePanel({
     snapshotDataUrl,
     sharedWithStudents, onShareToggle,
     blackboardActive, onBlackboardToggle,
+    playHtml, playAnchor,
 }: Props) {
     const [courses, setCourses] = useState<CourseData[]>([]);
     const [loading, setLoading] = useState(true);
@@ -1090,6 +1096,23 @@ export default function RoomCoursePanel({
                                 style={{ position: 'absolute', top: 0, left: 0, pointerEvents: drawActive ? 'auto' : 'none', cursor: drawActive ? cursor : 'default', zIndex: 15 }} />
                             <canvas ref={previewRef}
                                 style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 16 }} />
+
+                            {/* Play Mode HTML overlay — rendered at anchor position, above canvas */}
+                            {playHtml ? (
+                                <div
+                                    style={{
+                                        position: 'absolute',
+                                        left: Math.round((playAnchor?.cx ?? 0.02) * CANVAS_W),
+                                        top: Math.round((playAnchor?.cy ?? 0.05) * canvasH),
+                                        maxWidth: CANVAS_W - Math.round((playAnchor?.cx ?? 0.02) * CANVAS_W) - 8,
+                                        pointerEvents: 'none',
+                                        zIndex: 18,
+                                        lineHeight: 1.5,
+                                    }}
+                                    // eslint-disable-next-line react/no-danger
+                                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(playHtml) }}
+                                />
+                            ) : null}
 
                             {/* Teacher cursor dot — visible to students in real time */}
                             {!isTeacher && teacherCursor && (
