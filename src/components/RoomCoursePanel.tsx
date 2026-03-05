@@ -466,12 +466,14 @@ export default function RoomCoursePanel({
             // The extra space is split equally left/right to center the student's content.
             const TOOLBAR_OCCUPIED_W = (toolbarRef.current?.offsetWidth ?? 78) + 10;
             const totalW    = wrapperRef.current?.clientWidth ?? CANVAS_W;
-            const tbW       = TOOLBAR_OCCUPIED_W;
+            // In blackboard mode the toolbar floats (absolute) on top, so don't
+            // subtract its width — let the blackboard take the full wrapper width.
+            const tbW       = showBlackboardRef.current ? 0 : TOOLBAR_OCCUPIED_W;
             const availW    = Math.max(totalW - tbW, 1);
             const scale     = availW / CANVAS_W;
             setContentScale(scale);
             physScaleRef.current = scale * DPR; // update BEFORE replay so replayOnCanvas uses the fresh scale
-            setContentPaddingX(isTeacher ? 0 : tbW / 2);
+            setContentPaddingX(isTeacher || showBlackboardRef.current ? 0 : tbW / 2);
 
             // Collapse canvas height so it doesn't inflate inner.scrollHeight
             canvas.style.height  = '0px';
