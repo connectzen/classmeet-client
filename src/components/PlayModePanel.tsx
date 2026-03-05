@@ -438,9 +438,7 @@ export default function PlayModePanel({
                 : ''
             ).join('');
         onPlayHtmlRef.current(html);
-        if (broadcastUnlockedRef.current) {
-            emitPlayShowRef.current(html);
-        }
+        emitPlayShowRef.current(html);
     }, []);
 
     /**
@@ -519,12 +517,9 @@ export default function PlayModePanel({
                 charBufRef.current = animText.slice(0, charBufRef.current.length + 1);
                 // Build the live overlay HTML (committed lines + partial current word)
                 const flyHtml = buildFlyOverlay(entry, charBufRef.current, '');
-                // Always update teacher's overlay immediately
+                // Update teacher's overlay and broadcast to students on every tick
                 onPlayHtmlRef.current(flyHtml);
-                // Only broadcast to students once unlocked (after teacher presses Next first time)
-                if (broadcastUnlockedRef.current) {
-                    emitPlayShowRef.current(flyHtml);
-                }
+                emitPlayShowRef.current(flyHtml);
                 if (charBufRef.current.length >= animText.length) {
                     stopInterval();
                     charBufRef.current = "";
@@ -569,11 +564,12 @@ export default function PlayModePanel({
             canvasHRef.current,
         );
         if (!plan.length) return;
-        // Reset broadcast lock — students won't receive anything until teacher presses Next
-        broadcastUnlockedRef.current = false;
-        // Clear teacher's overlay locally (students have nothing yet, no need to emit clear)
+        // Unlock broadcast immediately so students see content from the first play action
+        broadcastUnlockedRef.current = true;
+        // Clear both teacher's and students' overlay before starting a new session
         lineHtmlsRef.current = [];
         onPlayHtmlRef.current('');
+        emitPlayClearRef.current();
         styledWordsRef.current   = styledWords;
         wordsConsumedRef.current = 0;
         groupPlanRef.current = plan;
@@ -583,13 +579,8 @@ export default function PlayModePanel({
     }, [onEnableBlackboardLocal, animateGroup, editorHtml]);
 
     const handleNext        = useCallback(() => {
-        if (!broadcastUnlockedRef.current) {
-            // First Next press — unlock student broadcast and immediately send what was committed
-            broadcastUnlockedRef.current = true;
-            broadcastBlock();
-        }
         animateGroup(currentGroupIdx + 1);
-    }, [currentGroupIdx, animateGroup, broadcastBlock]);
+    }, [currentGroupIdx, animateGroup]);
     const handlePauseResume = useCallback(() => setPlayState(p => p === "paused" ? "playing" : "paused"), []);
 
     /** Stop animation but KEEP the overlay on the blackboard. Plan stays in memory for Resume. */
