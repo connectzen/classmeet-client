@@ -22,7 +22,7 @@ const SPEED_OPTIONS: { label: string; ms: number }[] = [
 ];
 
 type FontStyle = "normal" | "bold" | "italic" | "bold italic";
-type PlayState = "idle" | "playing" | "paused" | "ready-next" | "done";
+type PlayState = "idle" | "playing" | "paused" | "ready-next" | "stopped" | "done";
 type AnimType  = "typing" | "fade" | "slide-right" | "slide-left" | "slide-bottom" | "scale";
 
 // ── Styled word: one word with its resolved inline style ─────────────────────
@@ -299,6 +299,8 @@ export default function PlayModePanel({
     playStateRef.current  = playState;
     // Per-line accumulated HTML for the current block (cleared on each new block)
     const lineHtmlsRef    = useRef<string[]>([]);
+    // What state were we in when Stop was pressed — determines Resume target
+    const stoppedFromRef  = useRef<'playing' | 'ready-next'>('playing');
     // Tiptap editor instance
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const editorRef = useRef<any>(null);
@@ -419,7 +421,10 @@ export default function PlayModePanel({
             canvasHRef.current,
         );
         if (!plan.length) return;
+        // Clear any existing overlay before starting fresh
         lineHtmlsRef.current = [];
+        onPlayHtmlRef.current('');
+        emitPlayClearRef.current();
         groupPlanRef.current = plan;
         setTotalGroups(plan.length);
         animateGroup(0);
@@ -428,13 +433,36 @@ export default function PlayModePanel({
 
     const handleNext        = useCallback(() => animateGroup(currentGroupIdx + 1), [currentGroupIdx, animateGroup]);
     const handlePauseResume = useCallback(() => setPlayState(p => p === "paused" ? "playing" : "paused"), []);
-    const handleStop        = useCallback(() => {
+
+    /** Stop animation but KEEP the overlay on the blackboard. Plan stays in memory for Resume. */
+    const handleStop = useCallback(() => {
+        stoppedFromRef.current = playStateRef.current === 'ready-next' ? 'ready-next' : 'playing';
+        stopInterval();
+        charBufRef.current = '';
+        setPlayState('stopped');
+        // Overlay and groupPlanRef intentionally NOT cleared
+    }, [stopInterval]);
+
+    /** Resume from where we stopped (or from the next group if we were at a column boundary). */
+    const handleResume = useCallback(() => {
+        if (stoppedFromRef.current === 'ready-next') {
+            animateGroup(currentGroupIdx + 1);
+        } else {
+            animateGroup(currentGroupIdx);
+        }
+    }, [currentGroupIdx, animateGroup]);
+
+    /** Explicitly wipe the overlay and reset everything to idle. */
+    const handleClear = useCallback(() => {
         stopInterval();
         lineHtmlsRef.current = [];
         onPlayHtmlRef.current('');
         emitPlayClearRef.current();
-        setPlayState("idle"); setCurrentGroupIdx(0); setTotalGroups(0);
-        charBufRef.current = ""; groupPlanRef.current = [];
+        setPlayState('idle');
+        setCurrentGroupIdx(0);
+        setTotalGroups(0);
+        charBufRef.current = '';
+        groupPlanRef.current = [];
     }, [stopInterval]);
 
     useEffect(() => () => stopInterval(), [stopInterval]);
@@ -615,35 +643,84 @@ export default function PlayModePanel({
                 )}
 
                 <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                    {playState === "idle" || playState === "done" ? (
+                    {/* ── idle ───────────────────────────────────────────── */}
+                    {playState === "idle" && (
+                        <button onClick={handleStart}
+                            style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#6366f1", color: "#fff" }}>
+                            Start Playing
+                        </button>
+                    )}
+
+                    {/* ── playing ────────────────────────────────────────── */}
+                    {playState === "playing" && (
+                        <>
+                            <button onClick={handlePauseResume}
+                                style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#f59e0b", color: "#fff" }}>
+                                Pause
+                            </button>
+                            <button onClick={handleStop}
+                                style={{ padding: "5px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, background: "#374151", color: "#9ca3af" }}>
+                                Stop
+                            </button>
+                        </>
+                    )}
+
+                    {/* ── paused ─────────────────────────────────────────── */}
+                    {playState === "paused" && (
+                        <>
+                            <button onClick={handlePauseResume}
+                                style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#22c55e", color: "#fff" }}>
+                                Resume
+                            </button>
+                            <button onClick={handleStop}
+                                style={{ padding: "5px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, background: "#374151", color: "#9ca3af" }}>
+                                Stop
+                            </button>
+                        </>
+                    )}
+
+                    {/* ── ready-next ─────────────────────────────────────── */}
+                    {playState === "ready-next" && (
+                        <>
+                            <button onClick={handleNext}
+                                style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#3b82f6", color: "#fff" }}>
+                                Next →
+                            </button>
+                            <button onClick={handleStop}
+                                style={{ padding: "5px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, background: "#374151", color: "#9ca3af" }}>
+                                Stop
+                            </button>
+                        </>
+                    )}
+
+                    {/* ── stopped — overlay preserved, choose next action ── */}
+                    {playState === "stopped" && (
+                        <>
+                            <button onClick={handleResume}
+                                style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#22c55e", color: "#fff" }}>
+                                Resume
+                            </button>
+                            <button onClick={handleStart}
+                                style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#6366f1", color: "#fff" }}>
+                                Restart
+                            </button>
+                            <button onClick={handleClear}
+                                style={{ padding: "5px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, background: "#374151", color: "#9ca3af" }}>
+                                Clear
+                            </button>
+                        </>
+                    )}
+
+                    {/* ── done ───────────────────────────────────────────── */}
+                    {playState === "done" && (
                         <>
                             <button onClick={handleStart}
                                 style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#6366f1", color: "#fff" }}>
-                                {playState === "done" ? "Restart" : "Start Playing"}
+                                Restart
                             </button>
-                            {playState === "done" && (
-                                <button onClick={handleStop}
-                                    style={{ padding: "5px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#374151", color: "#9ca3af" }}>
-                                    Stop
-                                </button>
-                            )}
-                        </>
-                    ) : (
-                        <>
-                            <button onClick={handlePauseResume}
-                                style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12,
-                                    background: playState === "paused" ? "#22c55e" : "#f59e0b", color: "#fff" }}>
-                                {playState === "paused" ? "Resume" : "Pause"}
-                            </button>
-                            {playState === "ready-next" && (
-                                <button onClick={handleNext}
-                                    style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#3b82f6", color: "#fff" }}>
-                                    Next
-                                </button>
-                            )}
-                            <button onClick={handleStop}
-                                style={{ padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, background: "#374151", color: "#9ca3af" }}>
-                                Stop
+                            <button onClick={handleClear}
+                                style={{ padding: "5px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, background: "#374151", color: "#9ca3af" }}>
+                                Clear
                             </button>
                         </>
                     )}
@@ -651,6 +728,9 @@ export default function PlayModePanel({
 
                 {playState === "done" && (
                     <div style={{ fontSize: 11, color: "#22c55e", textAlign: "center" }}>All text displayed</div>
+                )}
+                {playState === "stopped" && (
+                    <div style={{ fontSize: 11, color: "#f59e0b", textAlign: "center" }}>Stopped — blackboard preserved</div>
                 )}
             </div>
         </div>
