@@ -48,6 +48,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [showDevicePicker, setShowDevicePicker] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false); // mobile chat popup
     const [isMobilePlayOpen, setIsMobilePlayOpen] = useState(false); // mobile play panel
+    const [showMobileStrip, setShowMobileStrip] = useState(false); // mobile thumbnail strip visibility
     const [activeVideoDeviceId, setActiveVideoDeviceId] = useState<string | null>(null);
     const [activeAudioDeviceId, setActiveAudioDeviceId] = useState<string | null>(null);
     const [teacherGraceCountdown, setTeacherGraceCountdown] = useState<number | null>(null);
@@ -938,55 +939,66 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                 {/* LEFT: Participants sidebar (desktop only) */}
                 <div className="room-participants-sidebar desktop-only">
                     <div className="rps-header">
-                        <span>Participants</span>
-                        <span className="pp-count">{allParticipants.length}</span>
+                        <span>Students</span>
+                        <span className="pp-count">{allParticipants.filter(p => p.role !== 'teacher').length}</span>
                     </div>
                     <div className="rps-list">
-                        {sidebarParticipants.map((p) => {
-                            const isLocal = p.socketId === '__local__';
-                            const stream = isLocal ? localStream : (remoteStreams.get(p.socketId) || null);
-                            const isSpotlit = spotlightId === p.socketId;
-                            const isTeacher = role === 'teacher';
-                            return (
-                                <div
-                                    key={p.socketId}
-                                    className={`rps-tile ${isSpotlit ? 'rps-tile-spotlit' : ''} ${isTeacher && !isSpotlit ? 'rps-tile-clickable' : ''}`}
-                                    onClick={isTeacher ? () => handleSpotlightClick(p.socketId) : undefined}
-                                    title={isTeacher ? `Spotlight ${p.name}` : undefined}
-                                >
-                                    <VideoTileInline stream={stream} name={p.name} muted={isLocal} isCamOff={p.isCamOff} />
-                                    <div className="rps-overlay">
-                                        <span className="rps-name">{p.name}</span>
-                                        <div className="rps-badges">
-                                            {p.isMuted && <span className="rps-badge-muted">🔇</span>}
-                                            {p.isCamOff && <span className="rps-badge-muted">🚫</span>}
-                                            {isSpotlit && <span className="rps-badge-spotlight">✨</span>}
+                        {(() => {
+                            const students = allParticipants.filter(p => p.role !== 'teacher');
+                            return Array.from({ length: 4 }, (_, i) => {
+                                const p = students[i] ?? null;
+                                if (!p) {
+                                    return (
+                                        <div key={`slot-${i}`} className="rps-tile rps-empty-slot">
+                                            <span className="rps-slot-label">Room {i + 1}</span>
                                         </div>
+                                    );
+                                }
+                                const isLocal = p.socketId === '__local__';
+                                const stream = isLocal ? localStream : (remoteStreams.get(p.socketId) || null);
+                                const isSpotlit = spotlightId === p.socketId;
+                                const isTeacher = role === 'teacher';
+                                return (
+                                    <div
+                                        key={p.socketId}
+                                        className={`rps-tile ${isSpotlit ? 'rps-tile-spotlit' : ''} ${isTeacher && !isSpotlit ? 'rps-tile-clickable' : ''}`}
+                                        onClick={isTeacher ? () => handleSpotlightClick(p.socketId) : undefined}
+                                        title={isTeacher ? `Spotlight ${p.name}` : undefined}
+                                    >
+                                        <VideoTileInline stream={stream} name={p.name} muted={isLocal} isCamOff={p.isCamOff} />
+                                        <div className="rps-overlay">
+                                            <span className="rps-name">{p.name}</span>
+                                            <div className="rps-badges">
+                                                {p.isMuted && <span className="rps-badge-muted">🔇</span>}
+                                                {p.isCamOff && <span className="rps-badge-muted">🚫</span>}
+                                                {isSpotlit && <span className="rps-badge-spotlight">✨</span>}
+                                            </div>
+                                        </div>
+                                        {isTeacher && !isLocal && (
+                                            <>
+                                                <button
+                                                    className={`rps-mute-btn ${p.isMuted ? 'rps-mute-btn-on' : ''}`}
+                                                    onClick={(e) => { e.stopPropagation(); handleMuteParticipant(p.socketId, !p.isMuted); }}
+                                                    title={p.isMuted ? 'Unmute' : 'Mute'}
+                                                    style={{ top: 4 }}
+                                                >
+                                                    {p.isMuted ? '🔊' : '🔇'}
+                                                </button>
+                                                <button
+                                                    className={`rps-mute-btn ${p.isCamOff ? 'rps-mute-btn-on' : ''}`}
+                                                    onClick={(e) => { e.stopPropagation(); handleCamParticipant(p.socketId, !!p.isCamOff); }}
+                                                    title={p.isCamOff ? 'Turn camera on' : 'Turn camera off'}
+                                                    style={{ top: 30 }}
+                                                >
+                                                    {p.isCamOff ? '📷' : '🚫'}
+                                                </button>
+                                            </>
+                                        )}
+                                        <span className={`rps-role-tag rps-role-${p.role}`}>{p.role}</span>
                                     </div>
-                                    {isTeacher && !isLocal && (
-                                        <>
-                                            <button
-                                                className={`rps-mute-btn ${p.isMuted ? 'rps-mute-btn-on' : ''}`}
-                                                onClick={(e) => { e.stopPropagation(); handleMuteParticipant(p.socketId, !p.isMuted); }}
-                                                title={p.isMuted ? 'Unmute' : 'Mute'}
-                                                style={{ top: 4 }}
-                                            >
-                                                {p.isMuted ? '🔊' : '🔇'}
-                                            </button>
-                                            <button
-                                                className={`rps-mute-btn ${p.isCamOff ? 'rps-mute-btn-on' : ''}`}
-                                                onClick={(e) => { e.stopPropagation(); handleCamParticipant(p.socketId, !!p.isCamOff); }}
-                                                title={p.isCamOff ? 'Turn camera on' : 'Turn camera off'}
-                                                style={{ top: 30 }}
-                                            >
-                                                {p.isCamOff ? '📷' : '🚫'}
-                                            </button>
-                                        </>
-                                    )}
-                                    <span className={`rps-role-tag rps-role-${p.role}`}>{p.role}</span>
-                                </div>
-                            );
-                        })}
+                                );
+                            });
+                        })()}
                     </div>
                 </div>
 
@@ -994,7 +1006,10 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                 <div className="room-center">
 
                     {/* Mobile: horizontal thumbnail strip */}
-                    <div className="mobile-thumbnail-strip">
+                    <div
+                        className="mobile-thumbnail-strip"
+                        style={showMobileStrip ? { maxHeight: '100px', opacity: 1, padding: '8px', animation: 'none' } : undefined}
+                    >
                         {sidebarParticipants.map((p) => (
                             <div
                                 key={p.socketId}
@@ -1012,6 +1027,16 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                             </div>
                         ))}
                     </div>
+
+                    {/* Spotlight or Quiz/Course (when toggle ON) */}
+                    {/* Mobile strip peek toggle button */}
+                    <button
+                        className="mobile-strip-peek-btn mobile-only"
+                        onClick={() => setShowMobileStrip(v => !v)}
+                        title={showMobileStrip ? 'Hide participants' : 'Show participants'}
+                    >
+                        {showMobileStrip ? '▲' : '▼'}
+                    </button>
 
                     {/* Spotlight or Quiz/Course (when toggle ON) */}
                     <div className="spotlight-area">
