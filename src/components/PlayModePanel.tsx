@@ -628,17 +628,35 @@ export default function PlayModePanel({
 
     useEffect(() => () => stopInterval(), [stopInterval]);
 
-    // ── Keyboard shortcut: ArrowRight → Next ───────────────────────────────────
+    // ── Keyboard shortcut: ArrowRight → Next (or Resume when stopped) ──────────
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
-            if (e.key === 'ArrowRight' && playStateRef.current === 'ready-next') {
-                e.preventDefault();
-                handleNext();
+            if (e.key === 'ArrowRight') {
+                if (playStateRef.current === 'ready-next') {
+                    e.preventDefault();
+                    handleNext();
+                } else if (playStateRef.current === 'stopped') {
+                    e.preventDefault();
+                    handleResume();
+                }
             }
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [handleNext]);
+    }, [handleNext, handleResume]);
+
+    // ── Auto-stop when teacher clicks a new blackboard position while playing ───
+    const prevAnchorRef = useRef(anchor);
+    useEffect(() => {
+        const prev = prevAnchorRef.current;
+        prevAnchorRef.current = anchor;
+        if (!anchor || !prev) return; // initial set — not a move
+        const ps = playStateRef.current;
+        if (ps === 'playing' || ps === 'ready-next' || ps === 'paused') {
+            handleStop();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [anchor]);
 
     const isActive = playState !== "idle";
 

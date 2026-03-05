@@ -257,7 +257,7 @@ export default function RoomCoursePanel({
     const [toolbarPos, setToolbarPos] = useState<{ x: number; y: number } | null>(null);
     const [toolbarExpanded, setToolbarExpanded] = useState(false);
     const [ephemeralMode, setEphemeralMode] = useState(false);
-    const [typingMode, setTypingMode] = useState(false);
+    const [typingMode, setTypingMode] = useState(true);
     const [blackboardMode, setBlackboardMode] = useState(false);
     const [lessonKey, setLessonKey] = useState(0);
     const [canvasH, setCanvasH] = useState(600);
