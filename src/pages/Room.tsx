@@ -338,7 +338,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                 if (role !== 'teacher') {
                     setCourseToggleOn(active);
                     if (active && courseIds.length > 0) setSessionCourseIds(courseIds);
-                    if (!active) { setStudentCourseJoined(false); setCourseSidebarOpen(false); }
+                    if (!active) { setStudentCourseJoined(false); setCourseSidebarOpen(false); setStudentPlayHtml(''); }
                 }
             },
             onCourseNavigate: (courseIdx, lessonIdx) => {
@@ -1045,10 +1045,12 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 onShareToggle={() => {
                                     if (courseSharedWithStudents) {
                                         emitCourseToggle(false, []);
+                                        emitPlayClear();
                                         setCourseSharedWithStudents(false);
                                     } else {
                                         emitCourseToggle(true, sessionCourseIds);
                                         setCourseSharedWithStudents(true);
+                                        if (teacherPlayHtml) emitPlayShow(teacherPlayHtml);
                                     }
                                 }}
                                 blackboardActive={blackboardOn}
