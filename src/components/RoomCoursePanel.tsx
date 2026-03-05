@@ -257,6 +257,7 @@ export default function RoomCoursePanel({
     const [textInput, setTextInput] = useState<{ vx: number; vy: number; cx: number; cy: number } | null>(null);
     const [toolbarPos, setToolbarPos] = useState<{ x: number; y: number } | null>(null);
     const [toolbarExpanded, setToolbarExpanded] = useState(false);
+    const [headerHovered, setHeaderHovered] = useState(false);
     const [ephemeralMode, setEphemeralMode] = useState(false);
     const [typingMode, setTypingMode] = useState(true);
     const [blackboardMode, setBlackboardMode] = useState(false);
@@ -992,27 +993,55 @@ export default function RoomCoursePanel({
 
     // ── Render ────────────────────────────────────────────────────────────────
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--surface-2)', borderRadius: 12, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--surface-2)', borderRadius: 12, overflow: 'hidden', position: 'relative' }}>
 
-            {/* ── Header ── */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0, flexWrap: 'wrap' }}>
-                <button onClick={onSidebarToggle} title={sidebarOpen ? 'Hide lessons' : 'Show lessons'}
-                    style={{ width: 28, height: 28, borderRadius: 7, flexShrink: 0, border: '1px solid var(--border)', background: sidebarOpen ? 'rgba(99,102,241,0.2)' : 'var(--surface-3)', color: sidebarOpen ? '#a5b4fc' : 'var(--text-muted)', cursor: 'pointer', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {sidebarOpen ? '‹' : '☰'}
-                </button>
-                {courses.length > 1 && courses.map((c, i) => (
-                    <button key={c.id} onClick={() => isTeacher ? onNav(i, 0) : undefined} disabled={!isTeacher}
-                        style={{ padding: '4px 12px', borderRadius: 8, border: 'none', fontSize: 13, background: activeCourseIdx === i ? 'rgba(99,102,241,0.3)' : 'var(--surface-3)', color: activeCourseIdx === i ? '#a5b4fc' : 'var(--text-muted)', fontWeight: activeCourseIdx === i ? 700 : 400, cursor: isTeacher ? 'pointer' : 'default' }}>
-                        <RichContent html={c.title} style={{ display: 'inline' }} />
+            {/* ── Compact floating pill — always visible, hover to expand ── */}
+            <div
+                style={{ position: 'absolute', top: 6, left: '50%', transform: 'translateX(-50%)', zIndex: 30, pointerEvents: 'auto' }}
+                onMouseEnter={() => setHeaderHovered(true)}
+                onMouseLeave={() => setHeaderHovered(false)}
+            >
+                <div style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    background: 'rgba(10,10,20,0.82)', backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(99,102,241,0.28)', borderRadius: 999,
+                    padding: '4px 10px 4px 6px', whiteSpace: 'nowrap', cursor: 'default',
+                    boxShadow: '0 2px 12px rgba(0,0,0,0.4)',
+                }}>
+                    <button onClick={onSidebarToggle} title={sidebarOpen ? 'Hide lessons' : 'Show lessons'}
+                        style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0, border: '1px solid var(--border)', background: sidebarOpen ? 'rgba(99,102,241,0.2)' : 'var(--surface-3)', color: sidebarOpen ? '#a5b4fc' : 'var(--text-muted)', cursor: 'pointer', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {sidebarOpen ? '‹' : '☰'}
                     </button>
-                ))}
-                {totalLessons > 0 && (
-                    <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', paddingRight: 4, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-                        {activeTopic && <span style={{ fontSize: 10, color: 'rgba(99,102,241,0.8)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{activeTopic.title}</span>}
-                        <span>Lesson {activeLessonIdx + 1} / {totalLessons}</span>
-                    </span>
-                )}
+                    {activeTopic && <span style={{ fontSize: 10, color: 'rgba(99,102,241,0.9)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{activeTopic.title}</span>}
+                    {totalLessons > 0 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Lesson {activeLessonIdx + 1}/{totalLessons}</span>}
+                </div>
             </div>
+
+            {/* Full expanded header — overlays content on hover */}
+            {headerHovered && (
+                <div
+                    style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 31, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: 'rgba(10,10,20,0.95)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(99,102,241,0.25)', flexWrap: 'wrap' }}
+                    onMouseEnter={() => setHeaderHovered(true)}
+                    onMouseLeave={() => setHeaderHovered(false)}
+                >
+                    <button onClick={onSidebarToggle} title={sidebarOpen ? 'Hide lessons' : 'Show lessons'}
+                        style={{ width: 28, height: 28, borderRadius: 7, flexShrink: 0, border: '1px solid var(--border)', background: sidebarOpen ? 'rgba(99,102,241,0.2)' : 'var(--surface-3)', color: sidebarOpen ? '#a5b4fc' : 'var(--text-muted)', cursor: 'pointer', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {sidebarOpen ? '‹' : '☰'}
+                    </button>
+                    {courses.length > 1 && courses.map((c, i) => (
+                        <button key={c.id} onClick={() => isTeacher ? onNav(i, 0) : undefined} disabled={!isTeacher}
+                            style={{ padding: '4px 12px', borderRadius: 8, border: 'none', fontSize: 13, background: activeCourseIdx === i ? 'rgba(99,102,241,0.3)' : 'var(--surface-3)', color: activeCourseIdx === i ? '#a5b4fc' : 'var(--text-muted)', fontWeight: activeCourseIdx === i ? 700 : 400, cursor: isTeacher ? 'pointer' : 'default' }}>
+                            <RichContent html={c.title} style={{ display: 'inline' }} />
+                        </button>
+                    ))}
+                    {totalLessons > 0 && (
+                        <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', paddingRight: 4, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                            {activeTopic && <span style={{ fontSize: 10, color: 'rgba(99,102,241,0.8)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{activeTopic.title}</span>}
+                            <span>Lesson {activeLessonIdx + 1} / {totalLessons}</span>
+                        </span>
+                    )}
+                </div>
+            )}
 
             {/* ── Body ── */}
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>

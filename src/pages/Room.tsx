@@ -944,9 +944,33 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                     </div>
                     <div className="rps-list">
                         {(() => {
+                            const localTeacher: ParticipantState = { socketId: '__local__', name, role, isMuted: !micOn, isCamOff: !camOn };
                             const students = allParticipants.filter(p => p.role !== 'teacher');
-                            return Array.from({ length: 4 }, (_, i) => {
-                                const p = students[i] ?? null;
+                            const spotlightedStudent = spotlightId !== '__local__'
+                                ? allParticipants.find(p => p.socketId === spotlightId) ?? null
+                                : null;
+
+                            // Build exactly 4 display slots
+                            const gridSlots: (ParticipantState | null)[] = Array(4).fill(null);
+
+                            if (spotlightedStudent) {
+                                // Student is on main screen — put teacher in that student's natural slot
+                                const naturalIdx = Math.min(students.findIndex(p => p.socketId === spotlightId), 3);
+                                const teacherSlot = naturalIdx >= 0 ? naturalIdx : 0;
+                                gridSlots[teacherSlot] = localTeacher;
+                                // Fill remaining slots with other students
+                                const others = students.filter(p => p.socketId !== spotlightId);
+                                let si = 0;
+                                for (let i = 0; i < 4; i++) {
+                                    if (gridSlots[i] !== null) continue;
+                                    gridSlots[i] = others[si++] ?? null;
+                                }
+                            } else {
+                                // Teacher is on main screen — show students in slots
+                                students.slice(0, 4).forEach((s, i) => { gridSlots[i] = s; });
+                            }
+
+                            return gridSlots.map((p, i) => {
                                 if (!p) {
                                     return (
                                         <div key={`slot-${i}`} className="rps-tile rps-empty-slot">
@@ -957,24 +981,24 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 const isLocal = p.socketId === '__local__';
                                 const stream = isLocal ? localStream : (remoteStreams.get(p.socketId) || null);
                                 const isSpotlit = spotlightId === p.socketId;
-                                const isTeacher = role === 'teacher';
+                                const isTeacherViewing = role === 'teacher';
                                 return (
                                     <div
                                         key={p.socketId}
-                                        className={`rps-tile ${isSpotlit ? 'rps-tile-spotlit' : ''} ${isTeacher && !isSpotlit ? 'rps-tile-clickable' : ''}`}
-                                        onClick={isTeacher ? () => handleSpotlightClick(p.socketId) : undefined}
-                                        title={isTeacher ? `Spotlight ${p.name}` : undefined}
+                                        className={`rps-tile ${isSpotlit ? 'rps-tile-spotlit' : ''} ${isTeacherViewing && !isSpotlit ? 'rps-tile-clickable' : ''}`}
+                                        onClick={isTeacherViewing ? () => handleSpotlightClick(p.socketId) : undefined}
+                                        title={isTeacherViewing ? (isLocal ? 'Return to host view' : `Spotlight ${p.name}`) : undefined}
                                     >
                                         <VideoTileInline stream={stream} name={p.name} muted={isLocal} isCamOff={p.isCamOff} />
                                         <div className="rps-overlay">
-                                            <span className="rps-name">{p.name}</span>
+                                            <span className="rps-name">{p.name}{isLocal ? ' (you)' : ''}</span>
                                             <div className="rps-badges">
                                                 {p.isMuted && <span className="rps-badge-muted">🔇</span>}
                                                 {p.isCamOff && <span className="rps-badge-muted">🚫</span>}
                                                 {isSpotlit && <span className="rps-badge-spotlight">✨</span>}
                                             </div>
                                         </div>
-                                        {isTeacher && !isLocal && (
+                                        {isTeacherViewing && !isLocal && (
                                             <>
                                                 <button
                                                     className={`rps-mute-btn ${p.isMuted ? 'rps-mute-btn-on' : ''}`}

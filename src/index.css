@@ -1759,37 +1759,7 @@ button:active:not(:disabled),
 }
 
 .room-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 0;
-  padding: 0 20px;
-  opacity: 0;
-  border-bottom-width: 0;
-  background: var(--surface);
-  border-bottom: 0px solid var(--border);
-  flex-shrink: 0;
-  overflow: hidden;
-  transition: height 0.3s ease, opacity 0.3s ease, border-bottom-width 0.3s ease;
-}
-
-@keyframes header-autohide {
-  to {
-    height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    opacity: 0;
-    border-bottom-width: 0;
-  }
-}
-
-/* Reveal on hover anywhere in the room container */
-.room-container:hover .room-header,
-.room-container:focus-within .room-header {
-  height: 52px;
-  opacity: 1;
-  border-bottom-width: 1px;
-  animation: none;
+  display: none;
 }
 
 .room-header-left,
@@ -1941,25 +1911,22 @@ button:active:not(:disabled),
 
 .rps-list {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 8px;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  align-content: start;
+  grid-template-rows: 1fr 1fr;
   gap: 6px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
 }
 
 .rps-tile {
   position: relative;
   border-radius: var(--r-md);
   overflow: hidden;
-  border: 2px solid var(--border);
+  border: 2px solid rgba(255, 255, 255, 0.22);
   transition: all var(--t);
-  aspect-ratio: 1/1;
-  flex-shrink: 0;
   background: var(--surface-2);
+  min-height: 0;
 }
 
 .rps-tile-clickable {
@@ -2061,15 +2028,14 @@ button:active:not(:disabled),
   flex-direction: column;
   gap: 6px;
   cursor: default;
-  border-style: dashed !important;
-  opacity: 0.45;
+  border: 2px dashed rgba(255,255,255,0.18) !important;
   pointer-events: none;
 }
 
 .rps-slot-label {
   font-size: 0.75rem;
   font-weight: 700;
-  color: var(--text-muted);
+  color: rgba(255,255,255,0.35);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
