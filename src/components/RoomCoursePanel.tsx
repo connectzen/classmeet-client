@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import DOMPurify from 'dompurify';
 import { RichContent } from './RichEditor';
 
 interface Lesson {
@@ -1114,7 +1113,9 @@ export default function RoomCoursePanel({
                                 />
                             )}
 
-                            {/* Play Mode HTML overlay — full-canvas, each line absolutely positioned */}
+                            {/* Play Mode HTML overlay — full-canvas, each line absolutely positioned.
+                                HTML is teacher-generated (text is escHtml-escaped, CSS from controlled
+                                data model), so DOMPurify is skipped to avoid any style-stripping. */}
                             {playHtml ? (
                                 <div
                                     style={{
@@ -1126,7 +1127,7 @@ export default function RoomCoursePanel({
                                         overflow: 'hidden',
                                     }}
                                     // eslint-disable-next-line react/no-danger
-                                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(playHtml) }}
+                                    dangerouslySetInnerHTML={{ __html: playHtml }}
                                 />
                             ) : null}
 

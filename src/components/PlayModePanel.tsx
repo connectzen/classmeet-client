@@ -499,18 +499,22 @@ export default function PlayModePanel({
         const anim = animTypeRef.current;
 
         if (anim === "typing") {
-            // Char-by-char: update overlay on EVERY tick so the teacher sees text grow
+            // Char-by-char: update overlay on EVERY tick so teacher AND students see text grow
             charBufRef.current = "";
             const animText = entry.newWords;
             intervalRef.current = setInterval(() => {
                 if (playStateRef.current === "paused") return;
                 charBufRef.current = animText.slice(0, charBufRef.current.length + 1);
-                // Live update teacher's overlay with partial text (no socket emit yet)
-                onPlayHtmlRef.current(buildFlyOverlay(entry, charBufRef.current, ''));
+                // Build the live overlay HTML (committed lines + partial current word)
+                const flyHtml = buildFlyOverlay(entry, charBufRef.current, '');
+                // Update teacher's overlay immediately
+                onPlayHtmlRef.current(flyHtml);
+                // Broadcast to students in real-time so they see typing as it happens
+                emitPlayShowRef.current(flyHtml);
                 if (charBufRef.current.length >= animText.length) {
                     stopInterval();
                     charBufRef.current = "";
-                    finalCommit(); // commits to lineHtmlsRef and emits to students
+                    finalCommit(); // commits to lineHtmlsRef (students already have this word)
                 }
             }, SPEED_OPTIONS[speedRef.current].ms);
         } else {
