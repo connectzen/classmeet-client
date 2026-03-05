@@ -305,6 +305,7 @@ export default function PlayModePanel({
     const [currentGroupIdx, setCurrentGroupIdx] = useState(0);
     const [totalGroups,     setTotalGroups]  = useState(0);
     const [editorHtml,      setEditorHtml]   = useState("");
+    const [colorPickerOpen, setColorPickerOpen] = useState(false);
     const groupPlanRef    = useRef<GroupPlan[]>([]);
     const charBufRef      = useRef("");
     const intervalRef     = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -312,7 +313,8 @@ export default function PlayModePanel({
     const playStateRef    = useRef<PlayState>("idle");
     playStateRef.current  = playState;
     // Per-line accumulated HTML — global, never auto-cleared between blocks
-    const lineHtmlsRef    = useRef<string[]>([]);
+    // Each entry stores the HTML content + the absolute canvas-fraction position of that line
+    const lineHtmlsRef    = useRef<{ html: string; cx: number; cy: number }[]>([]);
     // What state were we in when Stop was pressed — determines Resume target
     const stoppedFromRef  = useRef<'playing' | 'ready-next'>('playing');
     // All styled words for the current session (needed to rebuild plan from new anchor)
@@ -356,8 +358,10 @@ export default function PlayModePanel({
     /** Assemble the block HTML from per-line accumulated spans and broadcast it. */
     const broadcastBlock = useCallback(() => {
         const html = lineHtmlsRef.current
-            .map(l => `<div style="margin:0;line-height:1.6;white-space:pre-wrap;">${l}</div>`)
-            .join('');
+            .map(l => l?.html
+                ? `<div style="position:absolute;left:${(l.cx * 100).toFixed(2)}%;top:${(l.cy * 100).toFixed(2)}%;white-space:pre-wrap;line-height:1.6;">${l.html}</div>`
+                : ''
+            ).join('');
         onPlayHtmlRef.current(html);
         emitPlayShowRef.current(html);
     }, []);
@@ -367,25 +371,31 @@ export default function PlayModePanel({
      * Does NOT mutate lineHtmlsRef — safe to call during animation ticks.
      */
     const buildFlyOverlay = useCallback((plan: GroupPlan, text: string, animCss: string): string => {
+        const cx      = anchorRef.current?.cx ?? 0.02;
         const baseCss = buildSpanCss(plan);
         const fullCss = animCss ? `${baseCss};${animCss}` : baseCss;
         const span    = `<span style="${fullCss}">${escHtml(text)} </span>`;
-        const lines   = lineHtmlsRef.current.map(l => l ?? '');
+        const lines   = lineHtmlsRef.current.map(l => l ? { ...l } : { html: '', cx, cy: plan.lineY });
         const li      = plan.lineIdxGlobal;
-        while (lines.length <= li) lines.push('');
-        lines[li] = lines[li] + span;
+        while (lines.length <= li) lines.push({ html: '', cx, cy: plan.lineY });
+        lines[li] = { ...lines[li], html: lines[li].html + span };
         return lines
-            .map(l => `<div style="margin:0;line-height:1.6;white-space:pre-wrap;">${l}</div>`)
-            .join('');
+            .map(l => l?.html
+                ? `<div style="position:absolute;left:${(l.cx * 100).toFixed(2)}%;top:${(l.cy * 100).toFixed(2)}%;white-space:pre-wrap;line-height:1.6;">${l.html}</div>`
+                : ''
+            ).join('');
     }, []);
 
     /** Append a fly group's HTML to the appropriate line and broadcast. */
     const commitFlyHtml = useCallback((plan: GroupPlan) => {
-        const { lineIdxGlobal, newWords } = plan;
+        const { lineIdxGlobal, newWords, lineY } = plan;
+        const cx  = anchorRef.current?.cx ?? 0.02;
         const css = buildSpanCss(plan);
         const span = `<span style="${css}">${escHtml(newWords)} </span>`;
-        if (!lineHtmlsRef.current[lineIdxGlobal]) lineHtmlsRef.current[lineIdxGlobal] = '';
-        lineHtmlsRef.current[lineIdxGlobal] += span;
+        const existing = lineHtmlsRef.current[lineIdxGlobal];
+        lineHtmlsRef.current[lineIdxGlobal] = existing
+            ? { ...existing, html: existing.html + span }
+            : { html: span, cx, cy: lineY };
         broadcastBlock();
     }, [broadcastBlock]);
 
@@ -498,8 +508,10 @@ export default function PlayModePanel({
         charBufRef.current = '';
         // Snap teacher overlay to the committed state (removes any partial typing text)
         const committedHtml = lineHtmlsRef.current
-            .map(l => `<div style="margin:0;line-height:1.6;white-space:pre-wrap;">${l ?? ''}</div>`)
-            .join('');
+            .map(l => l?.html
+                ? `<div style="position:absolute;left:${(l.cx * 100).toFixed(2)}%;top:${(l.cy * 100).toFixed(2)}%;white-space:pre-wrap;line-height:1.6;">${l.html}</div>`
+                : ''
+            ).join('');
         onPlayHtmlRef.current(committedHtml);
         setPlayState('stopped');
     }, [stopInterval]);
@@ -575,9 +587,9 @@ export default function PlayModePanel({
 
     // Shared style for all compact dropdowns in the control rows
     const sel: React.CSSProperties = {
-        padding: "2px 4px", borderRadius: 5, border: "1px solid rgba(255,255,255,0.1)",
-        background: "#1e293b", color: "#94a3b8", fontSize: 11, cursor: "pointer",
-        colorScheme: "dark", maxWidth: 90,
+        padding: "1px 3px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.1)",
+        background: "#1e293b", color: "#94a3b8", fontSize: 10, cursor: "pointer",
+        colorScheme: "dark", maxWidth: 72,
     };
     // Action-select: value is always "" so it resets after each pick
     const applyFormat = (v: string) => {
@@ -649,9 +661,9 @@ export default function PlayModePanel({
             {/* ── BOTTOM: all formatting + animation + anchor + progress + buttons ── */}
             <div style={{ padding: "4px 8px 6px", borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
 
-                {/* Row 1 — text formatting */}
-                <div style={{ display: "flex", gap: 3, alignItems: "center", flexWrap: "wrap" }}>
-                    <select value="" disabled={isActive} onChange={e => applyHeading(e.target.value)} style={{ ...sel, opacity: isActive ? 0.4 : 1 }}>
+                {/* Row 1 — text formatting (all in one tight row) */}
+                <div style={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
+                    <select value="" disabled={isActive} onChange={e => applyHeading(e.target.value)} style={{ ...sel, maxWidth: 58, opacity: isActive ? 0.4 : 1 }}>
                         <option value="">Para</option>
                         <option value="0">Normal</option>
                         <option value="1">H1</option>
@@ -660,13 +672,13 @@ export default function PlayModePanel({
                     </select>
                     <select value="" disabled={isActive}
                         onChange={e => { const v = e.target.value; if (!v || !ed) return; ed.chain().focus().setMark('textStyle', { fontFamily: v }).run(); }}
-                        style={{ ...sel, opacity: isActive ? 0.4 : 1 }}>
+                        style={{ ...sel, maxWidth: 62, opacity: isActive ? 0.4 : 1 }}>
                         <option value="">Font</option>
                         {PLAY_FONTS.filter(f => f.value).map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
                     </select>
                     <select value="" disabled={isActive}
                         onChange={e => { const v = e.target.value; if (!v || !ed) return; ed.chain().focus().setMark('textStyle', { fontSize: v + 'px' }).run(); }}
-                        style={{ ...sel, maxWidth: 56, opacity: isActive ? 0.4 : 1 }}>
+                        style={{ ...sel, maxWidth: 44, opacity: isActive ? 0.4 : 1 }}>
                         <option value="">Sz</option>
                         {PLAY_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
@@ -675,23 +687,36 @@ export default function PlayModePanel({
                         const cmd = () => ed?.chain().focus()[i === 0 ? 'toggleBold' : i === 1 ? 'toggleItalic' : 'toggleUnderline']().run();
                         return (
                             <button key={lbl} disabled={isActive} onClick={cmd}
-                                style={{ padding: "1px 6px", fontSize: 11, borderRadius: 4, border: "none", cursor: isActive ? "default" : "pointer", fontWeight: lbl === 'B' ? 900 : 400, fontStyle: lbl === 'I' ? 'italic' : 'normal', textDecoration: lbl === 'U' ? 'underline' : 'none', background: active ? "#6366f1" : "#1e293b", color: active ? "#fff" : "#94a3b8", opacity: isActive ? 0.4 : 1 }}>
+                                style={{ padding: "1px 5px", fontSize: 10, borderRadius: 4, border: "none", cursor: isActive ? "default" : "pointer", fontWeight: lbl === 'B' ? 900 : 400, fontStyle: lbl === 'I' ? 'italic' : 'normal', textDecoration: lbl === 'U' ? 'underline' : 'none', background: active ? "#6366f1" : "#1e293b", color: active ? "#fff" : "#94a3b8", opacity: isActive ? 0.4 : 1 }}>
                                 {lbl}
                             </button>
                         );
                     })}
-                    <input type="color" disabled={isActive} value={curColor}
-                        onChange={e => ed?.chain().focus().setColor(e.target.value).run()}
-                        title="Text color"
-                        style={{ width: 22, height: 20, padding: 0, border: "1px solid #334155", borderRadius: 3, cursor: isActive ? "default" : "pointer", background: "none", opacity: isActive ? 0.4 : 1 }} />
-                    <select value="" disabled={isActive} onChange={e => applyFormat(e.target.value)} style={{ ...sel, opacity: isActive ? 0.4 : 1 }}>
+                    {/* Color swatch picker */}
+                    <div style={{ position: 'relative' }}>
+                        <button disabled={isActive} onClick={() => setColorPickerOpen(v => !v)}
+                            title="Text color"
+                            style={{ width: 18, height: 14, borderRadius: 2, border: `2px solid ${colorPickerOpen ? '#a5b4fc' : '#475569'}`, background: curColor, cursor: isActive ? "default" : "pointer", opacity: isActive ? 0.4 : 1, padding: 0, display: 'block' }} />
+                        {colorPickerOpen && !isActive && (
+                            <div
+                                style={{ position: 'absolute', bottom: '100%', left: 0, zIndex: 99, background: '#0f172a', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 8, padding: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.6)', display: 'flex', flexWrap: 'wrap', gap: 4, width: 108 }}
+                                onMouseLeave={() => setColorPickerOpen(false)}>
+                                {['#ffffff','#000000','#ffff00','#ff4444','#ff9900','#44cc88','#00ccff','#cc88ff','#ff88cc','#aaaaaa','#4488ff','#ff6600'].map(c => (
+                                    <button key={c} title={c}
+                                        onClick={() => { ed?.chain().focus().setColor(c).run(); setColorPickerOpen(false); }}
+                                        style={{ width: 20, height: 20, borderRadius: '50%', border: curColor === c ? '2px solid #fff' : '1px solid rgba(255,255,255,0.15)', background: c, cursor: 'pointer', padding: 0, flexShrink: 0 }} />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <select value="" disabled={isActive} onChange={e => applyFormat(e.target.value)} style={{ ...sel, maxWidth: 58, opacity: isActive ? 0.4 : 1 }}>
                         <option value="">List</option>
                         <option value="bullet">• Bullet</option>
                         <option value="ordered">1. Num</option>
                         <option value="blockquote">❝ Quote</option>
                         <option value="code">⌨ Code</option>
                     </select>
-                    <select value="" disabled={isActive} onChange={e => applyAlign(e.target.value)} style={{ ...sel, opacity: isActive ? 0.4 : 1 }}>
+                    <select value="" disabled={isActive} onChange={e => applyAlign(e.target.value)} style={{ ...sel, maxWidth: 52, opacity: isActive ? 0.4 : 1 }}>
                         <option value="">Align</option>
                         <option value="left">← L</option>
                         <option value="center">≡ C</option>
@@ -699,8 +724,8 @@ export default function PlayModePanel({
                     </select>
                 </div>
 
-                {/* Row 2 — animation */}
-                <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
+                {/* Row 2 — animation, speed, and anchor hint inline */}
+                <div style={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
                     <select value={animType} onChange={e => setAnimType(e.target.value as AnimType)} style={sel}>
                         <option value="typing">Typing</option>
                         <option value="fade">Fade</option>
@@ -712,13 +737,9 @@ export default function PlayModePanel({
                     <select value={speedIdx} onChange={e => setSpeedIdx(Number(e.target.value))} style={sel}>
                         {SPEED_OPTIONS.map((s, i) => <option key={i} value={i}>{s.label}</option>)}
                     </select>
-                </div>
-
-                {/* Row 3 — anchor hint */}
-                <div style={{ fontSize: 10, color: anchor ? "#6366f1" : "#475569" }}>
-                    {anchor
-                        ? `Anchor (${Math.round(anchor.cx * CANVAS_W)}px, ~${Math.round(anchor.cy * 100)}%)`
-                        : "Click blackboard with text tool to set start position"}
+                    <span style={{ fontSize: 9, color: anchor ? "#6366f1" : "#475569", marginLeft: 2, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {anchor ? `● ${Math.round(anchor.cx * CANVAS_W)}px,${Math.round(anchor.cy * 100)}%` : 'click board→T'}
+                    </span>
                 </div>
 
                 {totalGroups > 0 && (

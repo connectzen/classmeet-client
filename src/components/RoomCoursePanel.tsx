@@ -1097,17 +1097,16 @@ export default function RoomCoursePanel({
                             <canvas ref={previewRef}
                                 style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 16 }} />
 
-                            {/* Play Mode HTML overlay — rendered at anchor position, above canvas */}
+                            {/* Play Mode HTML overlay — full-canvas, each line absolutely positioned */}
                             {playHtml ? (
                                 <div
                                     style={{
                                         position: 'absolute',
-                                        left: Math.round((playAnchor?.cx ?? 0.02) * CANVAS_W),
-                                        top: Math.round((playAnchor?.cy ?? 0.05) * canvasH),
-                                        maxWidth: CANVAS_W - Math.round((playAnchor?.cx ?? 0.02) * CANVAS_W) - 8,
+                                        top: 0, left: 0,
+                                        width: '100%', height: '100%',
                                         pointerEvents: 'none',
                                         zIndex: 18,
-                                        lineHeight: 1.5,
+                                        overflow: 'hidden',
                                     }}
                                     // eslint-disable-next-line react/no-danger
                                     dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(playHtml) }}
