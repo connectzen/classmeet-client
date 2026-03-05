@@ -21,6 +21,18 @@ const SPEED_OPTIONS: { label: string; ms: number }[] = [
     { label: "Fast",   ms: 12 },
 ];
 
+/** CSS animation shorthand strings keyed by AnimType (empty for typing, which is handled via charBufRef). */
+const ANIM_INLINE: Record<string, string> = {
+    typing:         '',
+    fade:           'animation:pmFadeIn 0.45s ease both',
+    'slide-right':  'animation:pmSlideRight 0.4s ease both',
+    'slide-left':   'animation:pmSlideLeft 0.4s ease both',
+    'slide-bottom': 'animation:pmSlideBottom 0.35s ease both',
+    scale:          'animation:pmScale 0.4s ease both',
+};
+/** Duration (ms) that matches the longest keyframe above — wait before commit. */
+const ANIM_DURATION_MS = 450;
+
 type FontStyle = "normal" | "bold" | "italic" | "bold italic";
 type PlayState = "idle" | "playing" | "paused" | "ready-next" | "stopped" | "done";
 type AnimType  = "typing" | "fade" | "slide-right" | "slide-left" | "slide-bottom" | "scale";
@@ -317,6 +329,22 @@ export default function PlayModePanel({
     const emitPlayClearRef = useRef(emitPlayClear); emitPlayClearRef.current = emitPlayClear;
     const isBlackboardOnRef = useRef(isBlackboardOn); isBlackboardOnRef.current = isBlackboardOn;
 
+    // Inject CSS keyframes for non-typing animations once per document lifetime
+    useEffect(() => {
+        const id = 'play-mode-keyframes';
+        if (document.getElementById(id)) return;
+        const style = document.createElement('style');
+        style.id = id;
+        style.textContent = [
+            '@keyframes pmFadeIn { from { opacity:0 } to { opacity:1 } }',
+            '@keyframes pmSlideRight { from { opacity:0; transform:translateX(-24px) } to { opacity:1; transform:translateX(0) } }',
+            '@keyframes pmSlideLeft { from { opacity:0; transform:translateX(24px) } to { opacity:1; transform:translateX(0) } }',
+            '@keyframes pmSlideBottom { from { opacity:0; transform:translateY(14px) } to { opacity:1; transform:translateY(0) } }',
+            '@keyframes pmScale { from { opacity:0; transform:scale(0.6) } to { opacity:1; transform:scale(1) } }',
+        ].join('\n');
+        document.head.appendChild(style);
+    }, []);
+
     /** Assemble the block HTML from per-line accumulated spans and broadcast it. */
     const broadcastBlock = useCallback(() => {
         const html = lineHtmlsRef.current
@@ -324,6 +352,23 @@ export default function PlayModePanel({
             .join('');
         onPlayHtmlRef.current(html);
         emitPlayShowRef.current(html);
+    }, []);
+
+    /**
+     * Build a temporary overlay HTML string: committed lines + a transient fly span.
+     * Does NOT mutate lineHtmlsRef — safe to call during animation ticks.
+     */
+    const buildFlyOverlay = useCallback((plan: GroupPlan, text: string, animCss: string): string => {
+        const baseCss = buildSpanCss(plan);
+        const fullCss = animCss ? `${baseCss};${animCss}` : baseCss;
+        const span    = `<span style="${fullCss}">${escHtml(text)} </span>`;
+        const lines   = lineHtmlsRef.current.map(l => l ?? '');
+        const li      = plan.lineIdxInBlock;
+        while (lines.length <= li) lines.push('');
+        lines[li] = lines[li] + span;
+        return lines
+            .map(l => `<div style="margin:0;line-height:1.6;white-space:pre-wrap;">${l}</div>`)
+            .join('');
     }, []);
 
     /** Append a fly group's HTML to the appropriate line and broadcast. */
@@ -377,34 +422,41 @@ export default function PlayModePanel({
         const anim = animTypeRef.current;
 
         if (anim === "typing") {
-            // Teacher side: char-by-char in the preview; students receive commit only
+            // Char-by-char: update overlay on EVERY tick so the teacher sees text grow
             charBufRef.current = "";
             const animText = entry.newWords;
             intervalRef.current = setInterval(() => {
                 if (playStateRef.current === "paused") return;
                 charBufRef.current = animText.slice(0, charBufRef.current.length + 1);
+                // Live update teacher's overlay with partial text (no socket emit yet)
+                onPlayHtmlRef.current(buildFlyOverlay(entry, charBufRef.current, ''));
                 if (charBufRef.current.length >= animText.length) {
                     stopInterval();
                     charBufRef.current = "";
-                    finalCommit();
+                    finalCommit(); // commits to lineHtmlsRef and emits to students
                 }
             }, SPEED_OPTIONS[speedRef.current].ms);
         } else {
-            // Non-typing animations: just wait the equivalent duration then commit
-            const FRAMES = 20;
+            // CSS animation: inject the span with the animation style immediately so
+            // the teacher sees the entrance effect; then commit (static) after the
+            // animation duration so the student broadcast contains clean HTML.
+            const animCss = ANIM_INLINE[anim] ?? '';
+            onPlayHtmlRef.current(buildFlyOverlay(entry, entry.newWords, animCss));
+
+            const TICKS = 15;
             frameRef.current = 0;
-            const ms = Math.max(10, SPEED_OPTIONS[speedRef.current].ms * 1.5);
+            const tickMs = Math.ceil(ANIM_DURATION_MS / TICKS);
             intervalRef.current = setInterval(() => {
                 if (playStateRef.current === "paused") return;
                 frameRef.current += 1;
-                if (frameRef.current >= FRAMES) {
+                if (frameRef.current >= TICKS) {
                     stopInterval();
                     finalCommit();
                 }
-            }, ms);
+            }, tickMs);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [stopInterval, commitFlyHtml]);
+    }, [stopInterval, commitFlyHtml, buildFlyOverlay]);
 
     const handleStart = useCallback(() => {
         if (isRichEmpty(editorHtml)) return;
