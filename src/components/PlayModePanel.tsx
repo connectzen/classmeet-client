@@ -260,6 +260,10 @@ export default function PlayModePanel({
     const frameRef        = useRef(0);
     const playStateRef    = useRef<PlayState>("idle");
     playStateRef.current  = playState;
+    // Tiptap editor instance — set via onEditorReady so we can call formatting commands
+    // from the play-panel toolbar without needing to bubble events through RichEditor.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const editorRef = useRef<any>(null);
 
     const anchorRef       = useRef(anchor);    anchorRef.current      = anchor;
     const canvasHRef      = useRef(canvasH);   canvasHRef.current     = canvasH;
@@ -415,7 +419,29 @@ export default function PlayModePanel({
 
     useEffect(() => () => stopInterval(), [stopInterval]);
 
+    // ── Keyboard shortcut: ArrowRight → Next ───────────────────────────────────
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'ArrowRight' && playStateRef.current === 'ready-next') {
+                e.preventDefault();
+                handleNext();
+            }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [handleNext]);
+
     const isActive = playState !== "idle";
+
+    // Helper for compact format toggle buttons in the control rows
+    const fmtBtn = (label: string, title: string, cmd: () => void) => (
+        <button key={title} title={title} disabled={isActive} onClick={cmd}
+            style={{ padding: "2px 7px", fontSize: 11, borderRadius: 4, cursor: isActive ? "default" : "pointer",
+                border: "none", background: "#1e293b", color: isActive ? "#374151" : "#94a3b8",
+                opacity: isActive ? 0.4 : 1, whiteSpace: "nowrap" }}>
+            {label}
+        </button>
+    );
     const progress = totalGroups > 0 ? `${Math.min(currentGroupIdx + 1, totalGroups)} / ${totalGroups}` : "";
 
     return (
@@ -426,6 +452,7 @@ export default function PlayModePanel({
                 <RichEditor
                     value={editorHtml}
                     onChange={setEditorHtml}
+                    onEditorReady={ed => { editorRef.current = ed; }}
                     placeholder="Type text here, then click Start Playing…"
                     minHeight={180}
                     disableImage
@@ -434,7 +461,7 @@ export default function PlayModePanel({
             </div>
 
             {/* Animation controls bar */}
-            <div style={{ display: "flex", gap: 4, padding: "5px 8px", borderTop: "1px solid rgba(255,255,255,0.07)", borderBottom: "1px solid rgba(255,255,255,0.07)", flexWrap: "nowrap", overflowX: "auto", alignItems: "center", background: "rgba(255,255,255,0.02)", flexShrink: 0 }}>
+            <div style={{ display: "flex", gap: 4, padding: "5px 8px", borderTop: "1px solid rgba(255,255,255,0.07)", borderBottom: "1px solid rgba(255,255,255,0.07)", flexWrap: "wrap", overflowX: "auto", alignItems: "center", background: "rgba(255,255,255,0.02)", flexShrink: 0 }}>
                 {/* Animation type */}
                 <select value={animType} onChange={e => setAnimType(e.target.value as AnimType)}
                     style={{ padding: "2px 4px", borderRadius: 5, border: "1px solid rgba(255,255,255,0.1)", background: "#1e293b", color: "#94a3b8", fontSize: 11, cursor: "pointer", colorScheme: "dark" }}>
@@ -445,6 +472,15 @@ export default function PlayModePanel({
                     <option value="slide-bottom">Slide ↑</option>
                     <option value="scale">Scale</option>
                 </select>
+                {/* Formatting shortcuts — fill the empty space next to the Type select */}
+                <div style={{ flex: 1 }} />
+                <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
+                    <span style={{ fontSize: 10, color: "#475569", marginRight: 2 }}>Format:</span>
+                    {fmtBtn("• List", "Bullet list", () => editorRef.current?.chain().focus().toggleBulletList().run())}
+                    {fmtBtn("1. List", "Numbered list", () => editorRef.current?.chain().focus().toggleOrderedList().run())}
+                    {fmtBtn("❝", "Blockquote", () => editorRef.current?.chain().focus().toggleBlockquote().run())}
+                    {fmtBtn("</>", "Code block", () => editorRef.current?.chain().focus().toggleCodeBlock().run())}
+                </div>
             </div>
 
             {/* Bottom controls */}
@@ -469,7 +505,7 @@ export default function PlayModePanel({
                             onChange={e => setWordsPerFly(Math.max(1, Math.min(20, Number(e.target.value))))}
                             style={{ width: 36, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "2px 4px", fontSize: 12, textAlign: "center" }} />
                     </label>
-                    <div style={{ display: "flex", gap: 2 }}>
+                    <div style={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
                         {SPEED_OPTIONS.map((s, i) => (
                             <button key={s.label} onClick={() => setSpeedIdx(i)}
                                 style={{ padding: "2px 6px", fontSize: 10, borderRadius: 4, cursor: "pointer", border: "none",
@@ -477,6 +513,11 @@ export default function PlayModePanel({
                                 {s.label}
                             </button>
                         ))}
+                        {/* Extra format shortcuts — fill the empty space after the speed buttons */}
+                        <div style={{ width: 6 }} />
+                        {fmtBtn("H1", "Heading 1", () => editorRef.current?.chain().focus().toggleHeading({ level: 1 }).run())}
+                        {fmtBtn("H2", "Heading 2", () => editorRef.current?.chain().focus().toggleHeading({ level: 2 }).run())}
+                        {fmtBtn("H3", "Heading 3", () => editorRef.current?.chain().focus().toggleHeading({ level: 3 }).run())}
                     </div>
                 </div>
 
@@ -499,10 +540,18 @@ export default function PlayModePanel({
 
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {playState === "idle" || playState === "done" ? (
-                        <button onClick={handleStart}
-                            style={{ flex: 1, padding: "7px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#6366f1", color: "#fff" }}>
-                            {playState === "done" ? "Restart" : "Start Playing"}
-                        </button>
+                        <>
+                            <button onClick={handleStart}
+                                style={{ flex: 1, padding: "7px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#6366f1", color: "#fff" }}>
+                                {playState === "done" ? "Restart" : "Start Playing"}
+                            </button>
+                            {playState === "done" && (
+                                <button onClick={handleStop}
+                                    style={{ padding: "7px 12px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#374151", color: "#9ca3af" }}>
+                                    Stop
+                                </button>
+                            )}
+                        </>
                     ) : (
                         <>
                             <button onClick={handlePauseResume}

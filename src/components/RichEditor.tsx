@@ -371,6 +371,8 @@ interface RichEditorProps {
     editorStyle?: React.CSSProperties;
     /** Hide the image upload button (e.g. title/description fields) */
     disableImage?: boolean;
+    /** Called once the Tiptap editor instance is ready (or destroyed). */
+    onEditorReady?: (editor: ReturnType<typeof useEditor>) => void;
 }
 
 const COLOR_PRESETS = [
@@ -392,6 +394,7 @@ export default function RichEditor({
     chatMode = false,
     autoFocus = false,
     disableImage = false,
+    onEditorReady,
     style,
     editorStyle,
 }: RichEditorProps) {
@@ -402,8 +405,9 @@ export default function RichEditor({
     const colorBtnRef = useRef<HTMLButtonElement>(null);
     const colorPickerRef = useRef<HTMLDivElement>(null);
     const imgInputRef = useRef<HTMLInputElement>(null);
-
-
+    // Stable ref so the effect doesn't re-run just because caller passes a new lambda each render
+    const onEditorReadyRef = useRef(onEditorReady);
+    onEditorReadyRef.current = onEditorReady;
 
     const editor = useEditor({
         extensions: [
@@ -429,6 +433,9 @@ export default function RichEditor({
         onSelectionUpdate: () => forceUpdate(n => n + 1),
         onBlur: ({ editor }) => onBlur?.(editor.getHTML()),
     });
+
+    // Notify parent when editor is ready / changes
+    useEffect(() => { onEditorReadyRef.current?.(editor); }, [editor]);
 
     const headingLevel = editor?.isActive('heading', { level: 1 }) ? '1'
         : editor?.isActive('heading', { level: 2 }) ? '2'
