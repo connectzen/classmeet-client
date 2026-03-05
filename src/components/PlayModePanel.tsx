@@ -417,19 +417,6 @@ export default function PlayModePanel({
         return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
     }, []);
 
-    // ── Global click → stop when playing (clicks outside this panel) ───────────────
-    useEffect(() => {
-        const onDown = (e: MouseEvent) => {
-            const ps = playStateRef.current;
-            if (ps !== 'playing' && ps !== 'ready-next' && ps !== 'paused') return;
-            // Only stop if the click is outside the PlayModePanel itself
-            if (panelRootRef.current && panelRootRef.current.contains(e.target as Node)) return;
-            handleStop();
-        };
-        window.addEventListener('mousedown', onDown, true);
-        return () => window.removeEventListener('mousedown', onDown, true);
-    }, [handleStop]);
-
     /** Assemble the block HTML from per-line accumulated spans and broadcast it. */
     const broadcastBlock = useCallback(() => {
         const html = lineHtmlsRef.current
@@ -643,6 +630,20 @@ export default function PlayModePanel({
     }, [stopInterval]);
 
     useEffect(() => () => stopInterval(), [stopInterval]);
+
+    // ── Global mousedown → stop when playing, unless click is inside this panel ───
+    const handleStopRef = useRef(handleStop);
+    handleStopRef.current = handleStop;
+    useEffect(() => {
+        const onDown = (e: MouseEvent) => {
+            const ps = playStateRef.current;
+            if (ps !== 'playing' && ps !== 'ready-next' && ps !== 'paused') return;
+            if (panelRootRef.current && panelRootRef.current.contains(e.target as Node)) return;
+            handleStopRef.current();
+        };
+        window.addEventListener('mousedown', onDown, true);
+        return () => window.removeEventListener('mousedown', onDown, true);
+    }, []);
 
     // ── Keyboard shortcut: ArrowRight → Next (or Resume when stopped) ──────────
     useEffect(() => {
