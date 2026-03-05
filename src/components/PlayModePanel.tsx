@@ -331,6 +331,7 @@ export default function PlayModePanel({
     const [colorPickerOpen, setColorPickerOpen] = useState(false);
     const [pickerHsv,  setPickerHsv]  = useState({ h: 0, s: 0, v: 100 });
     const [hexInput,   setHexInput]   = useState('#ffffff');
+    const [pickerRect, setPickerRect] = useState<DOMRect | null>(null);
     const groupPlanRef    = useRef<GroupPlan[]>([]);
     const charBufRef      = useRef("");
     const intervalRef     = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -366,6 +367,8 @@ export default function PlayModePanel({
     const pickerGradRef  = useRef<HTMLDivElement>(null);
     const pickerHueRef   = useRef<HTMLDivElement>(null);
     const dragTargetRef  = useRef<'grad' | 'hue' | null>(null);
+    const colorBtnRef    = useRef<HTMLButtonElement>(null);
+    const panelRootRef   = useRef<HTMLDivElement>(null);
 
     // Inject CSS keyframes for non-typing animations once per document lifetime
     useEffect(() => {
@@ -413,6 +416,19 @@ export default function PlayModePanel({
         window.addEventListener('mouseup', onUp);
         return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
     }, []);
+
+    // ── Global click → stop when playing (clicks outside this panel) ───────────────
+    useEffect(() => {
+        const onDown = (e: MouseEvent) => {
+            const ps = playStateRef.current;
+            if (ps !== 'playing' && ps !== 'ready-next' && ps !== 'paused') return;
+            // Only stop if the click is outside the PlayModePanel itself
+            if (panelRootRef.current && panelRootRef.current.contains(e.target as Node)) return;
+            handleStop();
+        };
+        window.addEventListener('mousedown', onDown, true);
+        return () => window.removeEventListener('mousedown', onDown, true);
+    }, [handleStop]);
 
     /** Assemble the block HTML from per-line accumulated spans and broadcast it. */
     const broadcastBlock = useCallback(() => {
@@ -697,7 +713,7 @@ export default function PlayModePanel({
     const curColor = (ed?.getAttributes('textStyle') as { color?: string })?.color ?? '#ffffff';
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#111827", color: "#e2e8f0", fontSize: 13, overflow: "hidden" }}>
+        <div ref={panelRootRef} style={{ display: "flex", flexDirection: "column", height: "100%", background: "#111827", color: "#e2e8f0", fontSize: 13, overflow: "hidden" }}>
 
             {/* ── TOP: Lines / Per line / Per fly (replaces editor toolbar) ── */}
             <div style={{ display: "flex", gap: 6, alignItems: "center", padding: "4px 8px", borderBottom: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)", flexShrink: 0, flexWrap: "wrap" }}>
@@ -771,22 +787,26 @@ export default function PlayModePanel({
                     })}
                     {/* Full gradient color picker */}
                     <div style={{ position: 'relative', flexShrink: 0 }}>
-                        <button disabled={isActive}
+                        <button ref={colorBtnRef} disabled={isActive}
                             onMouseDown={e => e.preventDefault()}
                             onClick={() => {
                                 if (!colorPickerOpen) {
                                     const c = curColor.startsWith('#') && curColor.length === 7 ? curColor : '#ffffff';
                                     setPickerHsv(hexToHsv(c)); setHexInput(c);
+                                    if (colorBtnRef.current) setPickerRect(colorBtnRef.current.getBoundingClientRect());
                                 }
                                 setColorPickerOpen(v => !v);
                             }}
                             title="Text color"
                             style={{ width: 18, height: 14, borderRadius: 2, border: `2px solid ${colorPickerOpen ? '#a5b4fc' : '#475569'}`, background: curColor, cursor: isActive ? "default" : "pointer", opacity: isActive ? 0.4 : 1, padding: 0, display: 'block' }} />
-                        {colorPickerOpen && !isActive && (
+                        {colorPickerOpen && !isActive && pickerRect && (
                             <div
                                 onMouseDown={e => e.preventDefault()}
                                 onMouseLeave={() => { if (!dragTargetRef.current) setColorPickerOpen(false); }}
-                                style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: '-76px', zIndex: 999,
+                                style={{ position: 'fixed',
+                                    top: Math.max(4, pickerRect.top - 252),
+                                    left: Math.max(4, Math.min(window.innerWidth - 194, pickerRect.left - 76)),
+                                    zIndex: 99999,
                                     background: '#1a1a2e', border: '1px solid rgba(99,102,241,0.45)',
                                     borderRadius: 10, padding: '8px', boxShadow: '0 10px 36px rgba(0,0,0,0.75)',
                                     width: 186, userSelect: 'none' }}>
