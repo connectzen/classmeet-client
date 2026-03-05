@@ -433,21 +433,39 @@ export default function PlayModePanel({
 
     const isActive = playState !== "idle";
 
-    // Helper for compact format toggle buttons in the control rows
-    const fmtBtn = (label: string, title: string, cmd: () => void) => (
-        <button key={title} title={title} disabled={isActive} onClick={cmd}
-            style={{ padding: "2px 7px", fontSize: 11, borderRadius: 4, cursor: isActive ? "default" : "pointer",
-                border: "none", background: "#1e293b", color: isActive ? "#374151" : "#94a3b8",
-                opacity: isActive ? 0.4 : 1, whiteSpace: "nowrap" }}>
-            {label}
-        </button>
-    );
     const progress = totalGroups > 0 ? `${Math.min(currentGroupIdx + 1, totalGroups)} / ${totalGroups}` : "";
+
+    // Shared style for all compact dropdowns in the control rows
+    const sel: React.CSSProperties = {
+        padding: "2px 4px", borderRadius: 5, border: "1px solid rgba(255,255,255,0.1)",
+        background: "#1e293b", color: "#94a3b8", fontSize: 11, cursor: "pointer",
+        colorScheme: "dark", maxWidth: 90,
+    };
+    // Action-select: value is always "" so it resets after each pick
+    const applyFormat = (v: string) => {
+        const e = editorRef.current;
+        if (!e || !v) return;
+        if (v === "bullet")     e.chain().focus().toggleBulletList().run();
+        else if (v === "ordered")    e.chain().focus().toggleOrderedList().run();
+        else if (v === "blockquote") e.chain().focus().toggleBlockquote().run();
+        else if (v === "code")       e.chain().focus().toggleCodeBlock().run();
+    };
+    const applyHeading = (v: string) => {
+        const e = editorRef.current;
+        if (!e || v === "") return;
+        if (v === "0") e.chain().focus().setParagraph().run();
+        else e.chain().focus().toggleHeading({ level: Number(v) as 1|2|3 }).run();
+    };
+    const applyAlign = (v: string) => {
+        const e = editorRef.current;
+        if (!e || !v) return;
+        e.chain().focus().setTextAlign(v).run();
+    };
 
     return (
         <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#111827", color: "#e2e8f0", fontSize: 13, overflow: "hidden" }}>
 
-            {/* Rich editor — replaces the old textarea + custom toolbar */}
+            {/* Rich editor */}
             <div style={{ flex: 1, overflow: "auto", pointerEvents: isActive ? "none" : "auto", opacity: isActive ? 0.5 : 1 }}>
                 <RichEditor
                     value={editorHtml}
@@ -460,33 +478,46 @@ export default function PlayModePanel({
                 />
             </div>
 
-            {/* Animation controls bar */}
-            <div style={{ display: "flex", gap: 4, padding: "5px 8px", borderTop: "1px solid rgba(255,255,255,0.07)", borderBottom: "1px solid rgba(255,255,255,0.07)", flexWrap: "wrap", overflowX: "auto", alignItems: "center", background: "rgba(255,255,255,0.02)", flexShrink: 0 }}>
-                {/* Animation type */}
-                <select value={animType} onChange={e => setAnimType(e.target.value as AnimType)}
-                    style={{ padding: "2px 4px", borderRadius: 5, border: "1px solid rgba(255,255,255,0.1)", background: "#1e293b", color: "#94a3b8", fontSize: 11, cursor: "pointer", colorScheme: "dark" }}>
-                    <option value="typing">Type</option>
-                    <option value="fade">Fade</option>
-                    <option value="slide-right">Slide →</option>
-                    <option value="slide-left">Slide ←</option>
-                    <option value="slide-bottom">Slide ↑</option>
-                    <option value="scale">Scale</option>
-                </select>
-                {/* Formatting shortcuts — fill the empty space next to the Type select */}
-                <div style={{ flex: 1 }} />
-                <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
-                    <span style={{ fontSize: 10, color: "#475569", marginRight: 2 }}>Format:</span>
-                    {fmtBtn("• List", "Bullet list", () => editorRef.current?.chain().focus().toggleBulletList().run())}
-                    {fmtBtn("1. List", "Numbered list", () => editorRef.current?.chain().focus().toggleOrderedList().run())}
-                    {fmtBtn("❝", "Blockquote", () => editorRef.current?.chain().focus().toggleBlockquote().run())}
-                    {fmtBtn("</>", "Code block", () => editorRef.current?.chain().focus().toggleCodeBlock().run())}
+            {/* ── 2-row control strip ────────────────────────────────────────── */}
+            <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)", flexShrink: 0 }}>
+
+                {/* Row 1: Type | Speed | Format | Heading | Align */}
+                <div style={{ display: "flex", gap: 4, padding: "5px 8px", alignItems: "center", flexWrap: "wrap" }}>
+                    <select value={animType} onChange={e => setAnimType(e.target.value as AnimType)} style={sel}>
+                        <option value="typing">Type</option>
+                        <option value="fade">Fade</option>
+                        <option value="slide-right">Slide →</option>
+                        <option value="slide-left">Slide ←</option>
+                        <option value="slide-bottom">Slide ↑</option>
+                        <option value="scale">Scale</option>
+                    </select>
+                    <select value={speedIdx} onChange={e => setSpeedIdx(Number(e.target.value))} style={sel}>
+                        {SPEED_OPTIONS.map((s, i) => <option key={i} value={i}>{s.label}</option>)}
+                    </select>
+                    <select value="" disabled={isActive} onChange={e => { applyFormat(e.target.value); }} style={{ ...sel, opacity: isActive ? 0.4 : 1 }}>
+                        <option value="">Format</option>
+                        <option value="bullet">• Bullet</option>
+                        <option value="ordered">1. Numbered</option>
+                        <option value="blockquote">❝ Quote</option>
+                        <option value="code">⌨ Code</option>
+                    </select>
+                    <select value="" disabled={isActive} onChange={e => { applyHeading(e.target.value); }} style={{ ...sel, opacity: isActive ? 0.4 : 1 }}>
+                        <option value="">Heading</option>
+                        <option value="0">Normal</option>
+                        <option value="1">H1</option>
+                        <option value="2">H2</option>
+                        <option value="3">H3</option>
+                    </select>
+                    <select value="" disabled={isActive} onChange={e => { applyAlign(e.target.value); }} style={{ ...sel, opacity: isActive ? 0.4 : 1 }}>
+                        <option value="">Align</option>
+                        <option value="left">← Left</option>
+                        <option value="center">≡ Center</option>
+                        <option value="right">→ Right</option>
+                    </select>
                 </div>
-            </div>
 
-            {/* Bottom controls */}
-            <div style={{ padding: "8px 10px", borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", display: "flex", flexDirection: "column", gap: 7, flexShrink: 0 }}>
-
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                {/* Row 2: Lines | Per line | Per fly */}
+                <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "4px 8px 6px", borderTop: "1px solid rgba(255,255,255,0.05)", flexWrap: "wrap" }}>
                     <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#94a3b8" }}>
                         Lines
                         <input type="number" min={1} max={10} value={linesPerBlock}
@@ -505,21 +536,11 @@ export default function PlayModePanel({
                             onChange={e => setWordsPerFly(Math.max(1, Math.min(20, Number(e.target.value))))}
                             style={{ width: 36, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "2px 4px", fontSize: 12, textAlign: "center" }} />
                     </label>
-                    <div style={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
-                        {SPEED_OPTIONS.map((s, i) => (
-                            <button key={s.label} onClick={() => setSpeedIdx(i)}
-                                style={{ padding: "2px 6px", fontSize: 10, borderRadius: 4, cursor: "pointer", border: "none",
-                                    background: speedIdx === i ? "#6366f1" : "#1e293b", color: speedIdx === i ? "#fff" : "#94a3b8" }}>
-                                {s.label}
-                            </button>
-                        ))}
-                        {/* Extra format shortcuts — fill the empty space after the speed buttons */}
-                        <div style={{ width: 6 }} />
-                        {fmtBtn("H1", "Heading 1", () => editorRef.current?.chain().focus().toggleHeading({ level: 1 }).run())}
-                        {fmtBtn("H2", "Heading 2", () => editorRef.current?.chain().focus().toggleHeading({ level: 2 }).run())}
-                        {fmtBtn("H3", "Heading 3", () => editorRef.current?.chain().focus().toggleHeading({ level: 3 }).run())}
-                    </div>
                 </div>
+            </div>
+
+            {/* Bottom: anchor, progress, action buttons */}
+            <div style={{ padding: "6px 10px 8px", borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
 
                 <div style={{ fontSize: 10, color: anchor ? "#6366f1" : "#475569" }}>
                     {anchor
