@@ -478,11 +478,33 @@ export default function PlayModePanel({
                 />
             </div>
 
-            {/* ── 2-row control strip ────────────────────────────────────────── */}
-            <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)", flexShrink: 0 }}>
+            {/* ── Lines / Per line / Per fly strip (single row) ─────────────── */}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "5px 8px", borderTop: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)", flexShrink: 0, flexWrap: "wrap" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#94a3b8" }}>
+                    Lines
+                    <input type="number" min={1} max={10} value={linesPerBlock}
+                        onChange={e => setLinesPerBlock(Math.max(1, Math.min(10, Number(e.target.value))))}
+                        style={{ width: 36, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "2px 4px", fontSize: 12, textAlign: "center" }} />
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#94a3b8" }}>
+                    Per line
+                    <input type="number" min={1} max={30} value={wordsPerLine}
+                        onChange={e => setWordsPerLine(Math.max(1, Math.min(30, Number(e.target.value))))}
+                        style={{ width: 36, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "2px 4px", fontSize: 12, textAlign: "center" }} />
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#94a3b8" }}>
+                    Per fly
+                    <input type="number" min={1} max={20} value={wordsPerFly}
+                        onChange={e => setWordsPerFly(Math.max(1, Math.min(20, Number(e.target.value))))}
+                        style={{ width: 36, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "2px 4px", fontSize: 12, textAlign: "center" }} />
+                </label>
+            </div>
 
-                {/* Row 1: Type | Speed | Format | Heading | Align */}
-                <div style={{ display: "flex", gap: 4, padding: "5px 8px", alignItems: "center", flexWrap: "wrap" }}>
+            {/* Bottom: Type/Speed/Format/Heading/Align + anchor + progress + buttons */}
+            <div style={{ padding: "6px 8px 8px", borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+
+                {/* Dropdowns row */}
+                <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
                     <select value={animType} onChange={e => setAnimType(e.target.value as AnimType)} style={sel}>
                         <option value="typing">Type</option>
                         <option value="fade">Fade</option>
@@ -494,53 +516,27 @@ export default function PlayModePanel({
                     <select value={speedIdx} onChange={e => setSpeedIdx(Number(e.target.value))} style={sel}>
                         {SPEED_OPTIONS.map((s, i) => <option key={i} value={i}>{s.label}</option>)}
                     </select>
-                    <select value="" disabled={isActive} onChange={e => { applyFormat(e.target.value); }} style={{ ...sel, opacity: isActive ? 0.4 : 1 }}>
+                    <select value="" disabled={isActive} onChange={e => applyFormat(e.target.value)} style={{ ...sel, opacity: isActive ? 0.4 : 1 }}>
                         <option value="">Format</option>
                         <option value="bullet">• Bullet</option>
                         <option value="ordered">1. Numbered</option>
                         <option value="blockquote">❝ Quote</option>
                         <option value="code">⌨ Code</option>
                     </select>
-                    <select value="" disabled={isActive} onChange={e => { applyHeading(e.target.value); }} style={{ ...sel, opacity: isActive ? 0.4 : 1 }}>
+                    <select value="" disabled={isActive} onChange={e => applyHeading(e.target.value)} style={{ ...sel, opacity: isActive ? 0.4 : 1 }}>
                         <option value="">Heading</option>
                         <option value="0">Normal</option>
                         <option value="1">H1</option>
                         <option value="2">H2</option>
                         <option value="3">H3</option>
                     </select>
-                    <select value="" disabled={isActive} onChange={e => { applyAlign(e.target.value); }} style={{ ...sel, opacity: isActive ? 0.4 : 1 }}>
+                    <select value="" disabled={isActive} onChange={e => applyAlign(e.target.value)} style={{ ...sel, opacity: isActive ? 0.4 : 1 }}>
                         <option value="">Align</option>
                         <option value="left">← Left</option>
                         <option value="center">≡ Center</option>
                         <option value="right">→ Right</option>
                     </select>
                 </div>
-
-                {/* Row 2: Lines | Per line | Per fly */}
-                <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "4px 8px 6px", borderTop: "1px solid rgba(255,255,255,0.05)", flexWrap: "wrap" }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#94a3b8" }}>
-                        Lines
-                        <input type="number" min={1} max={10} value={linesPerBlock}
-                            onChange={e => setLinesPerBlock(Math.max(1, Math.min(10, Number(e.target.value))))}
-                            style={{ width: 36, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "2px 4px", fontSize: 12, textAlign: "center" }} />
-                    </label>
-                    <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#94a3b8" }}>
-                        Per line
-                        <input type="number" min={1} max={30} value={wordsPerLine}
-                            onChange={e => setWordsPerLine(Math.max(1, Math.min(30, Number(e.target.value))))}
-                            style={{ width: 36, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "2px 4px", fontSize: 12, textAlign: "center" }} />
-                    </label>
-                    <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#94a3b8" }}>
-                        Per fly
-                        <input type="number" min={1} max={20} value={wordsPerFly}
-                            onChange={e => setWordsPerFly(Math.max(1, Math.min(20, Number(e.target.value))))}
-                            style={{ width: 36, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "2px 4px", fontSize: 12, textAlign: "center" }} />
-                    </label>
-                </div>
-            </div>
-
-            {/* Bottom: anchor, progress, action buttons */}
-            <div style={{ padding: "6px 10px 8px", borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
 
                 <div style={{ fontSize: 10, color: anchor ? "#6366f1" : "#475569" }}>
                     {anchor
