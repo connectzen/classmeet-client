@@ -45,6 +45,28 @@ function getStoredClasses(): { id: string; code: string; name: string }[] {
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
+// Fetch with automatic retry and timeout.
+// Retries up to `retries` times on network errors or 5xx responses.
+// Never swallows the failure silently — callers must handle rejection.
+async function fetchWithRetry(url: string, options?: RequestInit, retries = 3, timeoutMs = 10_000): Promise<Response> {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const resp = await fetch(url, { ...options, signal: controller.signal });
+            clearTimeout(timer);
+            if (resp.ok || resp.status < 500) return resp; // success or client error — don't retry
+            if (attempt === retries) return resp;           // final attempt — return as-is
+        } catch (err) {
+            clearTimeout(timer);
+            if (attempt === retries) throw err;
+        }
+        // Exponential back-off: 800ms, 1.6s, 3.2s …
+        await new Promise(r => setTimeout(r, 800 * Math.pow(2, attempt)));
+    }
+    throw new Error('fetchWithRetry: exhausted retries');
+}
+
 // ── Animated count-up number component ───────────────────────────────────────
 function CountUp({ value, duration = 900 }: { value: number; duration?: number }) {
     const [display, setDisplay] = useState(0);
@@ -442,7 +464,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
     const refetchRoleAndDashboard = useCallback(() => {
         if (!user?.id) return;
         const emailParam = user.email ? `?email=${encodeURIComponent(user.email)}` : '';
-        fetch(`${SERVER_URL}/api/user-role/${user.id}${emailParam}`)
+        fetchWithRetry(`${SERVER_URL}/api/user-role/${user.id}${emailParam}`)
             .then((r) => r.json())
             .then((d) => {
                 const isPending = d.role === 'pending';
@@ -460,7 +482,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                 if (d.role === 'member') { fetchAllStudents(); fetchMemberCoursesCount(); fetchMemberTeachers(); fetchMemberTeachersWithStudents(); }
                 if (d.role === 'student') { fetchTeacherNamesForStudent(); fetchStudentPublishedCourses(); }
             })
-            .catch(() => setUserRole('pending'));
+            .catch(() => { /* Network still down after retries — leave role unchanged; retry on next poll/tab-focus */ });
     }, [user?.id, user?.email, onAdminView, fetchTeacherSessions, fetchMemberSessions, fetchStudentTeacherSessions, fetchTeacherStudents, fetchTeacherGroups, fetchTeacherCoursesCount, fetchAllStudents, fetchMemberCoursesCount, fetchTeacherNamesForStudent, fetchMemberTeachers, fetchMemberTeachersWithStudents, fetchStudentPublishedCourses]);
 
     useEffect(() => {
@@ -567,7 +589,7 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
         const inviteToken = sessionStorage.getItem('inviteToken');
         const emailParam = user.email ? `?email=${encodeURIComponent(user.email)}` : '';
         const doFetchRole = () =>
-            fetch(`${SERVER_URL}/api/user-role/${user.id}${emailParam}`)
+            fetchWithRetry(`${SERVER_URL}/api/user-role/${user.id}${emailParam}`)
                 .then((r) => r.json())
                 .then((d) => {
                     const isPending = d.role === 'pending';
@@ -585,7 +607,10 @@ export default function Landing({ onJoinRoom, onResumeSession, onAdminView }: Pr
                         }).catch(() => {});
                     }
                 })
-                .catch(() => setUserRole('pending'));
+                // Network still unreachable after all retries — leave role as null so the
+                // loading state persists instead of falsely showing "pending approval".
+                // The tab-focus listener / next navigation will retry automatically.
+                .catch(() => { /* leave role as null — user sees loading, not wrong "pending" message */ });
         if (inviteToken) {
             fetch(`${SERVER_URL}/api/claim-invite`, {
                 method: 'POST',
