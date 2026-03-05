@@ -258,6 +258,10 @@ export default function RoomCoursePanel({
     const [toolbarPos, setToolbarPos] = useState<{ x: number; y: number } | null>(null);
     const [toolbarExpanded, setToolbarExpanded] = useState(false);
     const [headerHovered, setHeaderHovered] = useState(false);
+    const [toolbarVisible, setToolbarVisible] = useState(false);
+    const toolbarHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const showToolbar = () => { if (toolbarHideTimerRef.current) clearTimeout(toolbarHideTimerRef.current); setToolbarVisible(true); };
+    const hideToolbar = () => { toolbarHideTimerRef.current = setTimeout(() => setToolbarVisible(false), 180); };
     const [ephemeralMode, setEphemeralMode] = useState(false);
     const [typingMode, setTypingMode] = useState(true);
     const [blackboardMode, setBlackboardMode] = useState(false);
@@ -1347,13 +1351,16 @@ export default function RoomCoursePanel({
                     {/* Annotation toolbar — teacher only, always visible, 2-column grid */}
                     {isTeacher && (
                         <>
-                        {/* Text options floating panel — visible when T active AND no text input open */}
-                        <div style={{
+                        {/* Text options floating panel — visible when T active AND toolbar open AND no text input open */}
+                        <div
+                            onMouseEnter={showToolbar}
+                            onMouseLeave={hideToolbar}
+                            style={{
                             position: 'absolute', right: 82, top: 8,
-                            transform: `translateX(${drawTool === 'text' && textInput === null ? 0 : 14}px)`,
+                            transform: `translateX(${drawTool === 'text' && textInput === null && toolbarVisible ? 0 : 14}px)`,
                             zIndex: 19,
-                            pointerEvents: drawTool === 'text' && textInput === null ? 'auto' : 'none',
-                            opacity: drawTool === 'text' && textInput === null ? 1 : 0,
+                            pointerEvents: drawTool === 'text' && textInput === null && toolbarVisible ? 'auto' : 'none',
+                            opacity: drawTool === 'text' && textInput === null && toolbarVisible ? 1 : 0,
                             transition: 'opacity 0.22s ease, transform 0.22s ease',
                             maxHeight: 'calc(100% - 16px)',
                             display: 'flex', flexDirection: 'column',
@@ -1437,10 +1444,38 @@ export default function RoomCoursePanel({
                             </div>
                         </div>
 
-                        <div ref={toolbarRef} style={{
+                        {/* Toolbar reveal trigger tab — hover to expand tools */}
+                        <div
+                            onMouseEnter={showToolbar}
+                            onMouseLeave={hideToolbar}
+                            style={{
+                                position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)',
+                                width: 26, zIndex: 22, pointerEvents: 'auto',
+                                opacity: toolbarVisible ? 0 : 1,
+                                transition: 'opacity 0.15s',
+                            }}
+                        >
+                            <div style={{
+                                width: 26, height: 72,
+                                background: 'rgba(99,102,241,0.22)', backdropFilter: 'blur(8px)',
+                                border: '1px solid rgba(99,102,241,0.38)', borderRight: 'none',
+                                borderRadius: '10px 0 0 10px',
+                                color: '#a5b4fc', cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: 14,
+                            }}>✏</div>
+                        </div>
+
+                        <div ref={toolbarRef}
+                            onMouseEnter={showToolbar}
+                            onMouseLeave={hideToolbar}
+                            style={{
                             position: 'absolute', right: 6, top: 8,
-                            transform: `scale(${toolbarScale})`,
+                            transform: `scale(${toolbarScale}) translateX(${toolbarVisible ? 0 : 10}px)`,
                             transformOrigin: 'top right',
+                            opacity: toolbarVisible ? 1 : 0,
+                            pointerEvents: toolbarVisible ? 'auto' : 'none',
+                            transition: 'opacity 0.18s ease, transform 0.18s ease',
                             zIndex: 20, background: 'rgba(10,10,20,0.92)', backdropFilter: 'blur(10px)',
                             border: '1px solid rgba(99,102,241,0.35)', borderRadius: 14,
                             padding: '8px 6px', boxShadow: '0 6px 24px rgba(0,0,0,0.5)',

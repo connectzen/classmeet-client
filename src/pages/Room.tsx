@@ -48,7 +48,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [showDevicePicker, setShowDevicePicker] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false); // mobile chat popup
     const [isMobilePlayOpen, setIsMobilePlayOpen] = useState(false); // mobile play panel
-    const [showMobileStrip, setShowMobileStrip] = useState(false); // mobile thumbnail strip visibility
+    // mobile thumbnail strip is always visible — no toggle needed
     const [activeVideoDeviceId, setActiveVideoDeviceId] = useState<string | null>(null);
     const [activeAudioDeviceId, setActiveAudioDeviceId] = useState<string | null>(null);
     const [teacherGraceCountdown, setTeacherGraceCountdown] = useState<number | null>(null);
@@ -938,10 +938,6 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
 
                 {/* LEFT: Participants sidebar (desktop only) */}
                 <div className="room-participants-sidebar desktop-only">
-                    <div className="rps-header">
-                        <span>Students</span>
-                        <span className="pp-count">{allParticipants.filter(p => p.role !== 'teacher').length}</span>
-                    </div>
                     <div className="rps-list">
                         {(() => {
                             const localTeacher: ParticipantState = { socketId: '__local__', name, role, isMuted: !micOn, isCamOff: !camOn };
@@ -1029,11 +1025,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                 {/* CENTER: Spotlight video */}
                 <div className="room-center">
 
-                    {/* Mobile: horizontal thumbnail strip */}
-                    <div
-                        className="mobile-thumbnail-strip"
-                        style={showMobileStrip ? { maxHeight: '100px', opacity: 1, padding: '8px', animation: 'none' } : undefined}
-                    >
+                    {/* Mobile: horizontal thumbnail strip — always visible */}
+                    <div className="mobile-thumbnail-strip">
                         {sidebarParticipants.map((p) => (
                             <div
                                 key={p.socketId}
@@ -1051,16 +1044,6 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                             </div>
                         ))}
                     </div>
-
-                    {/* Spotlight or Quiz/Course (when toggle ON) */}
-                    {/* Mobile strip peek toggle button */}
-                    <button
-                        className="mobile-strip-peek-btn mobile-only"
-                        onClick={() => setShowMobileStrip(v => !v)}
-                        title={showMobileStrip ? 'Hide participants' : 'Show participants'}
-                    >
-                        {showMobileStrip ? '▲' : '▼'}
-                    </button>
 
                     {/* Spotlight or Quiz/Course (when toggle ON) */}
                     <div className="spotlight-area">

@@ -2932,11 +2932,7 @@ button:active:not(:disabled),
     position: relative;
   }
 
-  .mobile-strip-peek-btn {
-    display: flex !important;
-  }
-
-  /* Mobile participant strip — auto-hides to save space */
+  /* Mobile participant strip — always visible */
   .mobile-thumbnail-strip {
     display: flex !important;
     gap: 8px;
@@ -2946,31 +2942,8 @@ button:active:not(:disabled),
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     scrollbar-width: none;
-    /* auto-hide: collapse to 0 height after 3s, re-expand on touch */
     max-height: 100px;
     opacity: 1;
-    transition: max-height 0.35s ease, opacity 0.35s ease, padding 0.35s ease;
-    animation: strip-autohide 0.35s ease 4s forwards;
-  }
-
-  /* Tap anywhere on room-center to temporarily show the strip */
-  .room-center:focus-within .mobile-thumbnail-strip,
-  .room-center:active .mobile-thumbnail-strip,
-  .mobile-thumbnail-strip:hover,
-  .mobile-thumbnail-strip:focus-within {
-    max-height: 100px !important;
-    opacity: 1 !important;
-    padding: 8px !important;
-    animation: none !important;
-  }
-
-  @keyframes strip-autohide {
-    to {
-      max-height: 0;
-      opacity: 0;
-      padding-top: 0;
-      padding-bottom: 0;
-    }
   }
 
   .mobile-thumbnail-strip::-webkit-scrollbar {
