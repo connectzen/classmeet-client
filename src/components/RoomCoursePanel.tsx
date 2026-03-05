@@ -410,9 +410,9 @@ export default function RoomCoursePanel({
         blackboardSegs.current = [];
         snapshotImgRef.current = null;
         const c = canvasRef.current;
-        if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
+        if (c) { const ctx = c.getContext('2d'); if (ctx) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, c.width, c.height); } }
         const p = previewRef.current;
-        if (p) p.getContext('2d')?.clearRect(0, 0, p.width, p.height);
+        if (p) { const pCtx = p.getContext('2d'); if (pCtx) { pCtx.setTransform(1, 0, 0, 1, 0, 0); pCtx.clearRect(0, 0, p.width, p.height); } }
         setTeacherCursor(null);
         setLessonKey(k => k + 1);
     }, [activeLessonIdx, activeCourseIdx]);
@@ -718,7 +718,7 @@ export default function RoomCoursePanel({
         const c = canvasRef.current;
         if (c) { const ctx = c.getContext('2d'); if (ctx) { ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0); drawOnCanvas(ctx, externalPlayCommitSeg, c.width / physScaleRef.current, c.height / physScaleRef.current); } }
         const p = previewRef.current;
-        if (p) p.getContext('2d')?.clearRect(0, 0, p.width, p.height);
+        if (p) { const pCtx = p.getContext('2d'); if (pCtx) { pCtx.setTransform(1, 0, 0, 1, 0, 0); pCtx.clearRect(0, 0, p.width, p.height); } }
     }, [externalPlayCommitSeg]);
 
     // ── Play Mode: replace-last line segment (line accumulation, teacher canvas) ──
@@ -730,10 +730,12 @@ export default function RoomCoursePanel({
         if (!c) return;
         const ctx = c.getContext('2d');
         if (!ctx) return;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, c.width, c.height);
         ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0);
         for (const s of blackboardSegs.current) drawOnCanvas(ctx, s, c.width / physScaleRef.current, c.height / physScaleRef.current);
-        previewRef.current?.getContext('2d')?.clearRect(0, 0, previewRef.current.width, previewRef.current.height);
+        const prevCnv = previewRef.current;
+        if (prevCnv) { const pCtx = prevCnv.getContext('2d'); if (pCtx) { pCtx.setTransform(1, 0, 0, 1, 0, 0); pCtx.clearRect(0, 0, prevCnv.width, prevCnv.height); } }
     }, [externalPlayReplaceLineCount]);
 
     // ── Student: replace-last from server ──────────────────────────────────────
@@ -745,6 +747,7 @@ export default function RoomCoursePanel({
         if (!c) return;
         const ctx = c.getContext('2d');
         if (!ctx) return;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, c.width, c.height);
         ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0);
         for (const s of blackboardSegs.current) drawOnCanvas(ctx, s, c.width / physScaleRef.current, c.height / physScaleRef.current);
@@ -810,7 +813,7 @@ export default function RoomCoursePanel({
             snapshotImgRef.current = null;
         }
         const c = canvasRef.current;
-        if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
+        if (c) { const ctx = c.getContext('2d'); if (ctx) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, c.width, c.height); } }
         ephemeralStrokes.current = [];
         currentEphemeralStroke.current = [];
         persistentSnapshot.current = null;
@@ -824,7 +827,7 @@ export default function RoomCoursePanel({
         const ctx = c.getContext('2d');
         if (!ctx) return;
         // Always clear preview when switching modes
-        if (p) p.getContext('2d')?.clearRect(0, 0, p.width, p.height);
+        if (p) { const pCtx = p.getContext('2d'); if (pCtx) { pCtx.setTransform(1, 0, 0, 1, 0, 0); pCtx.clearRect(0, 0, p.width, p.height); } }
           // Use the proper replay helper: sets transform correctly + uses logical dimensions
         replayRef.current();
     }, [showBlackboard]);
@@ -851,6 +854,7 @@ export default function RoomCoursePanel({
             if (cnv) {
                 const ctx = cnv.getContext('2d');
                 if (ctx) {
+                    ctx.setTransform(1, 0, 0, 1, 0, 0);
                     ctx.clearRect(0, 0, cnv.width, cnv.height);
                     if (persistentSnapshot.current) ctx.putImageData(persistentSnapshot.current, 0, 0);
                     // putImageData ignores the transform; re-apply scale so subsequent draws are in logical coords
@@ -895,6 +899,7 @@ export default function RoomCoursePanel({
         img.onload = () => {
             snapshotImgRef.current = img;
             committedSegs.current = []; // snapshot subsumes all prior segs
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, c.width, c.height);
             ctx.drawImage(img, 0, 0, c.width, c.height);
         };
@@ -946,7 +951,7 @@ export default function RoomCoursePanel({
         setTextInput(null);
         // Clear teacher's own preview canvas
         const p = previewRef.current;
-        if (p) p.getContext('2d')?.clearRect(0, 0, p.width, p.height);
+        if (p) { const pCtx = p.getContext('2d'); if (pCtx) { pCtx.setTransform(1, 0, 0, 1, 0, 0); pCtx.clearRect(0, 0, p.width, p.height); } }
         // Always clear preview canvas on students when text input closes
         onDrawPrevCb.current?.({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
         if (!text.trim()) return;
@@ -967,9 +972,9 @@ export default function RoomCoursePanel({
             snapshotImgRef.current = null;
         }
         const c = canvasRef.current;
-        if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
+        if (c) { const ctx = c.getContext('2d'); if (ctx) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, c.width, c.height); } }
         const p = previewRef.current;
-        if (p) p.getContext('2d')?.clearRect(0, 0, p.width, p.height);
+        if (p) { const pCtx = p.getContext('2d'); if (pCtx) { pCtx.setTransform(1, 0, 0, 1, 0, 0); pCtx.clearRect(0, 0, p.width, p.height); } }
         ephemeralStrokes.current = [];
         currentEphemeralStroke.current = [];
         persistentSnapshot.current = null;
