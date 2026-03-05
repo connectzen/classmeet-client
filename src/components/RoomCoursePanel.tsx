@@ -821,10 +821,8 @@ export default function RoomCoursePanel({
         if (!ctx) return;
         // Always clear preview when switching modes
         if (p) p.getContext('2d')?.clearRect(0, 0, p.width, p.height);
-        ctx.clearRect(0, 0, c.width, c.height);
-        // Replay whichever set of strokes belongs to this mode
-        const segs = showBlackboard ? blackboardSegs.current : committedSegs.current;
-        for (const seg of segs) drawOnCanvas(ctx, seg, c.width, c.height);
+        // Use the proper replay helper: sets transform correctly + uses logical dimensions
+        replayRef.current();
     }, [showBlackboard]);
 
     // ── Ephemeral mode: fading strokes RAF loop ───────────────────────────────

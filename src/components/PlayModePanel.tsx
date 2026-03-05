@@ -175,9 +175,13 @@ function buildSpanCss(plan: {
     color: string; fontFamily: string; fontSizePx: number; fontStyle: FontStyle; underline: boolean;
 }): string {
     const { color, fontFamily, fontSizePx, fontStyle, underline } = plan;
+    // Wrap multi-word font names in single quotes so the CSS is valid
+    const quotedFont = fontFamily
+        ? (fontFamily.includes(' ') ? `'${fontFamily}'` : fontFamily)
+        : '';
     const parts = [
         `color:${color}`,
-        fontFamily ? `font-family:${fontFamily}` : '',
+        quotedFont ? `font-family:${quotedFont}` : '',
         `font-size:${fontSizePx}px`,
         fontStyle.includes('bold')   ? 'font-weight:bold'   : 'font-weight:normal',
         fontStyle.includes('italic') ? 'font-style:italic'  : 'font-style:normal',
@@ -218,7 +222,9 @@ function buildGroupPlan(
     const measCtx = measCanvas.getContext('2d')!;
     const measureWidth = (str: string, fs: FontStyle, fpx: number, ff: string) => {
         if (!str) return 0;
-        measCtx.font = `${fs} ${fpx}px ${ff}`;
+        // Canvas font strings need quoted multi-word family names
+        const quoted = ff.includes(' ') ? `"${ff}"` : ff;
+        measCtx.font = `${fs} ${fpx}px ${quoted}`;
         return measCtx.measureText(str).width / CANVAS_W;
     };
 
@@ -319,7 +325,7 @@ function buildGroupPlan(
 export default function PlayModePanel({
     anchor, canvasH,
     onPlayHtml, emitPlayShow, emitPlayClear,
-    onEnableBlackboard, isBlackboardOn, onEnableCourse,
+    onEnableBlackboardLocal, isBlackboardOn,
     onPlayActiveChange,
 }: Props) {
     const [wordsPerLine,    setWordsPerLine]   = useState(5);
