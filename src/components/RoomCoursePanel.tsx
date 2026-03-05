@@ -98,6 +98,16 @@ const SHAPE_TOOLS = ['circle', 'rect', 'square', 'arrow', 'line'];
 // so text and drawings are crisp on HiDPI/Retina screens instead of upscaled.
 const DPR = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
 
+const FONT_FAMILIES: { label: string; value: string }[] = [
+    { label: 'Inter',         value: 'Inter, sans-serif' },
+    { label: 'Roboto',        value: 'Roboto, sans-serif' },
+    { label: 'Poppins',       value: 'Poppins, sans-serif' },
+    { label: 'Lato',          value: 'Lato, sans-serif' },
+    { label: 'Playfair',      value: "'Playfair Display', serif" },
+    { label: 'Georgia',       value: 'Georgia, serif' },
+    { label: 'Mono',          value: "'Courier New', monospace" },
+];
+
 const TOOL_DEFS: { id: DrawTool; icon: string; tip: string; cursor: string }[] = [
     { id: 'pen',       icon: '✏',  tip: 'Pen',        cursor: 'crosshair' },
     { id: 'highlight', icon: '▌',  tip: 'Highlight',  cursor: 'crosshair' },
@@ -1013,6 +1023,17 @@ export default function RoomCoursePanel({
                     </button>
                     {activeTopic && <span style={{ fontSize: 10, color: 'rgba(99,102,241,0.9)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{activeTopic.title}</span>}
                     {totalLessons > 0 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Lesson {activeLessonIdx + 1}/{totalLessons}</span>}
+                    {isTeacher && (
+                        <button
+                            onClick={showToolbar}
+                            title="Drawing tools"
+                            style={{ flexShrink: 0, width: 22, height: 22, borderRadius: 6, border: 'none',
+                                background: toolbarVisible ? 'rgba(99,102,241,0.5)' : 'rgba(99,102,241,0.2)',
+                                color: toolbarVisible ? '#fff' : '#a5b4fc',
+                                fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center',
+                                justifyContent: 'center', transition: 'background 0.15s',
+                                marginLeft: 2 }}>✏</button>
+                    )}
                 </div>
             </div>
 
@@ -1419,14 +1440,7 @@ export default function RoomCoursePanel({
                                 <div>
                                     <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Font</div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                        {([
-                                            { label: 'Sans',      value: 'Inter, sans-serif' },
-                                            { label: 'Roboto',    value: 'Roboto, sans-serif' },
-                                            { label: 'Poppins',   value: 'Poppins, sans-serif' },
-                                            { label: 'Serif',     value: 'Georgia, serif' },
-                                            { label: 'Playfair',  value: "'Playfair Display', serif" },
-                                            { label: 'Mono',      value: "'Courier New', monospace" },
-                                        ]).map(({ label, value }) => (
+                                        {FONT_FAMILIES.map(({ label, value }) => (
                                             <button key={value} onClick={() => setTextFontFamily(value)}
                                                 style={{ height: 26, borderRadius: 5, border: `1px solid ${textFontFamily === value ? 'rgba(99,102,241,0.6)' : 'rgba(255,255,255,0.07)'}`,
                                                     background: textFontFamily === value ? 'rgba(99,102,241,0.35)' : 'transparent',
@@ -1440,28 +1454,6 @@ export default function RoomCoursePanel({
                                 </div>
                             </div>
                         </div>
-
-                        {/* ── Toolbar reveal tab — always visible; disappears when toolbar opens ── */}
-                        <button
-                            onMouseEnter={showToolbar}
-                            title="Drawing tools"
-                            style={{
-                                position: 'absolute', right: 0, top: '50%',
-                                transform: 'translateY(-50%)',
-                                width: 22, height: 64, border: 'none',
-                                borderRadius: '10px 0 0 10px',
-                                background: 'rgba(99,102,241,0.72)',
-                                color: '#fff', fontSize: 15,
-                                cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                zIndex: 21,
-                                opacity: toolbarVisible ? 0 : 1,
-                                pointerEvents: toolbarVisible ? 'none' : 'auto',
-                                transition: 'opacity 0.18s ease',
-                                boxShadow: '-2px 0 10px rgba(99,102,241,0.45)',
-                                padding: 0,
-                            }}
-                        >✏</button>
 
                         <div ref={toolbarRef}
                             onMouseEnter={showToolbar}
@@ -1508,6 +1500,23 @@ export default function RoomCoursePanel({
                                         onMouseLeave={e => { if (drawTool !== id) e.currentTarget.style.background = 'transparent'; }}>{icon}</button>
                                 ))}
                             </div>
+
+                            {/* ── Font family dropdown ── */}
+                            <select
+                                value={textFontFamily}
+                                onChange={e => setTextFontFamily(e.target.value)}
+                                title="Font family"
+                                style={{ width: '100%', background: 'rgba(20,20,36,0.95)',
+                                    color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.35)',
+                                    borderRadius: 6, fontSize: 10, padding: '4px 4px',
+                                    cursor: 'pointer', fontFamily: textFontFamily,
+                                    outline: 'none', appearance: 'none',
+                                    textAlign: 'center' }}
+                            >
+                                {FONT_FAMILIES.map(f => (
+                                    <option key={f.value} value={f.value}>{f.label}</option>
+                                ))}
+                            </select>
 
                             <div style={{ height: 1, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />
 
