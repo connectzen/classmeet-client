@@ -135,9 +135,9 @@ interface Props {
     emitPlayShow: (html: string) => void;
     /** Clear the play overlay from students' blackboards. */
     emitPlayClear: () => void;
-    onEnableBlackboard: () => void;
+    /** Open blackboard for teacher locally only — does NOT emit to students. */
+    onEnableBlackboardLocal: () => void;
     isBlackboardOn: boolean;
-    onEnableCourse?: () => void;
     /** Called whenever the game transitions in/out of an active state (playing/paused/ready-next). */
     onPlayActiveChange?: (active: boolean) => void;
 }
@@ -367,6 +367,9 @@ export default function PlayModePanel({
     const emitPlayShowRef = useRef(emitPlayShow); emitPlayShowRef.current = emitPlayShow;
     const emitPlayClearRef = useRef(emitPlayClear); emitPlayClearRef.current = emitPlayClear;
     const isBlackboardOnRef = useRef(isBlackboardOn); isBlackboardOnRef.current = isBlackboardOn;
+    // Guards student broadcast: false until teacher presses Next for the first time.
+    // Teacher always sees live animation; students only receive data after first Next press.
+    const broadcastUnlockedRef = useRef(false);
     const pickerGradRef  = useRef<HTMLDivElement>(null);
     const pickerHueRef   = useRef<HTMLDivElement>(null);
     const dragTargetRef  = useRef<'grad' | 'hue' | null>(null);
@@ -420,7 +423,8 @@ export default function PlayModePanel({
         return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
     }, []);
 
-    /** Assemble the block HTML from per-line accumulated spans and broadcast it. */
+    /** Assemble the block HTML from per-line accumulated spans and broadcast it.
+     *  Always updates teacher's overlay; only sends to students once unlocked (after first Next). */
     const broadcastBlock = useCallback(() => {
         const html = lineHtmlsRef.current
             .map(l => l?.html
@@ -428,7 +432,9 @@ export default function PlayModePanel({
                 : ''
             ).join('');
         onPlayHtmlRef.current(html);
-        emitPlayShowRef.current(html);
+        if (broadcastUnlockedRef.current) {
+            emitPlayShowRef.current(html);
+        }
     }, []);
 
     /**
@@ -507,10 +513,12 @@ export default function PlayModePanel({
                 charBufRef.current = animText.slice(0, charBufRef.current.length + 1);
                 // Build the live overlay HTML (committed lines + partial current word)
                 const flyHtml = buildFlyOverlay(entry, charBufRef.current, '');
-                // Update teacher's overlay immediately
+                // Always update teacher's overlay immediately
                 onPlayHtmlRef.current(flyHtml);
-                // Broadcast to students in real-time so they see typing as it happens
-                emitPlayShowRef.current(flyHtml);
+                // Only broadcast to students once unlocked (after teacher presses Next first time)
+                if (broadcastUnlockedRef.current) {
+                    emitPlayShowRef.current(flyHtml);
+                }
                 if (charBufRef.current.length >= animText.length) {
                     stopInterval();
                     charBufRef.current = "";
@@ -543,8 +551,9 @@ export default function PlayModePanel({
         if (isRichEmpty(editorHtml)) return;
         const styledWords = parseRichToStyledWords(editorHtml);
         if (!styledWords.length) return;
-        if (onEnableCourse) onEnableCourse();
-        if (!isBlackboardOnRef.current) onEnableBlackboard();
+        // Open blackboard for teacher locally only — students are NOT notified.
+        // Teacher controls student visibility via the Share button in the course panel.
+        if (!isBlackboardOnRef.current) onEnableBlackboardLocal();
         const plan = buildGroupPlan(
             styledWords,
             wordsPerFlyRef.current,
@@ -554,19 +563,27 @@ export default function PlayModePanel({
             canvasHRef.current,
         );
         if (!plan.length) return;
-        // Clear any existing overlay before starting fresh
+        // Reset broadcast lock — students won't receive anything until teacher presses Next
+        broadcastUnlockedRef.current = false;
+        // Clear teacher's overlay locally (students have nothing yet, no need to emit clear)
         lineHtmlsRef.current = [];
         onPlayHtmlRef.current('');
-        emitPlayClearRef.current();
         styledWordsRef.current   = styledWords;
         wordsConsumedRef.current = 0;
         groupPlanRef.current = plan;
         setTotalGroups(plan.length);
         animateGroup(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [onEnableBlackboard, onEnableCourse, animateGroup, editorHtml]);
+    }, [onEnableBlackboardLocal, animateGroup, editorHtml]);
 
-    const handleNext        = useCallback(() => animateGroup(currentGroupIdx + 1), [currentGroupIdx, animateGroup]);
+    const handleNext        = useCallback(() => {
+        if (!broadcastUnlockedRef.current) {
+            // First Next press — unlock student broadcast and immediately send what was committed
+            broadcastUnlockedRef.current = true;
+            broadcastBlock();
+        }
+        animateGroup(currentGroupIdx + 1);
+    }, [currentGroupIdx, animateGroup, broadcastBlock]);
     const handlePauseResume = useCallback(() => setPlayState(p => p === "paused" ? "playing" : "paused"), []);
 
     /** Stop animation but KEEP the overlay on the blackboard. Plan stays in memory for Resume. */
@@ -631,6 +648,7 @@ export default function PlayModePanel({
     /** Explicitly wipe the overlay and reset everything to idle. */
     const handleClear = useCallback(() => {
         stopInterval();
+        broadcastUnlockedRef.current = false;
         lineHtmlsRef.current = [];
         onPlayHtmlRef.current('');
         emitPlayClearRef.current();

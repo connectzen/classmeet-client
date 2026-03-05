@@ -810,10 +810,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                             canvasH={playCanvasH}
                             isBlackboardOn={blackboardOn}
                             onPlayActiveChange={setIsPlayActive}
-                            onEnableCourse={() => {
-                                if (!courseToggleOn) { setCourseToggleOn(true); emitCourseToggle(true, sessionCourseIds); }
-                            }}
-                            onEnableBlackboard={() => { setBlackboardOn(true); emitBlackboardToggle(true); }}
+                            onEnableBlackboardLocal={() => setBlackboardOn(true)}
                             onPlayHtml={html => setTeacherPlayHtml(html)}
                             emitPlayShow={html => emitPlayShow(html)}
                             emitPlayClear={() => emitPlayClear()}
@@ -1286,16 +1283,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 canvasH={playCanvasH}
                                 isBlackboardOn={blackboardOn}
                                 onPlayActiveChange={setIsPlayActive}
-                                onEnableCourse={() => {
-                                    if (!courseToggleOn) {
-                                        setCourseToggleOn(true);
-                                        emitCourseToggle(true, sessionCourseIds);
-                                    }
-                                }}
-                                onEnableBlackboard={() => {
-                                    setBlackboardOn(true);
-                                    emitBlackboardToggle(true);
-                                }}
+                                onEnableBlackboardLocal={() => setBlackboardOn(true)}
                                 onPlayHtml={html => setTeacherPlayHtml(html)}
                                 emitPlayShow={html => emitPlayShow(html)}
                                 emitPlayClear={() => emitPlayClear()}
