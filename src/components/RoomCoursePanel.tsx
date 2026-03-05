@@ -617,7 +617,7 @@ export default function RoomCoursePanel({
                     } else {
                         (showBlackboardRef.current ? blackboardSegs.current : committedSegs.current).push(seg);
                         const ctx = canvas.getContext('2d');
-                        if (ctx) drawOnCanvas(ctx, seg, canvas.width / physScaleRef.current, canvas.height / physScaleRef.current);
+                        if (ctx) { ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0); drawOnCanvas(ctx, seg, canvas.width / physScaleRef.current, canvas.height / physScaleRef.current); }
                         onDrawSegCb.current?.(seg);
                     }
                     lastPt.current = p;
@@ -646,7 +646,7 @@ export default function RoomCoursePanel({
                 } else {
                     (showBlackboardRef.current ? blackboardSegs.current : committedSegs.current).push(seg);
                     const ctx = canvas.getContext('2d');
-                    if (ctx) drawOnCanvas(ctx, seg, canvas.width / physScaleRef.current, canvas.height / physScaleRef.current);
+                    if (ctx) { ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0); drawOnCanvas(ctx, seg, canvas.width / physScaleRef.current, canvas.height / physScaleRef.current); }
                     onDrawSegCb.current?.(seg);
                     // Clear students' preview canvas now that the final segment is committed
                     onDrawPrevCb.current?.({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
