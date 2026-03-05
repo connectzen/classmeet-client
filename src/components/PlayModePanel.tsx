@@ -506,7 +506,7 @@ export default function PlayModePanel({
                 {/* Dropdowns row */}
                 <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
                     <select value={animType} onChange={e => setAnimType(e.target.value as AnimType)} style={sel}>
-                        <option value="typing">Type</option>
+                        <option value="typing">Typing</option>
                         <option value="fade">Fade</option>
                         <option value="slide-right">Slide →</option>
                         <option value="slide-left">Slide ←</option>
