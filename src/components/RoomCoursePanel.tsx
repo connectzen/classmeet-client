@@ -1086,7 +1086,9 @@ export default function RoomCoursePanel({
                 </div>
 
                 {/* Content wrapper */}
-                <div ref={wrapperRef} style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                <div ref={wrapperRef} style={{ flex: 1, position: 'relative', overflow: 'hidden' }}
+                    onMouseEnter={isTeacher ? showToolbar : undefined}
+                    onMouseLeave={isTeacher ? hideToolbar : undefined}>
 
                     {/* Scrollable area — overflowX hidden because content scales via zoom.
                         For students, horizontal padding is added so the 640px content is
@@ -1442,28 +1444,6 @@ export default function RoomCoursePanel({
                                     </div>
                                 </div>
                             </div>
-                        </div>
-
-                        {/* Toolbar reveal trigger tab — hover to expand tools */}
-                        <div
-                            onMouseEnter={showToolbar}
-                            onMouseLeave={hideToolbar}
-                            style={{
-                                position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)',
-                                width: 26, zIndex: 22, pointerEvents: 'auto',
-                                opacity: toolbarVisible ? 0 : 1,
-                                transition: 'opacity 0.15s',
-                            }}
-                        >
-                            <div style={{
-                                width: 26, height: 72,
-                                background: 'rgba(99,102,241,0.22)', backdropFilter: 'blur(8px)',
-                                border: '1px solid rgba(99,102,241,0.38)', borderRight: 'none',
-                                borderRadius: '10px 0 0 10px',
-                                color: '#a5b4fc', cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: 14,
-                            }}>✏</div>
                         </div>
 
                         <div ref={toolbarRef}
