@@ -1441,6 +1441,28 @@ export default function RoomCoursePanel({
                             </div>
                         </div>
 
+                        {/* ── Toolbar reveal tab — always visible; disappears when toolbar opens ── */}
+                        <button
+                            onMouseEnter={showToolbar}
+                            title="Drawing tools"
+                            style={{
+                                position: 'absolute', right: 0, top: '50%',
+                                transform: 'translateY(-50%)',
+                                width: 22, height: 64, border: 'none',
+                                borderRadius: '10px 0 0 10px',
+                                background: 'rgba(99,102,241,0.72)',
+                                color: '#fff', fontSize: 15,
+                                cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                zIndex: 21,
+                                opacity: toolbarVisible ? 0 : 1,
+                                pointerEvents: toolbarVisible ? 'none' : 'auto',
+                                transition: 'opacity 0.18s ease',
+                                boxShadow: '-2px 0 10px rgba(99,102,241,0.45)',
+                                padding: 0,
+                            }}
+                        >✏</button>
+
                         <div ref={toolbarRef}
                             onMouseEnter={showToolbar}
                             onMouseLeave={hideToolbar}
