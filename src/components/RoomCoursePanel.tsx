@@ -292,6 +292,9 @@ export default function RoomCoursePanel({
     const currentEphemeralStroke = useRef<DrawSeg[]>([]); // buffer for in-progress ephemeral stroke
     const ephemeralRaf     = useRef<number | null>(null);
     const persistentSnapshot = useRef<ImageData | null>(null);
+    // Effective physical scale = contentScale * DPR.  Canvas buffer is CANVAS_W * physScale pixels
+    // wide so it exactly matches the screen pixels covered by the CSS-zoomed element.
+    const physScaleRef = useRef(DPR);
     // All permanent (non-ephemeral) segments — replayed on canvas resize so drawings persist
     const committedSegs  = useRef<DrawSeg[]>([]);
     // Strokes drawn while blackboard mode is active — kept separate from lesson segs
@@ -418,8 +421,8 @@ export default function RoomCoursePanel({
         const ctx = c.getContext('2d');
         if (!ctx) return;
         ctx.clearRect(0, 0, c.width, c.height); // physical coords, always safe
-        ctx.setTransform(DPR, 0, 0, DPR, 0, 0); // all subsequent draws in logical coords
-        const lw = c.width / DPR, lh = c.height / DPR;
+        ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0); // all subsequent draws in logical coords
+        const lw = c.width / physScaleRef.current, lh = c.height / physScaleRef.current;
         if (snapshotImgRef.current) ctx.drawImage(snapshotImgRef.current, 0, 0, lw, lh);
         const segs = showBlackboardRef.current ? blackboardSegs.current : committedSegs.current;
         for (const seg of segs) drawOnCanvas(ctx, seg, lw, lh);
@@ -454,6 +457,7 @@ export default function RoomCoursePanel({
             const availW    = Math.max(totalW - tbW, 1);
             const scale     = availW / CANVAS_W;
             setContentScale(scale);
+            physScaleRef.current = scale * DPR; // update BEFORE replay so replayOnCanvas uses the fresh scale
             setContentPaddingX(isTeacher ? 0 : tbW / 2);
 
             // Collapse canvas height so it doesn't inflate inner.scrollHeight
@@ -480,9 +484,10 @@ export default function RoomCoursePanel({
             setCanvasH(h);
             onCanvasHChange?.(h);
 
-            if (canvas.width !== w * DPR || canvas.height !== h * DPR) {
-                canvas.width = w * DPR; canvas.height = h * DPR;
-                preview.width = w * DPR; preview.height = h * DPR;
+            const physW = Math.round(w * physScaleRef.current), physH = Math.round(h * physScaleRef.current);
+            if (canvas.width !== physW || canvas.height !== physH) {
+                canvas.width = physW; canvas.height = physH;
+                preview.width = physW; preview.height = physH;
                 // Replay committed/blackboard strokes onto the freshly-sized canvas buffer.
                 replayRef.current();
                 // Invalidate the ephemeral-mode snapshot: it was captured at the old
@@ -590,7 +595,8 @@ export default function RoomCoursePanel({
                     const ctx = prev.getContext('2d');
                     if (ctx) {
                         ctx.clearRect(0, 0, prev.width, prev.height);
-                        drawOnCanvas(ctx, { x1: s.x, y1: s.y, x2: p.x, y2: p.y, color: drawColor, size: TOOL_SIZES[drawSizeKey], mode: drawTool as DrawSeg['mode'] }, prev.width / DPR, prev.height / DPR);
+                        ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0);
+                        drawOnCanvas(ctx, { x1: s.x, y1: s.y, x2: p.x, y2: p.y, color: drawColor, size: TOOL_SIZES[drawSizeKey], mode: drawTool as DrawSeg['mode'] }, prev.width / physScaleRef.current, prev.height / physScaleRef.current);
                     }
                     // Stream the shape preview to students in real time
                     onDrawPrevCb.current?.({ x1: s.x, y1: s.y, x2: p.x, y2: p.y, color: drawColor, size: TOOL_SIZES[drawSizeKey], mode: drawTool as DrawSeg['mode'] });
@@ -604,7 +610,7 @@ export default function RoomCoursePanel({
                     } else {
                         (showBlackboardRef.current ? blackboardSegs.current : committedSegs.current).push(seg);
                         const ctx = canvas.getContext('2d');
-                        if (ctx) drawOnCanvas(ctx, seg, canvas.width / DPR, canvas.height / DPR);
+                        if (ctx) drawOnCanvas(ctx, seg, canvas.width / physScaleRef.current, canvas.height / physScaleRef.current);
                         onDrawSegCb.current?.(seg);
                     }
                     lastPt.current = p;
@@ -633,7 +639,7 @@ export default function RoomCoursePanel({
                 } else {
                     (showBlackboardRef.current ? blackboardSegs.current : committedSegs.current).push(seg);
                     const ctx = canvas.getContext('2d');
-                    if (ctx) drawOnCanvas(ctx, seg, canvas.width / DPR, canvas.height / DPR);
+                    if (ctx) drawOnCanvas(ctx, seg, canvas.width / physScaleRef.current, canvas.height / physScaleRef.current);
                     onDrawSegCb.current?.(seg);
                     // Clear students' preview canvas now that the final segment is committed
                     onDrawPrevCb.current?.({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
@@ -681,7 +687,7 @@ export default function RoomCoursePanel({
         // Store incoming segment in the correct surface (blackboard or lesson)
         (showBlackboardRef.current ? blackboardSegs.current : committedSegs.current).push(externalDrawSeg);
         const c = canvasRef.current;
-        if (c) { const ctx = c.getContext('2d'); if (ctx) drawOnCanvas(ctx, externalDrawSeg, c.width / DPR, c.height / DPR); }
+        if (c) { const ctx = c.getContext('2d'); if (ctx) { ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0); drawOnCanvas(ctx, externalDrawSeg, c.width / physScaleRef.current, c.height / physScaleRef.current); } }
     }, [externalDrawSeg]);
 
     // ── Play Mode: live animation frame — draws on preview canvas each tick ────
@@ -691,7 +697,8 @@ export default function RoomCoursePanel({
         const ctx = p.getContext('2d');
         if (!ctx) return;
         ctx.clearRect(0, 0, p.width, p.height);
-        if (externalPlaySeg) drawOnCanvas(ctx, externalPlaySeg, p.width / DPR, p.height / DPR);
+        ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0);
+        if (externalPlaySeg) drawOnCanvas(ctx, externalPlaySeg, p.width / physScaleRef.current, p.height / physScaleRef.current);
     }, [externalPlaySeg]);
 
     // ── Play Mode: committed segment — writes to blackboardSegs + main canvas ──
@@ -699,7 +706,7 @@ export default function RoomCoursePanel({
         if (!externalPlayCommitSeg) return;
         blackboardSegs.current.push(externalPlayCommitSeg);
         const c = canvasRef.current;
-        if (c) { const ctx = c.getContext('2d'); if (ctx) drawOnCanvas(ctx, externalPlayCommitSeg, c.width / DPR, c.height / DPR); }
+        if (c) { const ctx = c.getContext('2d'); if (ctx) { ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0); drawOnCanvas(ctx, externalPlayCommitSeg, c.width / physScaleRef.current, c.height / physScaleRef.current); } }
         const p = previewRef.current;
         if (p) p.getContext('2d')?.clearRect(0, 0, p.width, p.height);
     }, [externalPlayCommitSeg]);
@@ -714,7 +721,8 @@ export default function RoomCoursePanel({
         const ctx = c.getContext('2d');
         if (!ctx) return;
         ctx.clearRect(0, 0, c.width, c.height);
-        for (const s of blackboardSegs.current) drawOnCanvas(ctx, s, c.width / DPR, c.height / DPR);
+        ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0);
+        for (const s of blackboardSegs.current) drawOnCanvas(ctx, s, c.width / physScaleRef.current, c.height / physScaleRef.current);
         previewRef.current?.getContext('2d')?.clearRect(0, 0, previewRef.current.width, previewRef.current.height);
     }, [externalPlayReplaceLineCount]);
 
@@ -728,7 +736,8 @@ export default function RoomCoursePanel({
         const ctx = c.getContext('2d');
         if (!ctx) return;
         ctx.clearRect(0, 0, c.width, c.height);
-        for (const s of blackboardSegs.current) drawOnCanvas(ctx, s, c.width / DPR, c.height / DPR);
+        ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0);
+        for (const s of blackboardSegs.current) drawOnCanvas(ctx, s, c.width / physScaleRef.current, c.height / physScaleRef.current);
     }, [externalDrawReplaceCount]);
 
     // ── Receive live preview from teacher (student) ───────────────────────────
@@ -749,7 +758,9 @@ export default function RoomCoursePanel({
             setTextAnchorPos({ cx: externalDrawPreview.x1, cy: externalDrawPreview.y1, color: externalDrawPreview.color, fontSizePx: externalDrawPreview.fontSizePx ?? 20 });
             return;
         }
-        drawOnCanvas(ctx, externalDrawPreview, p.width, p.height);
+        ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0);
+        const lw = p.width / physScaleRef.current, lh = p.height / physScaleRef.current;
+        drawOnCanvas(ctx, externalDrawPreview, lw, lh);
         // If this is a live text preview, move the blinking caret to end-of-text
         // so the student's indicator matches where the teacher's cursor actually is.
         if (externalDrawPreview.mode === 'text') {
@@ -764,8 +775,8 @@ export default function RoomCoursePanel({
             const lastLine = lines[lines.length - 1];
             const textW   = displayText ? ctx.measureText(lastLine).width : 0;
             ctx.restore();
-            const newCx = externalDrawPreview.x1 + textW / p.width;
-            const newCy = externalDrawPreview.y1 + (lines.length - 1) * (fSize * 1.4) / p.height;
+            const newCx = externalDrawPreview.x1 + textW / lw;
+            const newCy = externalDrawPreview.y1 + (lines.length - 1) * (fSize * 1.4) / lh;
             setTextAnchorPos({ cx: newCx, cy: newCy, color: externalDrawPreview.color, fontSizePx: fSize });
         }
     }, [externalDrawPreview]);
@@ -833,9 +844,9 @@ export default function RoomCoursePanel({
                 if (ctx) {
                     ctx.clearRect(0, 0, cnv.width, cnv.height);
                     if (persistentSnapshot.current) ctx.putImageData(persistentSnapshot.current, 0, 0);
-                    // putImageData resets transform to identity — restore DPR scale
-                    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-                    const lw = cnv.width / DPR, lh = cnv.height / DPR;
+                    // putImageData ignores the transform; re-apply scale so subsequent draws are in logical coords
+                    ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0);
+                    const lw = cnv.width / physScaleRef.current, lh = cnv.height / physScaleRef.current;
                     // Draw in-progress stroke at full opacity (not yet released)
                     for (const seg of currentEphemeralStroke.current) {
                         drawOnCanvas(ctx, seg, lw, lh);
