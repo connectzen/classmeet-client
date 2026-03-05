@@ -565,7 +565,12 @@ export default function PlayModePanel({
     /** Stop animation but KEEP the overlay on the blackboard. Plan stays in memory for Resume. */
     const handleStop = useCallback(() => {
         stoppedFromRef.current  = playStateRef.current === 'ready-next' ? 'ready-next' : 'playing';
-        anchorAtStopRef.current = anchorRef.current ? { ...anchorRef.current } : null;
+        // Track where text actually ended (last committed line) so Resume detects a real relocation
+        const lines = lineHtmlsRef.current;
+        const lastLine = lines.length > 0 ? lines[lines.length - 1] : null;
+        anchorAtStopRef.current = lastLine
+            ? { cx: lastLine.cx, cy: lastLine.cy }
+            : anchorRef.current ? { ...anchorRef.current } : null;
         stopInterval();
         charBufRef.current = '';
         // Snap teacher overlay to the committed state (removes any partial typing text)
@@ -632,19 +637,6 @@ export default function PlayModePanel({
     useEffect(() => () => stopInterval(), [stopInterval]);
 
     // ── Global mousedown → stop when playing, unless click is inside this panel ───
-    const handleStopRef = useRef(handleStop);
-    handleStopRef.current = handleStop;
-    useEffect(() => {
-        const onDown = (e: MouseEvent) => {
-            const ps = playStateRef.current;
-            if (ps !== 'playing' && ps !== 'ready-next' && ps !== 'paused') return;
-            if (panelRootRef.current && panelRootRef.current.contains(e.target as Node)) return;
-            handleStopRef.current();
-        };
-        window.addEventListener('mousedown', onDown, true);
-        return () => window.removeEventListener('mousedown', onDown, true);
-    }, []);
-
     // ── Keyboard shortcut: ArrowRight → Next (or Resume when stopped) ──────────
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
