@@ -427,7 +427,8 @@ export default function RoomCoursePanel({
         if (!c) return;
         const ctx = c.getContext('2d');
         if (!ctx) return;
-        ctx.clearRect(0, 0, c.width, c.height); // physical coords, always safe
+        ctx.setTransform(1, 0, 0, 1, 0, 0); // reset to identity so clearRect covers the full physical buffer
+        ctx.clearRect(0, 0, c.width, c.height);
         ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0); // all subsequent draws in logical coords
         const lw = c.width / physScaleRef.current, lh = c.height / physScaleRef.current;
         if (snapshotImgRef.current) ctx.drawImage(snapshotImgRef.current, 0, 0, lw, lh);
@@ -601,6 +602,7 @@ export default function RoomCoursePanel({
                 if (s && prev) {
                     const ctx = prev.getContext('2d');
                     if (ctx) {
+                        ctx.setTransform(1, 0, 0, 1, 0, 0); // reset to identity so clearRect covers the full physical buffer
                         ctx.clearRect(0, 0, prev.width, prev.height);
                         ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0);
                         drawOnCanvas(ctx, { x1: s.x, y1: s.y, x2: p.x, y2: p.y, color: drawColor, size: TOOL_SIZES[drawSizeKey], mode: drawTool as DrawSeg['mode'] }, prev.width / physScaleRef.current, prev.height / physScaleRef.current);
@@ -633,7 +635,7 @@ export default function RoomCoursePanel({
             if (isShape(drawTool) && shapeStart.current) {
                 const p = pt(e);
                 const prev = previewRef.current;
-                if (prev) prev.getContext('2d')?.clearRect(0, 0, prev.width, prev.height);
+                if (prev) { const pCtx = prev.getContext('2d'); if (pCtx) { pCtx.setTransform(1, 0, 0, 1, 0, 0); pCtx.clearRect(0, 0, prev.width, prev.height); } }
                 const seg: DrawSeg = { x1: shapeStart.current.x, y1: shapeStart.current.y, x2: p.x, y2: p.y, color: drawColor, size: TOOL_SIZES[drawSizeKey], mode: drawTool as DrawSeg['mode'] };
                 if (drawState.current.ephemeralMode) {
                     currentEphemeralStroke.current.push(seg);
@@ -703,6 +705,7 @@ export default function RoomCoursePanel({
         if (!p) return;
         const ctx = p.getContext('2d');
         if (!ctx) return;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, p.width, p.height);
         ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0);
         if (externalPlaySeg) drawOnCanvas(ctx, externalPlaySeg, p.width / physScaleRef.current, p.height / physScaleRef.current);
@@ -754,6 +757,7 @@ export default function RoomCoursePanel({
         if (!p) return;
         const ctx = p.getContext('2d');
         if (!ctx) return;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, p.width, p.height);
         // Special sentinel: teacher committed shape, clear preview
         if ((externalDrawPreview as DrawSeg & { text?: string }).text === '__clear_preview__') {
@@ -821,7 +825,7 @@ export default function RoomCoursePanel({
         if (!ctx) return;
         // Always clear preview when switching modes
         if (p) p.getContext('2d')?.clearRect(0, 0, p.width, p.height);
-        // Use the proper replay helper: sets transform correctly + uses logical dimensions
+          // Use the proper replay helper: sets transform correctly + uses logical dimensions
         replayRef.current();
     }, [showBlackboard]);
 
