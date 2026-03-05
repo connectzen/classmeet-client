@@ -174,7 +174,7 @@ interface GroupPlan {
     underline: boolean;
     blockIdx: number; // block of linesPerBlock canvas lines
     colIdx: number;   // fly-column within the block (same blockIdx+colIdx = auto-advance)
-    lineIdxInBlock: number; // which line within the current block (0-based)
+    lineIdxGlobal: number; // global canvas-line index across ALL blocks (never resets)
 }
 
 function buildGroupPlan(
@@ -279,7 +279,7 @@ function buildGroupPlan(
                 plan.push({
                     lineY: lineYs[li], isFirstOnLine, prevTextWidth, newWords: flyText,
                     color, fontFamily, fontSizePx, fontStyle, underline,
-                    blockIdx, colIdx, lineIdxInBlock: li,
+                    blockIdx, colIdx, lineIdxGlobal: b + li,
                 });
             }
             colIdx++;
@@ -309,7 +309,7 @@ export default function PlayModePanel({
     const frameRef        = useRef(0);
     const playStateRef    = useRef<PlayState>("idle");
     playStateRef.current  = playState;
-    // Per-line accumulated HTML for the current block (cleared on each new block)
+    // Per-line accumulated HTML — global, never auto-cleared between blocks
     const lineHtmlsRef    = useRef<string[]>([]);
     // What state were we in when Stop was pressed — determines Resume target
     const stoppedFromRef  = useRef<'playing' | 'ready-next'>('playing');
@@ -363,7 +363,7 @@ export default function PlayModePanel({
         const fullCss = animCss ? `${baseCss};${animCss}` : baseCss;
         const span    = `<span style="${fullCss}">${escHtml(text)} </span>`;
         const lines   = lineHtmlsRef.current.map(l => l ?? '');
-        const li      = plan.lineIdxInBlock;
+        const li      = plan.lineIdxGlobal;
         while (lines.length <= li) lines.push('');
         lines[li] = lines[li] + span;
         return lines
@@ -373,11 +373,11 @@ export default function PlayModePanel({
 
     /** Append a fly group's HTML to the appropriate line and broadcast. */
     const commitFlyHtml = useCallback((plan: GroupPlan) => {
-        const { lineIdxInBlock, newWords } = plan;
+        const { lineIdxGlobal, newWords } = plan;
         const css = buildSpanCss(plan);
         const span = `<span style="${css}">${escHtml(newWords)} </span>`;
-        if (!lineHtmlsRef.current[lineIdxInBlock]) lineHtmlsRef.current[lineIdxInBlock] = '';
-        lineHtmlsRef.current[lineIdxInBlock] += span;
+        if (!lineHtmlsRef.current[lineIdxGlobal]) lineHtmlsRef.current[lineIdxGlobal] = '';
+        lineHtmlsRef.current[lineIdxGlobal] += span;
         broadcastBlock();
     }, [broadcastBlock]);
 
@@ -393,16 +393,9 @@ export default function PlayModePanel({
             return;
         }
 
-        // Detect block boundary — clear accumulated HTML for the new block
-        if (idx > 0 && plan[idx].blockIdx !== plan[idx - 1].blockIdx) {
-            lineHtmlsRef.current = [];
-            onPlayHtmlRef.current('');
-            emitPlayClearRef.current();
-        }
-
         const entry = plan[idx];
         setCurrentGroupIdx(idx);
-        setPlayState("playing");
+        setPlayState('playing');
 
         const finalCommit = () => {
             commitFlyHtml(entry);
