@@ -950,7 +950,7 @@ export default function RoomCoursePanel({
         const seg: DrawSeg = { x1: cx, y1: cy, x2: cx, y2: cy, color: drawColor, size: TOOL_SIZES[drawSizeKey], mode: 'text', text, fontStyle: textFontStyle, fontFamily: textFontFamily, fontSizePx: textFontSize };
         (showBlackboardRef.current ? blackboardSegs.current : committedSegs.current).push(seg);
         const c = canvasRef.current;
-        if (c) { const ctx = c.getContext('2d'); if (ctx) drawOnCanvas(ctx, seg, c.width, c.height); }
+        if (c) { const ctx = c.getContext('2d'); if (ctx) { ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0); drawOnCanvas(ctx, seg, c.width / physScaleRef.current, c.height / physScaleRef.current); } }
         onDrawSegCb.current?.(seg);
     }, []);
 
@@ -1190,7 +1190,7 @@ export default function RoomCoursePanel({
                                     const seg: DrawSeg = { x1: textInput.cx, y1: textInput.cy, x2: textInput.cx, y2: textInput.cy, color: dc, size: TOOL_SIZES[sk], mode: 'text', text: val, fontStyle: tfs, fontFamily: tff, fontSizePx: tfsz };
                                     (showBlackboardRef.current ? blackboardSegs.current : committedSegs.current).push(seg);
                                     const cnv = canvasRef.current;
-                                    if (cnv) { const ctx = cnv.getContext('2d'); if (ctx) drawOnCanvas(ctx, seg, cnv.width, cnv.height); }
+                                    if (cnv) { const ctx = cnv.getContext('2d'); if (ctx) { ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0); drawOnCanvas(ctx, seg, cnv.width / physScaleRef.current, cnv.height / physScaleRef.current); } }
                                     onDrawSegCb.current?.(seg);
                                 }
                                 // Clear preview canvas (teacher + students)
@@ -1245,7 +1245,7 @@ export default function RoomCoursePanel({
                                     const p = previewRef.current;
                                     if (p) {
                                         const ctx = p.getContext('2d');
-                                        if (ctx) { ctx.clearRect(0, 0, p.width, p.height); drawOnCanvas(ctx, seg, p.width, p.height); }
+                                        if (ctx) { ctx.clearRect(0, 0, p.width, p.height); ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0); drawOnCanvas(ctx, seg, p.width / physScaleRef.current, p.height / physScaleRef.current); }
                                     }
                                     // Send to students
                                     onDrawPrevCb.current?.(seg);
@@ -1267,7 +1267,7 @@ export default function RoomCoursePanel({
                                         const { drawSizeKey: sk, drawColor: dc, textFontStyle: tfs, textFontFamily: tff, textFontSize: tfsz } = drawState.current;
                                         const tabSeg = { x1: textInput.cx, y1: textInput.cy, x2: textInput.cx, y2: textInput.cy, color: dc, size: TOOL_SIZES[sk], mode: 'text' as const, text: ta.value || ' ', fontStyle: tfs, fontFamily: tff, fontSizePx: tfsz };
                                         const tp = previewRef.current;
-                                        if (tp) { const tctx = tp.getContext('2d'); if (tctx) { tctx.clearRect(0, 0, tp.width, tp.height); drawOnCanvas(tctx, tabSeg, tp.width, tp.height); } }
+                                        if (tp) { const tctx = tp.getContext('2d'); if (tctx) { tctx.clearRect(0, 0, tp.width, tp.height); tctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0); drawOnCanvas(tctx, tabSeg, tp.width / physScaleRef.current, tp.height / physScaleRef.current); } }
                                         onDrawPrevCb.current?.(tabSeg);
                                         return;
                                     }
