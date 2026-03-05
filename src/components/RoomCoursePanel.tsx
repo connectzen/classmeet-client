@@ -88,6 +88,10 @@ const DRAW_COLORS = ['#ff4444', '#ff9900', '#ffdd00', '#44ff88', '#00ccff', '#ff
 const TOOL_SIZES: Record<string, number> = { S: 0.6, M: 1, L: 2 };
 const SHAPE_TOOLS = ['circle', 'rect', 'square', 'arrow', 'line'];
 
+// Capture device pixel ratio once. Allows canvas buffer to match physical pixels
+// so text and drawings are crisp on HiDPI/Retina screens instead of upscaled.
+const DPR = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
+
 const TOOL_DEFS: { id: DrawTool; icon: string; tip: string; cursor: string }[] = [
     { id: 'pen',       icon: '✏',  tip: 'Pen',        cursor: 'crosshair' },
     { id: 'highlight', icon: '▌',  tip: 'Highlight',  cursor: 'crosshair' },
@@ -413,10 +417,12 @@ export default function RoomCoursePanel({
         if (!c) return;
         const ctx = c.getContext('2d');
         if (!ctx) return;
-        ctx.clearRect(0, 0, c.width, c.height);
-        if (snapshotImgRef.current) ctx.drawImage(snapshotImgRef.current, 0, 0, c.width, c.height);
+        ctx.clearRect(0, 0, c.width, c.height); // physical coords, always safe
+        ctx.setTransform(DPR, 0, 0, DPR, 0, 0); // all subsequent draws in logical coords
+        const lw = c.width / DPR, lh = c.height / DPR;
+        if (snapshotImgRef.current) ctx.drawImage(snapshotImgRef.current, 0, 0, lw, lh);
         const segs = showBlackboardRef.current ? blackboardSegs.current : committedSegs.current;
-        for (const seg of segs) drawOnCanvas(ctx, seg, c.width, c.height);
+        for (const seg of segs) drawOnCanvas(ctx, seg, lw, lh);
     }, []);
     const replayRef = useRef(replayOnCanvas);
     replayRef.current = replayOnCanvas;
@@ -474,9 +480,9 @@ export default function RoomCoursePanel({
             setCanvasH(h);
             onCanvasHChange?.(h);
 
-            if (canvas.width !== w || canvas.height !== h) {
-                canvas.width = w; canvas.height = h;
-                preview.width = w; preview.height = h;
+            if (canvas.width !== w * DPR || canvas.height !== h * DPR) {
+                canvas.width = w * DPR; canvas.height = h * DPR;
+                preview.width = w * DPR; preview.height = h * DPR;
                 // Replay committed/blackboard strokes onto the freshly-sized canvas buffer.
                 replayRef.current();
                 // Invalidate the ephemeral-mode snapshot: it was captured at the old
@@ -488,10 +494,11 @@ export default function RoomCoursePanel({
                     if (eCtx) persistentSnapshot.current = eCtx.getImageData(0, 0, canvas.width, canvas.height);
                 }
             }
-            canvas.style.width   = canvas.width  + 'px';
-            canvas.style.height  = canvas.height + 'px';
-            preview.style.width  = preview.width  + 'px';
-            preview.style.height = preview.height + 'px';
+            // Style dimensions are always the logical (CSS) size — DPR handled in the buffer.
+            canvas.style.width   = w + 'px';
+            canvas.style.height  = h + 'px';
+            preview.style.width  = w + 'px';
+            preview.style.height = h + 'px';
 
             // Scale toolbar to fit vertically without scrolling.
             // scrollHeight is unaffected by CSS transform:scale so this is stable.
@@ -583,7 +590,7 @@ export default function RoomCoursePanel({
                     const ctx = prev.getContext('2d');
                     if (ctx) {
                         ctx.clearRect(0, 0, prev.width, prev.height);
-                        drawOnCanvas(ctx, { x1: s.x, y1: s.y, x2: p.x, y2: p.y, color: drawColor, size: TOOL_SIZES[drawSizeKey], mode: drawTool as DrawSeg['mode'] }, prev.width, prev.height);
+                        drawOnCanvas(ctx, { x1: s.x, y1: s.y, x2: p.x, y2: p.y, color: drawColor, size: TOOL_SIZES[drawSizeKey], mode: drawTool as DrawSeg['mode'] }, prev.width / DPR, prev.height / DPR);
                     }
                     // Stream the shape preview to students in real time
                     onDrawPrevCb.current?.({ x1: s.x, y1: s.y, x2: p.x, y2: p.y, color: drawColor, size: TOOL_SIZES[drawSizeKey], mode: drawTool as DrawSeg['mode'] });
@@ -597,7 +604,7 @@ export default function RoomCoursePanel({
                     } else {
                         (showBlackboardRef.current ? blackboardSegs.current : committedSegs.current).push(seg);
                         const ctx = canvas.getContext('2d');
-                        if (ctx) drawOnCanvas(ctx, seg, canvas.width, canvas.height);
+                        if (ctx) drawOnCanvas(ctx, seg, canvas.width / DPR, canvas.height / DPR);
                         onDrawSegCb.current?.(seg);
                     }
                     lastPt.current = p;
@@ -626,7 +633,7 @@ export default function RoomCoursePanel({
                 } else {
                     (showBlackboardRef.current ? blackboardSegs.current : committedSegs.current).push(seg);
                     const ctx = canvas.getContext('2d');
-                    if (ctx) drawOnCanvas(ctx, seg, canvas.width, canvas.height);
+                    if (ctx) drawOnCanvas(ctx, seg, canvas.width / DPR, canvas.height / DPR);
                     onDrawSegCb.current?.(seg);
                     // Clear students' preview canvas now that the final segment is committed
                     onDrawPrevCb.current?.({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
@@ -674,7 +681,7 @@ export default function RoomCoursePanel({
         // Store incoming segment in the correct surface (blackboard or lesson)
         (showBlackboardRef.current ? blackboardSegs.current : committedSegs.current).push(externalDrawSeg);
         const c = canvasRef.current;
-        if (c) { const ctx = c.getContext('2d'); if (ctx) drawOnCanvas(ctx, externalDrawSeg, c.width, c.height); }
+        if (c) { const ctx = c.getContext('2d'); if (ctx) drawOnCanvas(ctx, externalDrawSeg, c.width / DPR, c.height / DPR); }
     }, [externalDrawSeg]);
 
     // ── Play Mode: live animation frame — draws on preview canvas each tick ────
@@ -684,7 +691,7 @@ export default function RoomCoursePanel({
         const ctx = p.getContext('2d');
         if (!ctx) return;
         ctx.clearRect(0, 0, p.width, p.height);
-        if (externalPlaySeg) drawOnCanvas(ctx, externalPlaySeg, p.width, p.height);
+        if (externalPlaySeg) drawOnCanvas(ctx, externalPlaySeg, p.width / DPR, p.height / DPR);
     }, [externalPlaySeg]);
 
     // ── Play Mode: committed segment — writes to blackboardSegs + main canvas ──
@@ -692,7 +699,7 @@ export default function RoomCoursePanel({
         if (!externalPlayCommitSeg) return;
         blackboardSegs.current.push(externalPlayCommitSeg);
         const c = canvasRef.current;
-        if (c) { const ctx = c.getContext('2d'); if (ctx) drawOnCanvas(ctx, externalPlayCommitSeg, c.width, c.height); }
+        if (c) { const ctx = c.getContext('2d'); if (ctx) drawOnCanvas(ctx, externalPlayCommitSeg, c.width / DPR, c.height / DPR); }
         const p = previewRef.current;
         if (p) p.getContext('2d')?.clearRect(0, 0, p.width, p.height);
     }, [externalPlayCommitSeg]);
@@ -707,7 +714,7 @@ export default function RoomCoursePanel({
         const ctx = c.getContext('2d');
         if (!ctx) return;
         ctx.clearRect(0, 0, c.width, c.height);
-        for (const s of blackboardSegs.current) drawOnCanvas(ctx, s, c.width, c.height);
+        for (const s of blackboardSegs.current) drawOnCanvas(ctx, s, c.width / DPR, c.height / DPR);
         previewRef.current?.getContext('2d')?.clearRect(0, 0, previewRef.current.width, previewRef.current.height);
     }, [externalPlayReplaceLineCount]);
 
@@ -721,7 +728,7 @@ export default function RoomCoursePanel({
         const ctx = c.getContext('2d');
         if (!ctx) return;
         ctx.clearRect(0, 0, c.width, c.height);
-        for (const s of blackboardSegs.current) drawOnCanvas(ctx, s, c.width, c.height);
+        for (const s of blackboardSegs.current) drawOnCanvas(ctx, s, c.width / DPR, c.height / DPR);
     }, [externalDrawReplaceCount]);
 
     // ── Receive live preview from teacher (student) ───────────────────────────
@@ -826,9 +833,12 @@ export default function RoomCoursePanel({
                 if (ctx) {
                     ctx.clearRect(0, 0, cnv.width, cnv.height);
                     if (persistentSnapshot.current) ctx.putImageData(persistentSnapshot.current, 0, 0);
+                    // putImageData resets transform to identity — restore DPR scale
+                    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+                    const lw = cnv.width / DPR, lh = cnv.height / DPR;
                     // Draw in-progress stroke at full opacity (not yet released)
                     for (const seg of currentEphemeralStroke.current) {
-                        drawOnCanvas(ctx, seg, cnv.width, cnv.height);
+                        drawOnCanvas(ctx, seg, lw, lh);
                     }
                     // Draw released strokes fading out
                     for (const { seg, releasedAt } of ephemeralStrokes.current) {
@@ -836,7 +846,7 @@ export default function RoomCoursePanel({
                         const alpha = Math.max(0, 1 - age / FADE_MS);
                         ctx.save();
                         ctx.globalAlpha = alpha;
-                        drawOnCanvas(ctx, seg, cnv.width, cnv.height);
+                        drawOnCanvas(ctx, seg, lw, lh);
                         ctx.restore();
                     }
                 }
