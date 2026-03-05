@@ -458,22 +458,15 @@ export default function RoomCoursePanel({
         if (!content || !inner || !canvas || !preview) return;
 
         const sync = () => {
-            // Compute scale so content fills the available panel width.
-            // For teachers, subtract the toolbar width so content doesn't hide behind it.
-            // For students, use the same effective toolbar width (natural toolbar offsetWidth
-            // ≈ 78px based on 2×30px cols + 4px gap + 12px padding + 2px border, plus the
-            // 10px margin used in the teacher formula) so both sides have identical scale.
-            // The extra space is split equally left/right to center the student's content.
-            const TOOLBAR_OCCUPIED_W = (toolbarRef.current?.offsetWidth ?? 78) + 10;
+            // The toolbar is always position:absolute (floating on top), so it never
+            // takes away layout space. Use the full wrapper width at all times for both
+            // teacher and student — this maximises content zoom and prevents empty strips.
             const totalW    = wrapperRef.current?.clientWidth ?? CANVAS_W;
-            // In blackboard mode the toolbar floats (absolute) on top, so don't
-            // subtract its width — let the blackboard take the full wrapper width.
-            const tbW       = showBlackboardRef.current ? 0 : TOOLBAR_OCCUPIED_W;
-            const availW    = Math.max(totalW - tbW, 1);
+            const availW    = Math.max(totalW, 1);
             const scale     = availW / CANVAS_W;
             setContentScale(scale);
             physScaleRef.current = scale * DPR; // update BEFORE replay so replayOnCanvas uses the fresh scale
-            setContentPaddingX(isTeacher || showBlackboardRef.current ? 0 : tbW / 2);
+            setContentPaddingX(0);
 
             // Collapse canvas height so it doesn't inflate inner.scrollHeight
             canvas.style.height  = '0px';
@@ -1346,7 +1339,7 @@ export default function RoomCoursePanel({
                                 onMouseEnter={e => { if (canPrev) e.currentTarget.style.background = 'rgba(99,102,241,0.15)'; }}
                                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>‹</button>
                             <button onClick={() => canNext && onNav(activeCourseIdx, activeLessonIdx + 1)} disabled={!canNext} title="Next lesson"
-                                style={{ position: 'absolute', right: 44, top: '50%', transform: 'translateY(-50%)', width: 32, height: 48, borderRadius: '8px 0 0 8px', border: 'none', background: 'transparent', color: canNext ? '#a5b4fc' : 'rgba(255,255,255,0.15)', fontSize: 22, cursor: canNext ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20, pointerEvents: 'auto' }}
+                                style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', width: 32, height: 48, borderRadius: '8px 0 0 8px', border: 'none', background: 'transparent', color: canNext ? '#a5b4fc' : 'rgba(255,255,255,0.15)', fontSize: 22, cursor: canNext ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 25, pointerEvents: 'auto' }}
                                 onMouseEnter={e => { if (canNext) e.currentTarget.style.background = 'rgba(99,102,241,0.15)'; }}
                                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>›</button>
                         </>
