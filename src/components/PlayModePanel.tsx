@@ -145,6 +145,29 @@ function escHtml(s: string): string {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+// ── Color picker helpers ──────────────────────────────────────────────────────
+function hexToHsv(hex: string): { h: number; s: number; v: number } {
+    const r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255;
+    const max = Math.max(r,g,b), min = Math.min(r,g,b), d = max - min;
+    const v = max * 100, s = max === 0 ? 0 : (d / max) * 100;
+    let h = 0;
+    if (d !== 0) {
+        if (max === r) h = ((g - b) / d) % 6;
+        else if (max === g) h = (b - r) / d + 2;
+        else h = (r - g) / d + 4;
+        h *= 60; if (h < 0) h += 360;
+    }
+    return { h: Math.round(h), s: Math.round(s), v: Math.round(v) };
+}
+function hsvToHex(h: number, s: number, v: number): string {
+    s /= 100; v /= 100;
+    const f = (n: number) => {
+        const k = (n + h / 60) % 6;
+        return Math.round((v - v * s * Math.max(Math.min(k, 4 - k, 1), 0)) * 255).toString(16).padStart(2, '0');
+    };
+    return '#' + f(5) + f(3) + f(1);
+}
+
 /** Build a CSS style string for a styled word group. */
 function buildSpanCss(plan: {
     color: string; fontFamily: string; fontSizePx: number; fontStyle: FontStyle; underline: boolean;
@@ -306,6 +329,8 @@ export default function PlayModePanel({
     const [totalGroups,     setTotalGroups]  = useState(0);
     const [editorHtml,      setEditorHtml]   = useState("");
     const [colorPickerOpen, setColorPickerOpen] = useState(false);
+    const [pickerHsv,  setPickerHsv]  = useState({ h: 0, s: 0, v: 100 });
+    const [hexInput,   setHexInput]   = useState('#ffffff');
     const groupPlanRef    = useRef<GroupPlan[]>([]);
     const charBufRef      = useRef("");
     const intervalRef     = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -338,6 +363,9 @@ export default function PlayModePanel({
     const emitPlayShowRef = useRef(emitPlayShow); emitPlayShowRef.current = emitPlayShow;
     const emitPlayClearRef = useRef(emitPlayClear); emitPlayClearRef.current = emitPlayClear;
     const isBlackboardOnRef = useRef(isBlackboardOn); isBlackboardOnRef.current = isBlackboardOn;
+    const pickerGradRef  = useRef<HTMLDivElement>(null);
+    const pickerHueRef   = useRef<HTMLDivElement>(null);
+    const dragTargetRef  = useRef<'grad' | 'hue' | null>(null);
 
     // Inject CSS keyframes for non-typing animations once per document lifetime
     useEffect(() => {
@@ -353,6 +381,37 @@ export default function PlayModePanel({
             '@keyframes pmScale { from { opacity:0; transform:scale(0.6) } to { opacity:1; transform:scale(1) } }',
         ].join('\n');
         document.head.appendChild(style);
+    }, []);
+
+    // ── Color picker mouse drag ───────────────────────────────────────────────
+    useEffect(() => {
+        const onMove = (e: MouseEvent) => {
+            if (!dragTargetRef.current) return;
+            if (dragTargetRef.current === 'grad' && pickerGradRef.current) {
+                const rect = pickerGradRef.current.getBoundingClientRect();
+                const s = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) * 100;
+                const v = (1 - Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height))) * 100;
+                setPickerHsv(prev => {
+                    const hex = hsvToHex(prev.h, s, v);
+                    setHexInput(hex);
+                    editorRef.current?.chain().setColor(hex).run();
+                    return { ...prev, s, v };
+                });
+            } else if (dragTargetRef.current === 'hue' && pickerHueRef.current) {
+                const rect = pickerHueRef.current.getBoundingClientRect();
+                const h = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) * 360;
+                setPickerHsv(prev => {
+                    const hex = hsvToHex(h, prev.s, prev.v);
+                    setHexInput(hex);
+                    editorRef.current?.chain().setColor(hex).run();
+                    return { ...prev, h };
+                });
+            }
+        };
+        const onUp = () => { dragTargetRef.current = null; };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
     }, []);
 
     /** Assemble the block HTML from per-line accumulated spans and broadcast it. */
@@ -661,9 +720,9 @@ export default function PlayModePanel({
             {/* ── BOTTOM: all formatting + animation + anchor + progress + buttons ── */}
             <div style={{ padding: "4px 8px 6px", borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
 
-                {/* Row 1 — text formatting (all in one tight row) */}
-                <div style={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
-                    <select value="" disabled={isActive} onChange={e => applyHeading(e.target.value)} style={{ ...sel, maxWidth: 58, opacity: isActive ? 0.4 : 1 }}>
+                {/* Row 1 — character formatting: Para Font Sz B I U [color] */}
+                <div style={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "nowrap", overflow: 'hidden' }}>
+                    <select value="" disabled={isActive} onChange={e => applyHeading(e.target.value)} style={{ ...sel, maxWidth: 50, opacity: isActive ? 0.4 : 1 }}>
                         <option value="">Para</option>
                         <option value="0">Normal</option>
                         <option value="1">H1</option>
@@ -672,13 +731,13 @@ export default function PlayModePanel({
                     </select>
                     <select value="" disabled={isActive}
                         onChange={e => { const v = e.target.value; if (!v || !ed) return; ed.chain().focus().setMark('textStyle', { fontFamily: v }).run(); }}
-                        style={{ ...sel, maxWidth: 62, opacity: isActive ? 0.4 : 1 }}>
+                        style={{ ...sel, maxWidth: 50, opacity: isActive ? 0.4 : 1 }}>
                         <option value="">Font</option>
                         {PLAY_FONTS.filter(f => f.value).map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
                     </select>
                     <select value="" disabled={isActive}
                         onChange={e => { const v = e.target.value; if (!v || !ed) return; ed.chain().focus().setMark('textStyle', { fontSize: v + 'px' }).run(); }}
-                        style={{ ...sel, maxWidth: 44, opacity: isActive ? 0.4 : 1 }}>
+                        style={{ ...sel, maxWidth: 36, opacity: isActive ? 0.4 : 1 }}>
                         <option value="">Sz</option>
                         {PLAY_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
@@ -687,58 +746,115 @@ export default function PlayModePanel({
                         const cmd = () => ed?.chain().focus()[i === 0 ? 'toggleBold' : i === 1 ? 'toggleItalic' : 'toggleUnderline']().run();
                         return (
                             <button key={lbl} disabled={isActive} onClick={cmd}
-                                style={{ padding: "1px 5px", fontSize: 10, borderRadius: 4, border: "none", cursor: isActive ? "default" : "pointer", fontWeight: lbl === 'B' ? 900 : 400, fontStyle: lbl === 'I' ? 'italic' : 'normal', textDecoration: lbl === 'U' ? 'underline' : 'none', background: active ? "#6366f1" : "#1e293b", color: active ? "#fff" : "#94a3b8", opacity: isActive ? 0.4 : 1 }}>
+                                style={{ padding: "0px 4px", fontSize: 10, borderRadius: 4, border: "none", flexShrink: 0, cursor: isActive ? "default" : "pointer", fontWeight: lbl === 'B' ? 900 : 400, fontStyle: lbl === 'I' ? 'italic' : 'normal', textDecoration: lbl === 'U' ? 'underline' : 'none', background: active ? "#6366f1" : "#1e293b", color: active ? "#fff" : "#94a3b8", opacity: isActive ? 0.4 : 1 }}>
                                 {lbl}
                             </button>
                         );
                     })}
-                    {/* Color swatch picker */}
-                    <div style={{ position: 'relative' }}>
-                        <button disabled={isActive} onClick={() => setColorPickerOpen(v => !v)}
+                    {/* Full gradient color picker */}
+                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                        <button disabled={isActive}
+                            onMouseDown={e => e.preventDefault()}
+                            onClick={() => {
+                                if (!colorPickerOpen) {
+                                    const c = curColor.startsWith('#') && curColor.length === 7 ? curColor : '#ffffff';
+                                    setPickerHsv(hexToHsv(c)); setHexInput(c);
+                                }
+                                setColorPickerOpen(v => !v);
+                            }}
                             title="Text color"
                             style={{ width: 18, height: 14, borderRadius: 2, border: `2px solid ${colorPickerOpen ? '#a5b4fc' : '#475569'}`, background: curColor, cursor: isActive ? "default" : "pointer", opacity: isActive ? 0.4 : 1, padding: 0, display: 'block' }} />
                         {colorPickerOpen && !isActive && (
                             <div
-                                style={{ position: 'absolute', bottom: '100%', left: 0, zIndex: 99, background: '#0f172a', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 8, padding: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.6)', display: 'flex', flexWrap: 'wrap', gap: 4, width: 108 }}
-                                onMouseLeave={() => setColorPickerOpen(false)}>
-                                {['#ffffff','#000000','#ffff00','#ff4444','#ff9900','#44cc88','#00ccff','#cc88ff','#ff88cc','#aaaaaa','#4488ff','#ff6600'].map(c => (
-                                    <button key={c} title={c}
-                                        onClick={() => { ed?.chain().focus().setColor(c).run(); setColorPickerOpen(false); }}
-                                        style={{ width: 20, height: 20, borderRadius: '50%', border: curColor === c ? '2px solid #fff' : '1px solid rgba(255,255,255,0.15)', background: c, cursor: 'pointer', padding: 0, flexShrink: 0 }} />
-                                ))}
+                                onMouseDown={e => e.preventDefault()}
+                                onMouseLeave={() => { if (!dragTargetRef.current) setColorPickerOpen(false); }}
+                                style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: '-76px', zIndex: 999,
+                                    background: '#1a1a2e', border: '1px solid rgba(99,102,241,0.45)',
+                                    borderRadius: 10, padding: '8px', boxShadow: '0 10px 36px rgba(0,0,0,0.75)',
+                                    width: 186, userSelect: 'none' }}>
+                                {/* Saturation / Value gradient */}
+                                <div ref={pickerGradRef}
+                                    onMouseDown={() => { dragTargetRef.current = 'grad'; }}
+                                    style={{ width: '100%', height: 120, borderRadius: 6, overflow: 'hidden',
+                                        position: 'relative', cursor: 'crosshair', marginBottom: 8,
+                                        background: `linear-gradient(to bottom,transparent,#000),linear-gradient(to right,#fff,hsl(${Math.round(pickerHsv.h)},100%,50%))` }}>
+                                    <div style={{ position: 'absolute', left: `${pickerHsv.s}%`, top: `${100 - pickerHsv.v}%`,
+                                        width: 12, height: 12, borderRadius: '50%', border: '2px solid #fff',
+                                        transform: 'translate(-50%,-50%)', pointerEvents: 'none',
+                                        boxShadow: '0 0 0 1.5px rgba(0,0,0,0.55)' }} />
+                                </div>
+                                {/* Hue slider */}
+                                <div ref={pickerHueRef}
+                                    onMouseDown={() => { dragTargetRef.current = 'hue'; }}
+                                    style={{ width: '100%', height: 12, borderRadius: 6, marginBottom: 8,
+                                        background: 'linear-gradient(to right,#f00 0%,#ff0 17%,#0f0 33%,#0ff 50%,#00f 67%,#f0f 83%,#f00 100%)',
+                                        position: 'relative', cursor: 'pointer' }}>
+                                    <div style={{ position: 'absolute', left: `${pickerHsv.h / 360 * 100}%`, top: '50%',
+                                        width: 14, height: 14, borderRadius: '50%', border: '2px solid #fff',
+                                        transform: 'translate(-50%,-50%)', pointerEvents: 'none',
+                                        background: `hsl(${pickerHsv.h},100%,50%)`,
+                                        boxShadow: '0 0 0 1.5px rgba(0,0,0,0.55)' }} />
+                                </div>
+                                {/* Preview swatch + hex input */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                                    <div style={{ width: 28, height: 28, borderRadius: 5, flexShrink: 0,
+                                        background: hsvToHex(pickerHsv.h, pickerHsv.s, pickerHsv.v),
+                                        border: '1px solid rgba(255,255,255,0.2)' }} />
+                                    <input value={hexInput}
+                                        onMouseDown={e => e.stopPropagation()}
+                                        onChange={e => {
+                                            const v = e.target.value; setHexInput(v);
+                                            if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+                                                setPickerHsv(hexToHsv(v));
+                                                editorRef.current?.chain().setColor(v).run();
+                                            }
+                                        }}
+                                        style={{ flex: 1, background: '#0f172a', border: '1px solid #334155',
+                                            borderRadius: 5, padding: '3px 6px', color: '#e2e8f0',
+                                            fontSize: 11, fontFamily: 'monospace' }}
+                                    />
+                                </div>
+                                {/* Preset swatches */}
+                                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                                    {['#ffffff','#000000','#ffff00','#ff4444','#ff9900','#44cc88','#00ccff','#cc88ff','#4488ff','#ff88cc'].map(c => (
+                                        <button key={c} title={c}
+                                            onClick={() => { const hsv = hexToHsv(c); setPickerHsv(hsv); setHexInput(c); editorRef.current?.chain().setColor(c).run(); }}
+                                            style={{ width: 22, height: 22, borderRadius: '50%', border: hexInput === c ? '2px solid #fff' : '1px solid rgba(255,255,255,0.18)', background: c, cursor: 'pointer', padding: 0, flexShrink: 0 }} />
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>
-                    <select value="" disabled={isActive} onChange={e => applyFormat(e.target.value)} style={{ ...sel, maxWidth: 58, opacity: isActive ? 0.4 : 1 }}>
+                </div>
+
+                {/* Row 2 — block formatting + animation + anchor */}
+                <div style={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "nowrap" }}>
+                    <select value="" disabled={isActive} onChange={e => applyFormat(e.target.value)} style={{ ...sel, maxWidth: 50, opacity: isActive ? 0.4 : 1 }}>
                         <option value="">List</option>
                         <option value="bullet">• Bullet</option>
                         <option value="ordered">1. Num</option>
                         <option value="blockquote">❝ Quote</option>
                         <option value="code">⌨ Code</option>
                     </select>
-                    <select value="" disabled={isActive} onChange={e => applyAlign(e.target.value)} style={{ ...sel, maxWidth: 52, opacity: isActive ? 0.4 : 1 }}>
+                    <select value="" disabled={isActive} onChange={e => applyAlign(e.target.value)} style={{ ...sel, maxWidth: 46, opacity: isActive ? 0.4 : 1 }}>
                         <option value="">Align</option>
                         <option value="left">← L</option>
                         <option value="center">≡ C</option>
                         <option value="right">→ R</option>
                     </select>
-                </div>
-
-                {/* Row 2 — animation, speed, and anchor hint inline */}
-                <div style={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
-                    <select value={animType} onChange={e => setAnimType(e.target.value as AnimType)} style={sel}>
+                    <select value={animType} onChange={e => setAnimType(e.target.value as AnimType)} style={{ ...sel, maxWidth: 54 }}>
                         <option value="typing">Typing</option>
                         <option value="fade">Fade</option>
-                        <option value="slide-right">Slide →</option>
-                        <option value="slide-left">Slide ←</option>
-                        <option value="slide-bottom">Slide ↑</option>
+                        <option value="slide-right">→ Slide</option>
+                        <option value="slide-left">← Slide</option>
+                        <option value="slide-bottom">↑ Slide</option>
                         <option value="scale">Scale</option>
                     </select>
-                    <select value={speedIdx} onChange={e => setSpeedIdx(Number(e.target.value))} style={sel}>
+                    <select value={speedIdx} onChange={e => setSpeedIdx(Number(e.target.value))} style={{ ...sel, maxWidth: 48 }}>
                         {SPEED_OPTIONS.map((s, i) => <option key={i} value={i}>{s.label}</option>)}
                     </select>
-                    <span style={{ fontSize: 9, color: anchor ? "#6366f1" : "#475569", marginLeft: 2, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {anchor ? `● ${Math.round(anchor.cx * CANVAS_W)}px,${Math.round(anchor.cy * 100)}%` : 'click board→T'}
+                    <span style={{ fontSize: 9, color: anchor ? "#6366f1" : "#475569", flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {anchor ? `● ${Math.round(anchor.cy * 100)}%` : '→T'}
                     </span>
                 </div>
 
