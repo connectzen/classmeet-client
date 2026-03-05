@@ -175,6 +175,7 @@ interface GroupPlan {
     blockIdx: number; // block of linesPerBlock canvas lines
     colIdx: number;   // fly-column within the block (same blockIdx+colIdx = auto-advance)
     lineIdxGlobal: number; // global canvas-line index across ALL blocks (never resets)
+    wordCount: number;     // number of styledWords in this fly group (for consumed tracking)
 }
 
 function buildGroupPlan(
@@ -184,6 +185,7 @@ function buildGroupPlan(
     linesPerBlock: number,
     anchorCy: number,
     canvasH: number,
+    lineIdxOffset = 0, // added to every lineIdxGlobal so rebuilt plans continue after existing lines
 ): GroupPlan[] {
     if (!styledWords.length) return [];
 
@@ -279,7 +281,7 @@ function buildGroupPlan(
                 plan.push({
                     lineY: lineYs[li], isFirstOnLine, prevTextWidth, newWords: flyText,
                     color, fontFamily, fontSizePx, fontStyle, underline,
-                    blockIdx, colIdx, lineIdxGlobal: b + li,
+                    blockIdx, colIdx, lineIdxGlobal: lineIdxOffset + b + li, wordCount: take,
                 });
             }
             colIdx++;
@@ -313,6 +315,12 @@ export default function PlayModePanel({
     const lineHtmlsRef    = useRef<string[]>([]);
     // What state were we in when Stop was pressed — determines Resume target
     const stoppedFromRef  = useRef<'playing' | 'ready-next'>('playing');
+    // All styled words for the current session (needed to rebuild plan from new anchor)
+    const styledWordsRef    = useRef<StyledWord[]>([]);
+    // How many styledWords have been fully committed (finalCommit called)
+    const wordsConsumedRef  = useRef(0);
+    // Anchor position at the moment Stop was pressed (to detect if teacher relocated)
+    const anchorAtStopRef   = useRef<{ cx: number; cy: number } | null>(null);
     // Tiptap editor instance
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const editorRef = useRef<any>(null);
@@ -398,6 +406,7 @@ export default function PlayModePanel({
         setPlayState('playing');
 
         const finalCommit = () => {
+            wordsConsumedRef.current += entry.wordCount;
             commitFlyHtml(entry);
             const nextIdx = idx + 1;
             if (nextIdx >= plan.length) {
@@ -470,6 +479,8 @@ export default function PlayModePanel({
         lineHtmlsRef.current = [];
         onPlayHtmlRef.current('');
         emitPlayClearRef.current();
+        styledWordsRef.current   = styledWords;
+        wordsConsumedRef.current = 0;
         groupPlanRef.current = plan;
         setTotalGroups(plan.length);
         animateGroup(0);
@@ -481,19 +492,53 @@ export default function PlayModePanel({
 
     /** Stop animation but KEEP the overlay on the blackboard. Plan stays in memory for Resume. */
     const handleStop = useCallback(() => {
-        stoppedFromRef.current = playStateRef.current === 'ready-next' ? 'ready-next' : 'playing';
+        stoppedFromRef.current  = playStateRef.current === 'ready-next' ? 'ready-next' : 'playing';
+        anchorAtStopRef.current = anchorRef.current ? { ...anchorRef.current } : null;
         stopInterval();
         charBufRef.current = '';
+        // Snap teacher overlay to the committed state (removes any partial typing text)
+        const committedHtml = lineHtmlsRef.current
+            .map(l => `<div style="margin:0;line-height:1.6;white-space:pre-wrap;">${l ?? ''}</div>`)
+            .join('');
+        onPlayHtmlRef.current(committedHtml);
         setPlayState('stopped');
-        // Overlay and groupPlanRef intentionally NOT cleared
     }, [stopInterval]);
 
-    /** Resume from where we stopped (or from the next group if we were at a column boundary). */
+    /** Resume from where we stopped.
+     *  If the teacher clicked a new blackboard position since Stop, rebuild the remaining
+     *  plan from that new anchor so text continues there instead of the old location. */
     const handleResume = useCallback(() => {
-        if (stoppedFromRef.current === 'ready-next') {
-            animateGroup(currentGroupIdx + 1);
+        const anchorNow = anchorRef.current;
+        const anchorWas = anchorAtStopRef.current;
+        const anchorMoved = !!anchorNow && !!anchorWas &&
+            (Math.abs(anchorNow.cx - anchorWas.cx) > 0.005 ||
+             Math.abs(anchorNow.cy - anchorWas.cy) > 0.005);
+
+        if (anchorMoved) {
+            // Rebuild plan for all words not yet committed, at the new anchor position
+            const remaining = styledWordsRef.current.slice(wordsConsumedRef.current);
+            if (!remaining.length) { setPlayState('done'); return; }
+            const lineOffset = lineHtmlsRef.current.length; // new lines go after existing ones
+            const newPlan = buildGroupPlan(
+                remaining,
+                wordsPerFlyRef.current,
+                wordsPerLineRef.current,
+                linesPerBlockRef.current,
+                anchorNow.cy,
+                canvasHRef.current,
+                lineOffset,
+            );
+            if (!newPlan.length) { setPlayState('done'); return; }
+            groupPlanRef.current = newPlan;
+            setTotalGroups(newPlan.length);
+            animateGroup(0);
         } else {
-            animateGroup(currentGroupIdx);
+            // Same position — continue from the exact group that was interrupted
+            if (stoppedFromRef.current === 'ready-next') {
+                animateGroup(currentGroupIdx + 1);
+            } else {
+                animateGroup(currentGroupIdx);
+            }
         }
     }, [currentGroupIdx, animateGroup]);
 
@@ -775,7 +820,7 @@ export default function PlayModePanel({
                     <div style={{ fontSize: 11, color: "#22c55e", textAlign: "center" }}>All text displayed</div>
                 )}
                 {playState === "stopped" && (
-                    <div style={{ fontSize: 11, color: "#f59e0b", textAlign: "center" }}>Stopped — blackboard preserved</div>
+                    <div style={{ fontSize: 11, color: "#f59e0b", textAlign: "center" }}>Stopped — click blackboard to move position, then Resume</div>
                 )}
             </div>
         </div>
