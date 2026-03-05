@@ -373,6 +373,8 @@ interface RichEditorProps {
     disableImage?: boolean;
     /** Called once the Tiptap editor instance is ready (or destroyed). */
     onEditorReady?: (editor: ReturnType<typeof useEditor>) => void;
+    /** When true the formatting toolbar is not rendered (parent renders its own controls). */
+    hideToolbar?: boolean;
 }
 
 const COLOR_PRESETS = [
@@ -395,6 +397,7 @@ export default function RichEditor({
     autoFocus = false,
     disableImage = false,
     onEditorReady,
+    hideToolbar = false,
     style,
     editorStyle,
 }: RichEditorProps) {
@@ -505,8 +508,8 @@ export default function RichEditor({
                 .rich-editor-content pre { background: rgba(0,0,0,0.35); padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
             `}</style>
 
-            {/* Toolbar — hidden in chatMode; chat inputs are plain text only */}
-            {!chatMode && (
+            {/* Toolbar — hidden in chatMode or when parent supplies its own controls */}
+            {!chatMode && !hideToolbar && (
                 <div style={{ display: 'flex', gap: 3, padding: '6px 8px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexWrap: 'nowrap', overflowX: 'auto', alignItems: 'center', background: 'rgba(255,255,255,0.02)' }}>
                     {/* Heading */}
                     <select value={headingLevel}

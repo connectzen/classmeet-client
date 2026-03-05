@@ -4,6 +4,18 @@ import RichEditor, { isRichEmpty } from "./RichEditor";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const CANVAS_W = 640;
+const PLAY_FONTS = [
+    { label: 'Default', value: '' },
+    { label: 'Inter',   value: 'Inter, sans-serif' },
+    { label: 'Roboto',  value: 'Roboto, sans-serif' },
+    { label: 'Poppins', value: 'Poppins, sans-serif' },
+    { label: 'Lato',    value: 'Lato, sans-serif' },
+    { label: 'Georgia', value: 'Georgia, serif' },
+    { label: 'Playfair', value: "'Playfair Display', serif" },
+    { label: 'Merriweather', value: 'Merriweather, serif' },
+    { label: 'Mono',    value: "'Courier New', monospace" },
+];
+const PLAY_SIZES = ['11','12','14','16','18','20','24','28','32','36','42','48','60','72'];
 const SPEED_OPTIONS: { label: string; ms: number }[] = [
     { label: "Slow",   ms: 80 },
     { label: "Normal", ms: 35 },
@@ -462,49 +474,107 @@ export default function PlayModePanel({
         e.chain().focus().setTextAlign(v).run();
     };
 
+    // Derived editor active states — re-evaluated on each render (editorHtml change triggers re-render)
+    const ed = editorRef.current;
+    const isBold   = ed?.isActive('bold')      ?? false;
+    const isItalic = ed?.isActive('italic')    ?? false;
+    const isUnder  = ed?.isActive('underline') ?? false;
+    const curColor = (ed?.getAttributes('textStyle') as { color?: string })?.color ?? '#ffffff';
+
     return (
         <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#111827", color: "#e2e8f0", fontSize: 13, overflow: "hidden" }}>
 
-            {/* Rich editor */}
+            {/* ── TOP: Lines / Per line / Per fly (replaces editor toolbar) ── */}
+            <div style={{ display: "flex", gap: 6, alignItems: "center", padding: "4px 8px", borderBottom: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)", flexShrink: 0, flexWrap: "wrap" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: "#94a3b8" }}>
+                    Lines
+                    <input type="number" min={1} max={10} value={linesPerBlock}
+                        onChange={e => setLinesPerBlock(Math.max(1, Math.min(10, Number(e.target.value))))}
+                        style={{ width: 34, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "1px 3px", fontSize: 11, textAlign: "center" }} />
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: "#94a3b8" }}>
+                    Per line
+                    <input type="number" min={1} max={30} value={wordsPerLine}
+                        onChange={e => setWordsPerLine(Math.max(1, Math.min(30, Number(e.target.value))))}
+                        style={{ width: 34, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "1px 3px", fontSize: 11, textAlign: "center" }} />
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: "#94a3b8" }}>
+                    Per fly
+                    <input type="number" min={1} max={20} value={wordsPerFly}
+                        onChange={e => setWordsPerFly(Math.max(1, Math.min(20, Number(e.target.value))))}
+                        style={{ width: 34, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "1px 3px", fontSize: 11, textAlign: "center" }} />
+                </label>
+            </div>
+
+            {/* Rich editor — toolbar hidden; formatting lives in the bottom section */}
             <div style={{ flex: 1, overflow: "auto", pointerEvents: isActive ? "none" : "auto", opacity: isActive ? 0.5 : 1 }}>
                 <RichEditor
                     value={editorHtml}
                     onChange={setEditorHtml}
-                    onEditorReady={ed => { editorRef.current = ed; }}
+                    onEditorReady={e => { editorRef.current = e; }}
                     placeholder="Type text here, then click Start Playing…"
-                    minHeight={180}
+                    minHeight={160}
                     disableImage
+                    hideToolbar
                     style={{ border: "none", borderRadius: 0, background: "transparent" }}
                 />
             </div>
 
-            {/* ── Lines / Per line / Per fly strip (single row) ─────────────── */}
-            <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "5px 8px", borderTop: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)", flexShrink: 0, flexWrap: "wrap" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#94a3b8" }}>
-                    Lines
-                    <input type="number" min={1} max={10} value={linesPerBlock}
-                        onChange={e => setLinesPerBlock(Math.max(1, Math.min(10, Number(e.target.value))))}
-                        style={{ width: 36, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "2px 4px", fontSize: 12, textAlign: "center" }} />
-                </label>
-                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#94a3b8" }}>
-                    Per line
-                    <input type="number" min={1} max={30} value={wordsPerLine}
-                        onChange={e => setWordsPerLine(Math.max(1, Math.min(30, Number(e.target.value))))}
-                        style={{ width: 36, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "2px 4px", fontSize: 12, textAlign: "center" }} />
-                </label>
-                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#94a3b8" }}>
-                    Per fly
-                    <input type="number" min={1} max={20} value={wordsPerFly}
-                        onChange={e => setWordsPerFly(Math.max(1, Math.min(20, Number(e.target.value))))}
-                        style={{ width: 36, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "2px 4px", fontSize: 12, textAlign: "center" }} />
-                </label>
-            </div>
+            {/* ── BOTTOM: all formatting + animation + anchor + progress + buttons ── */}
+            <div style={{ padding: "4px 8px 6px", borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
 
-            {/* Bottom: Type/Speed/Format/Heading/Align + anchor + progress + buttons */}
-            <div style={{ padding: "6px 8px 8px", borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+                {/* Row 1 — text formatting */}
+                <div style={{ display: "flex", gap: 3, alignItems: "center", flexWrap: "wrap" }}>
+                    <select value="" disabled={isActive} onChange={e => applyHeading(e.target.value)} style={{ ...sel, opacity: isActive ? 0.4 : 1 }}>
+                        <option value="">Para</option>
+                        <option value="0">Normal</option>
+                        <option value="1">H1</option>
+                        <option value="2">H2</option>
+                        <option value="3">H3</option>
+                    </select>
+                    <select value="" disabled={isActive}
+                        onChange={e => { const v = e.target.value; if (!v || !ed) return; ed.chain().focus().setMark('textStyle', { fontFamily: v }).run(); }}
+                        style={{ ...sel, opacity: isActive ? 0.4 : 1 }}>
+                        <option value="">Font</option>
+                        {PLAY_FONTS.filter(f => f.value).map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                    </select>
+                    <select value="" disabled={isActive}
+                        onChange={e => { const v = e.target.value; if (!v || !ed) return; ed.chain().focus().setMark('textStyle', { fontSize: v + 'px' }).run(); }}
+                        style={{ ...sel, maxWidth: 56, opacity: isActive ? 0.4 : 1 }}>
+                        <option value="">Sz</option>
+                        {PLAY_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    {(['B', 'I', 'U'] as const).map((lbl, i) => {
+                        const active = [isBold, isItalic, isUnder][i];
+                        const cmd = () => ed?.chain().focus()[i === 0 ? 'toggleBold' : i === 1 ? 'toggleItalic' : 'toggleUnderline']().run();
+                        return (
+                            <button key={lbl} disabled={isActive} onClick={cmd}
+                                style={{ padding: "1px 6px", fontSize: 11, borderRadius: 4, border: "none", cursor: isActive ? "default" : "pointer", fontWeight: lbl === 'B' ? 900 : 400, fontStyle: lbl === 'I' ? 'italic' : 'normal', textDecoration: lbl === 'U' ? 'underline' : 'none', background: active ? "#6366f1" : "#1e293b", color: active ? "#fff" : "#94a3b8", opacity: isActive ? 0.4 : 1 }}>
+                                {lbl}
+                            </button>
+                        );
+                    })}
+                    <input type="color" disabled={isActive} value={curColor}
+                        onChange={e => ed?.chain().focus().setColor(e.target.value).run()}
+                        title="Text color"
+                        style={{ width: 22, height: 20, padding: 0, border: "1px solid #334155", borderRadius: 3, cursor: isActive ? "default" : "pointer", background: "none", opacity: isActive ? 0.4 : 1 }} />
+                    <select value="" disabled={isActive} onChange={e => applyFormat(e.target.value)} style={{ ...sel, opacity: isActive ? 0.4 : 1 }}>
+                        <option value="">List</option>
+                        <option value="bullet">• Bullet</option>
+                        <option value="ordered">1. Num</option>
+                        <option value="blockquote">❝ Quote</option>
+                        <option value="code">⌨ Code</option>
+                    </select>
+                    <select value="" disabled={isActive} onChange={e => applyAlign(e.target.value)} style={{ ...sel, opacity: isActive ? 0.4 : 1 }}>
+                        <option value="">Align</option>
+                        <option value="left">← L</option>
+                        <option value="center">≡ C</option>
+                        <option value="right">→ R</option>
+                    </select>
+                </div>
 
-                {/* Dropdowns row */}
-                <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+                {/* Row 2 — animation */}
+                <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
                     <select value={animType} onChange={e => setAnimType(e.target.value as AnimType)} style={sel}>
                         <option value="typing">Typing</option>
                         <option value="fade">Fade</option>
@@ -516,28 +586,9 @@ export default function PlayModePanel({
                     <select value={speedIdx} onChange={e => setSpeedIdx(Number(e.target.value))} style={sel}>
                         {SPEED_OPTIONS.map((s, i) => <option key={i} value={i}>{s.label}</option>)}
                     </select>
-                    <select value="" disabled={isActive} onChange={e => applyFormat(e.target.value)} style={{ ...sel, opacity: isActive ? 0.4 : 1 }}>
-                        <option value="">Format</option>
-                        <option value="bullet">• Bullet</option>
-                        <option value="ordered">1. Numbered</option>
-                        <option value="blockquote">❝ Quote</option>
-                        <option value="code">⌨ Code</option>
-                    </select>
-                    <select value="" disabled={isActive} onChange={e => applyHeading(e.target.value)} style={{ ...sel, opacity: isActive ? 0.4 : 1 }}>
-                        <option value="">Heading</option>
-                        <option value="0">Normal</option>
-                        <option value="1">H1</option>
-                        <option value="2">H2</option>
-                        <option value="3">H3</option>
-                    </select>
-                    <select value="" disabled={isActive} onChange={e => applyAlign(e.target.value)} style={{ ...sel, opacity: isActive ? 0.4 : 1 }}>
-                        <option value="">Align</option>
-                        <option value="left">← Left</option>
-                        <option value="center">≡ Center</option>
-                        <option value="right">→ Right</option>
-                    </select>
                 </div>
 
+                {/* Row 3 — anchor hint */}
                 <div style={{ fontSize: 10, color: anchor ? "#6366f1" : "#475569" }}>
                     {anchor
                         ? `Anchor (${Math.round(anchor.cx * CANVAS_W)}px, ~${Math.round(anchor.cy * 100)}%)`
@@ -555,16 +606,16 @@ export default function PlayModePanel({
                     </div>
                 )}
 
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                     {playState === "idle" || playState === "done" ? (
                         <>
                             <button onClick={handleStart}
-                                style={{ flex: 1, padding: "7px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#6366f1", color: "#fff" }}>
+                                style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#6366f1", color: "#fff" }}>
                                 {playState === "done" ? "Restart" : "Start Playing"}
                             </button>
                             {playState === "done" && (
                                 <button onClick={handleStop}
-                                    style={{ padding: "7px 12px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#374151", color: "#9ca3af" }}>
+                                    style={{ padding: "5px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#374151", color: "#9ca3af" }}>
                                     Stop
                                 </button>
                             )}
@@ -572,18 +623,18 @@ export default function PlayModePanel({
                     ) : (
                         <>
                             <button onClick={handlePauseResume}
-                                style={{ flex: 1, padding: "7px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12,
+                                style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12,
                                     background: playState === "paused" ? "#22c55e" : "#f59e0b", color: "#fff" }}>
                                 {playState === "paused" ? "Resume" : "Pause"}
                             </button>
                             {playState === "ready-next" && (
                                 <button onClick={handleNext}
-                                    style={{ flex: 1, padding: "7px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#3b82f6", color: "#fff" }}>
+                                    style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#3b82f6", color: "#fff" }}>
                                     Next
                                 </button>
                             )}
                             <button onClick={handleStop}
-                                style={{ padding: "7px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, background: "#374151", color: "#9ca3af" }}>
+                                style={{ padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, background: "#374151", color: "#9ca3af" }}>
                                 Stop
                             </button>
                         </>
