@@ -64,6 +64,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [rightTab,         setRightTab]         = useState<'chat' | 'play'>('chat');
     const [playAnchor,       setPlayAnchor]       = useState<{ cx: number; cy: number } | null>(null);
     const [playCanvasH,      setPlayCanvasH]      = useState(600);
+    const [isPlayActive,     setIsPlayActive]     = useState(false);
     // HTML overlay produced by teacher's PlayModePanel — shown on blackboard for all
     const [teacherPlayHtml,  setTeacherPlayHtml]  = useState('');
     const [studentPlayHtml,  setStudentPlayHtml]  = useState('');
@@ -808,6 +809,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                             anchor={playAnchor}
                             canvasH={playCanvasH}
                             isBlackboardOn={blackboardOn}
+                            onPlayActiveChange={setIsPlayActive}
                             onEnableCourse={() => {
                                 if (!courseToggleOn) { setCourseToggleOn(true); emitCourseToggle(true, sessionCourseIds); }
                             }}
@@ -1058,6 +1060,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 onCanvasHChange={h => setPlayCanvasH(h)}
                                 playHtml={teacherPlayHtml}
                                 playAnchor={playAnchor}
+                                isPlayActive={isPlayActive}
                             />
                         ) : courseToggleOn && role !== 'teacher' ? (
                             <RoomCoursePanel
@@ -1282,6 +1285,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 anchor={playAnchor}
                                 canvasH={playCanvasH}
                                 isBlackboardOn={blackboardOn}
+                                onPlayActiveChange={setIsPlayActive}
                                 onEnableCourse={() => {
                                     if (!courseToggleOn) {
                                         setCourseToggleOn(true);

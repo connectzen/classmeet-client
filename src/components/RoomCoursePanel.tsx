@@ -85,6 +85,8 @@ interface Props {
     playHtml?: string;
     /** Anchor position (fraction of canvas) where the play HTML overlay starts. */
     playAnchor?: { cx: number; cy: number } | null;
+    /** When true, a transparent overlay covers the canvas so ANY click sets the text anchor (stops the game). */
+    isPlayActive?: boolean;
 }
 
 type DrawTool = 'pen' | 'highlight' | 'eraser' | 'text' | 'circle' | 'rect' | 'square' | 'arrow' | 'line';
@@ -242,7 +244,7 @@ export default function RoomCoursePanel({
     snapshotDataUrl,
     sharedWithStudents, onShareToggle,
     blackboardActive, onBlackboardToggle,
-    playHtml, playAnchor,
+    playHtml, playAnchor, isPlayActive,
 }: Props) {
     const [courses, setCourses] = useState<CourseData[]>([]);
     const [loading, setLoading] = useState(true);
@@ -1096,6 +1098,21 @@ export default function RoomCoursePanel({
                                 style={{ position: 'absolute', top: 0, left: 0, pointerEvents: drawActive ? 'auto' : 'none', cursor: drawActive ? cursor : 'default', zIndex: 15 }} />
                             <canvas ref={previewRef}
                                 style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 16 }} />
+
+                            {/* Play-mode click interceptor — covers canvas area so any click stops the game */}
+                            {isPlayActive && isTeacher && (
+                                <div
+                                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: canvasH, zIndex: 19, cursor: 'crosshair' }}
+                                    onMouseDown={e => {
+                                        const c = canvasRef.current;
+                                        if (!c) return;
+                                        const r = c.getBoundingClientRect();
+                                        const cx = (e.clientX - r.left) / r.width;
+                                        const cy = (e.clientY - r.top) / r.height;
+                                        onTextAnchorSet?.(cx, cy);
+                                    }}
+                                />
+                            )}
 
                             {/* Play Mode HTML overlay — full-canvas, each line absolutely positioned */}
                             {playHtml ? (

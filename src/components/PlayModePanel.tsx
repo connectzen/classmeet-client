@@ -138,6 +138,8 @@ interface Props {
     onEnableBlackboard: () => void;
     isBlackboardOn: boolean;
     onEnableCourse?: () => void;
+    /** Called whenever the game transitions in/out of an active state (playing/paused/ready-next). */
+    onPlayActiveChange?: (active: boolean) => void;
 }
 
 /** Escape user text for safe HTML injection. */
@@ -318,6 +320,7 @@ export default function PlayModePanel({
     anchor, canvasH,
     onPlayHtml, emitPlayShow, emitPlayClear,
     onEnableBlackboard, isBlackboardOn, onEnableCourse,
+    onPlayActiveChange,
 }: Props) {
     const [wordsPerLine,    setWordsPerLine]   = useState(5);
     const [wordsPerFly,     setWordsPerFly]    = useState(1);
@@ -654,12 +657,18 @@ export default function PlayModePanel({
         return () => window.removeEventListener('keydown', onKey);
     }, [handleNext, handleResume]);
 
+    // ── Notify parent when play-active state changes ─────────────────────────
+    useEffect(() => {
+        const active = playState === 'playing' || playState === 'paused' || playState === 'ready-next';
+        onPlayActiveChange?.(active);
+    }, [playState, onPlayActiveChange]);
+
     // ── Auto-stop when teacher clicks a new blackboard position while playing ───
     const prevAnchorRef = useRef(anchor);
     useEffect(() => {
         const prev = prevAnchorRef.current;
         prevAnchorRef.current = anchor;
-        if (!anchor || !prev) return; // initial set — not a move
+        if (!anchor) return; // anchor cleared — nothing to do
         const ps = playStateRef.current;
         if (ps === 'playing' || ps === 'ready-next' || ps === 'paused') {
             handleStop();
