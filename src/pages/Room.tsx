@@ -69,6 +69,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     // HTML overlay produced by teacher's PlayModePanel — shown on blackboard for all
     const [teacherPlayHtml,  setTeacherPlayHtml]  = useState('');
     const [studentPlayHtml,  setStudentPlayHtml]  = useState('');
+    // Blackboard content scale (wrapperWidth / 640) — forwarded to Play panel so editor zoom matches
+    const [bbContentScale, setBbContentScale] = useState(1);
     const [externalDrawReplaceSeg,   setExternalDrawReplaceSeg]   = useState<DrawSeg | null>(null);
     const [externalDrawReplaceCount, setExternalDrawReplaceCount] = useState(0);
     const [sessionQuizIds, setSessionQuizIds] = useState<string[]>([]);
@@ -820,6 +822,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                             onPlayHtml={html => setTeacherPlayHtml(html)}
                             emitPlayShow={html => emitPlayShow(html)}
                             emitPlayClear={() => emitPlayClear()}
+                            contentScale={bbContentScale}
                         />
                     </div>
                 </div>
@@ -1094,6 +1097,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 onBlackboardToggle={(on) => { setBlackboardOn(on); emitBlackboardToggle(on); }}
                                 onTextAnchorSet={(cx, cy) => setPlayAnchor({ cx, cy })}
                                 onCanvasHChange={h => setPlayCanvasH(h)}
+                                onContentScaleChange={setBbContentScale}
                                 playHtml={teacherPlayHtml}
                                 playAnchor={playAnchor}
                                 isPlayActive={isPlayActive}
@@ -1258,6 +1262,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 onPlayHtml={html => setTeacherPlayHtml(html)}
                                 emitPlayShow={html => emitPlayShow(html)}
                                 emitPlayClear={() => emitPlayClear()}
+                                contentScale={bbContentScale}
                             />
                         ) : (
                             <ChatPanel messages={messages} mySocketId={socketId} onSend={sendMessage} hideHeader />

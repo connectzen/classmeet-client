@@ -86,6 +86,8 @@ interface Props {
     playAnchor?: { cx: number; cy: number } | null;
     /** When true, a transparent overlay covers the canvas so ANY click sets the text anchor (stops the game). */
     isPlayActive?: boolean;
+    /** Emitted whenever the panel's content scale changes (wrapperWidth / 640). Used by Play panel to match editor zoom. */
+    onContentScaleChange?: (scale: number) => void;
 }
 
 type DrawTool = 'pen' | 'highlight' | 'eraser' | 'text' | 'circle' | 'rect' | 'square' | 'arrow' | 'line';
@@ -254,6 +256,7 @@ export default function RoomCoursePanel({
     sharedWithStudents, onShareToggle,
     blackboardActive, onBlackboardToggle,
     playHtml, playAnchor, isPlayActive,
+    onContentScaleChange,
 }: Props) {
     const [courses, setCourses] = useState<CourseData[]>([]);
     const [loading, setLoading] = useState(true);
@@ -475,6 +478,7 @@ export default function RoomCoursePanel({
             const availW    = Math.max(totalW, 1);
             const scale     = availW / CANVAS_W;
             setContentScale(scale);
+            onContentScaleChange?.(scale);
             physScaleRef.current = scale * DPR; // update BEFORE replay so replayOnCanvas uses the fresh scale
             setContentPaddingX(0);
 
@@ -948,7 +952,10 @@ export default function RoomCoursePanel({
         if (!c) return;
         const r = c.getBoundingClientRect();
         const cx = (e.clientX - r.left) / r.width;
-        const cy = (e.clientY - r.top) / r.height;
+        const rawCy = (e.clientY - r.top) / r.height;
+        // Clamp: don't allow text anchor to sit behind the floating header pill (~52px logical)
+        const scrolled = (contentRef.current?.scrollTop ?? 0) > 0;
+        const cy = scrolled ? rawCy : Math.max(52 / (canvasRef.current?.clientHeight ?? canvasH), rawCy);
         setTextInput({ vx: e.clientX, vy: e.clientY, cx, cy });
         onTextAnchorSet?.(cx, cy);
         // Tell students where the teacher is about to type (blinking caret indicator)
@@ -999,6 +1006,9 @@ export default function RoomCoursePanel({
     const canNext      = activeLessonIdx < totalLessons - 1;
     // Find active topic for current lesson
     const activeTopic  = lesson ? (course?.topics ?? []).find(t => t.lessons?.some(l => l.id === lesson.id)) ?? null : null;
+
+    // Toolbar is visible while hovered OR while a draw tool is active (so it doesn't vanish mid-draw).
+    const toolbarShouldShow = toolbarVisible || drawTool !== null;
 
     // ── Render ────────────────────────────────────────────────────────────────
     return (
@@ -1106,6 +1116,29 @@ export default function RoomCoursePanel({
                     onMouseEnter={isTeacher ? showToolbar : undefined}
                     onMouseLeave={isTeacher ? hideToolbar : undefined}>
 
+                    {/* Always-visible tools handle tab — teachers only; gives a permanent click target to open the toolbar */}
+                    {isTeacher && (
+                        <button
+                            title={drawTool ? `Active: ${drawTool} — click to toggle toolbar` : 'Drawing tools'}
+                            onClick={showToolbar}
+                            style={{
+                                position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)',
+                                width: 20, height: 56, borderRadius: '8px 0 0 8px',
+                                border: 'none',
+                                background: drawTool ? 'rgba(99,102,241,0.65)' : 'rgba(20,20,40,0.72)',
+                                color: drawTool ? '#fff' : 'rgba(165,180,252,0.75)',
+                                fontSize: 13, cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                zIndex: 21, backdropFilter: 'blur(6px)',
+                                boxShadow: drawTool ? '0 0 0 1.5px #6366f1' : '0 2px 8px rgba(0,0,0,0.35)',
+                                transition: 'background 0.15s, color 0.15s',
+                                writingMode: 'vertical-rl', letterSpacing: '0.05em',
+                            }}
+                            onMouseEnter={e => { if (!drawTool) e.currentTarget.style.background = 'rgba(99,102,241,0.4)'; }}
+                            onMouseLeave={e => { if (!drawTool) e.currentTarget.style.background = 'rgba(20,20,40,0.72)'; }}
+                        >✏</button>
+                    )}
+
                     {/* Scrollable area — overflowX hidden because content scales via zoom.
                         For students, horizontal padding is added so the 640px content is
                         centered: padding = toolbarWidth / 2 on each side, matching the
@@ -1156,6 +1189,28 @@ export default function RoomCoursePanel({
                             <canvas ref={previewRef}
                                 style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 16 }} />
 
+                            {/* Play anchor indicator — dashed line showing where play text starts */}
+                            {isTeacher && showBlackboard && playAnchor && !isPlayActive && !playHtml && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: `${playAnchor.cy * 100}%`,
+                                    left: 0, right: 0,
+                                    height: 0,
+                                    borderTop: '1.5px dashed rgba(99,102,241,0.5)',
+                                    pointerEvents: 'none',
+                                    zIndex: 17,
+                                    display: 'flex', alignItems: 'flex-start',
+                                }}>
+                                    <span style={{
+                                        fontSize: 9, fontWeight: 700, color: 'rgba(99,102,241,0.7)',
+                                        background: 'rgba(10,10,30,0.7)', borderRadius: '0 4px 4px 0',
+                                        padding: '1px 5px', lineHeight: 1.6, letterSpacing: '0.04em',
+                                        textTransform: 'uppercase', userSelect: 'none',
+                                        transform: 'translateY(-1px)',
+                                    }}>Start position</span>
+                                </div>
+                            )}
+
                             {/* Play-mode click interceptor — covers canvas area so any click stops the game */}
                             {isPlayActive && isTeacher && (
                                 <div
@@ -1165,7 +1220,10 @@ export default function RoomCoursePanel({
                                         if (!c) return;
                                         const r = c.getBoundingClientRect();
                                         const cx = (e.clientX - r.left) / r.width;
-                                        const cy = (e.clientY - r.top) / r.height;
+                                        const rawCy = (e.clientY - r.top) / r.height;
+                                        // Clamp away from the floating header pill (~52px)
+                                        const scrolled = (contentRef.current?.scrollTop ?? 0) > 0;
+                                        const cy = scrolled ? rawCy : Math.max(52 / c.clientHeight, rawCy);
                                         onTextAnchorSet?.(cx, cy);
                                     }}
                                 />
@@ -1374,11 +1432,11 @@ export default function RoomCoursePanel({
                             onMouseEnter={showToolbar}
                             onMouseLeave={hideToolbar}
                             style={{
-                            position: 'absolute', right: 82, top: 8,
-                            transform: `translateX(${drawTool === 'text' && textInput === null && toolbarVisible ? 0 : 14}px)`,
+                            position: 'absolute', right: 104, top: 8,
+                            transform: `translateX(${drawTool === 'text' && textInput === null && toolbarShouldShow ? 0 : 14}px)`,
                             zIndex: 19,
-                            pointerEvents: drawTool === 'text' && textInput === null && toolbarVisible ? 'auto' : 'none',
-                            opacity: drawTool === 'text' && textInput === null && toolbarVisible ? 1 : 0,
+                            pointerEvents: drawTool === 'text' && textInput === null && toolbarShouldShow ? 'auto' : 'none',
+                            opacity: drawTool === 'text' && textInput === null && toolbarShouldShow ? 1 : 0,
                             transition: 'opacity 0.22s ease, transform 0.22s ease',
                             maxHeight: 'calc(100% - 16px)',
                             display: 'flex', flexDirection: 'column',
@@ -1459,11 +1517,11 @@ export default function RoomCoursePanel({
                             onMouseEnter={showToolbar}
                             onMouseLeave={hideToolbar}
                             style={{
-                            position: 'absolute', right: 6, top: 8,
-                            transform: `scale(${toolbarScale}) translateX(${toolbarVisible ? 0 : 10}px)`,
+                            position: 'absolute', right: 28, top: 8,
+                            transform: `scale(${toolbarScale}) translateX(${toolbarShouldShow ? 0 : 10}px)`,
                             transformOrigin: 'top right',
-                            opacity: toolbarVisible ? 1 : 0,
-                            pointerEvents: toolbarVisible ? 'auto' : 'none',
+                            opacity: toolbarShouldShow ? 1 : 0,
+                            pointerEvents: toolbarShouldShow ? 'auto' : 'none',
                             transition: 'opacity 0.18s ease, transform 0.18s ease',
                             zIndex: 20, background: 'rgba(10,10,20,0.92)', backdropFilter: 'blur(10px)',
                             border: '1px solid rgba(99,102,241,0.35)', borderRadius: 14,

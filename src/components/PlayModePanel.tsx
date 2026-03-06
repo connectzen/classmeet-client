@@ -140,6 +140,8 @@ interface Props {
     isBlackboardOn: boolean;
     /** Called whenever the game transitions in/out of an active state (playing/paused/ready-next). */
     onPlayActiveChange?: (active: boolean) => void;
+    /** The blackboard panel's current content-scale (wrapperWidth / 640). Used to zoom editor to match. */
+    contentScale?: number;
 }
 
 /** Escape user text for safe HTML injection. */
@@ -327,6 +329,7 @@ export default function PlayModePanel({
     onPlayHtml, emitPlayShow, emitPlayClear,
     onEnableBlackboardLocal, isBlackboardOn,
     onPlayActiveChange,
+    contentScale,
 }: Props) {
     const [wordsPerLine,    setWordsPerLine]   = useState(5);
     const [wordsPerFly,     setWordsPerFly]    = useState(1);
@@ -341,6 +344,9 @@ export default function PlayModePanel({
     const [pickerHsv,  setPickerHsv]  = useState({ h: 0, s: 0, v: 100 });
     const [hexInput,   setHexInput]   = useState('#ffffff');
     const [pickerRect, setPickerRect] = useState<DOMRect | null>(null);
+    const [bottomHovered, setBottomHovered] = useState(false);
+    // Track panel pixel width for editor-zoom calculation
+    const [panelPx, setPanelPx] = useState(0);
     const groupPlanRef    = useRef<GroupPlan[]>([]);
     const charBufRef      = useRef("");
     const intervalRef     = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -396,6 +402,18 @@ export default function PlayModePanel({
             '@keyframes pmScale { from { opacity:0; transform:scale(0.6) } to { opacity:1; transform:scale(1) } }',
         ].join('\n');
         document.head.appendChild(style);
+    }, []);
+
+    // ── Measure panel width for editor zoom sync with blackboard ────────────────────
+    useEffect(() => {
+        const el = panelRootRef.current;
+        if (!el) return;
+        const ro = new ResizeObserver(entries => {
+            for (const e of entries) setPanelPx(e.contentRect.width);
+        });
+        ro.observe(el);
+        setPanelPx(el.clientWidth);
+        return () => ro.disconnect();
     }, []);
 
     // ── Color picker mouse drag ───────────────────────────────────────────────
@@ -560,7 +578,8 @@ export default function PlayModePanel({
             wordsPerFlyRef.current,
             wordsPerLineRef.current,
             linesPerBlockRef.current,
-            anchorRef.current?.cy ?? 0.05,
+            // Clamp default anchor so play text doesn't start behind the floating header pill (~52px)
+            Math.max(anchorRef.current?.cy ?? 0.09, 52 / Math.max(1, canvasHRef.current)),
             canvasHRef.current,
         );
         if (!plan.length) return;
@@ -756,24 +775,43 @@ export default function PlayModePanel({
                         onChange={e => setWordsPerFly(Math.max(1, Math.min(20, Number(e.target.value))))}
                         style={{ width: 34, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "1px 3px", fontSize: 11, textAlign: "center" }} />
                 </label>
+                {/* Board scale indicator — appears when editor is zoomed to match the blackboard */}
+                {panelPx > 0 && contentScale != null && contentScale < 0.98 && (
+                    <span title="Editor zoomed to match blackboard scale" style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 700, color: 'rgba(99,102,241,0.7)', background: 'rgba(99,102,241,0.12)', borderRadius: 4, padding: '2px 5px', letterSpacing: '0.05em', flexShrink: 0 }}>
+                        Board {Math.round(contentScale * 100)}%
+                    </span>
+                )}
             </div>
 
-            {/* Rich editor — toolbar hidden; formatting lives in the bottom section */}
-            <div style={{ flex: 1, overflow: "auto", pointerEvents: isActive ? "none" : "auto", opacity: isActive ? 0.5 : 1 }}>
-                <RichEditor
-                    value={editorHtml}
-                    onChange={setEditorHtml}
-                    onEditorReady={e => { editorRef.current = e; }}
-                    placeholder="Type text here, then click Start Playing…"
-                    minHeight={160}
-                    disableImage
-                    hideToolbar
-                    style={{ border: "none", borderRadius: 0, background: "transparent" }}
-                />
-            </div>
+            {/* Rich editor — zoomed to match the blackboard canvas scale so fonts appear identical */}
+            {(() => {
+                // Compute zoom: never exceed 1 or the panel width
+                const bbScale = contentScale ?? 1;
+                const editorZoom = panelPx > 0 ? Math.min(bbScale, panelPx / CANVAS_W) : bbScale;
+                const editorBoxW = Math.round(CANVAS_W * editorZoom);
+                return (
+                    <div style={{ flex: 1, overflow: "auto", pointerEvents: isActive ? "none" : "auto", opacity: isActive ? 0.5 : 1, display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ width: CANVAS_W, zoom: editorZoom, transformOrigin: 'top left', flexShrink: 0, maxWidth: editorBoxW }}>
+                            <RichEditor
+                                value={editorHtml}
+                                onChange={setEditorHtml}
+                                onEditorReady={e => { editorRef.current = e; }}
+                                placeholder="Type text here, then click Start Playing…"
+                                minHeight={160}
+                                disableImage
+                                hideToolbar
+                                style={{ border: "none", borderRadius: 0, background: "transparent" }}
+                            />
+                        </div>
+                    </div>
+                );
+            })()}
 
             {/* ── BOTTOM: all formatting + animation + anchor + progress + buttons ── */}
-            <div style={{ padding: "4px 8px 6px", borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+            <div
+                onMouseEnter={() => setBottomHovered(true)}
+                onMouseLeave={() => setBottomHovered(false)}
+                style={{ padding: "4px 8px 6px", borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", display: "flex", flexDirection: "column", gap: 4, flexShrink: 0, opacity: (isActive || bottomHovered) ? 1 : 0.55, transition: "opacity 0.2s" }}>
 
                 {/* Row 1 — character formatting: Para Font Sz B I U [color] */}
                 <div style={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "nowrap", overflow: 'hidden' }}>
@@ -931,10 +969,12 @@ export default function PlayModePanel({
                 <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                     {/* ── idle ───────────────────────────────────────────── */}
                     {playState === "idle" && (
-                        <button onClick={handleStart}
-                            style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#6366f1", color: "#fff" }}>
-                            Start Playing
-                        </button>
+                        isRichEmpty(editorHtml)
+                            ? <span style={{ flex: 1, textAlign: 'center', fontSize: 11, color: '#475569', fontStyle: 'italic', padding: '4px 0' }}>Type above to play…</span>
+                            : <button onClick={handleStart}
+                                style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: "#6366f1", color: "#fff" }}>
+                                Start Playing
+                              </button>
                     )}
 
                     {/* ── playing ────────────────────────────────────────── */}
