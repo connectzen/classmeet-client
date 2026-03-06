@@ -1556,14 +1556,15 @@ export default function RoomCoursePanel({
                                     const { drawColor: dc, textFontSize: tfsz } = drawState.current;
                                     onDrawPrevCb.current?.({ x1: newCx, y1: newCy, x2: newCx, y2: newCy, color: dc, size: 0, mode: 'text', text: '__text_anchor__', fontSizePx: tfsz });
                                 } else {
-                                    // ── Normal mode: commit old text and immediately open new text at the
-                                    // clicked position. This avoids the 150 ms debounce window that would
-                                    // block a canvas onClick from re-opening the input.
+                                    // ── Normal mode: commit old text and move cursor to new click position.
+                                    // preventDefault keeps the textarea focused (browser won't shift focus
+                                    // to the overlay div), and ta.focus() guarantees it stays active.
+                                    e.preventDefault();
                                     committingRef.current = true;
                                     lastCommitRef.current = Date.now();
                                     const { drawColor: dc2, textFontSize: tfsz2 } = drawState.current;
                                     setTextInput({ vx: e.clientX, vy: e.clientY, cx: newCx, cy: newCy });
-                                    if (ta) { ta.value = ''; }
+                                    if (ta) { ta.value = ''; ta.focus(); }
                                     onDrawPrevCb.current?.({ x1: newCx, y1: newCy, x2: newCx, y2: newCy, color: dc2, size: 0, mode: 'text', text: '__text_anchor__', fontSizePx: tfsz2 });
                                 }
                             }}
