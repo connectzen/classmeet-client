@@ -386,7 +386,7 @@ export default function PlayModePanel({
     const pickerHueRef   = useRef<HTMLDivElement>(null);
     const dragTargetRef  = useRef<'grad' | 'hue' | null>(null);
     const colorBtnRef    = useRef<HTMLButtonElement>(null);
-    const panelRootRef   = useRef<HTMLDivElement>(null);
+
 
     // Inject CSS keyframes for non-typing animations once per document lifetime
     useEffect(() => {
@@ -402,18 +402,6 @@ export default function PlayModePanel({
             '@keyframes pmScale { from { opacity:0; transform:scale(0.6) } to { opacity:1; transform:scale(1) } }',
         ].join('\n');
         document.head.appendChild(style);
-    }, []);
-
-    // ── Measure panel width for editor zoom sync with blackboard ────────────────────
-    useEffect(() => {
-        const el = panelRootRef.current;
-        if (!el) return;
-        const ro = new ResizeObserver(entries => {
-            for (const e of entries) setPanelPx(e.contentRect.width);
-        });
-        ro.observe(el);
-        setPanelPx(el.clientWidth);
-        return () => ro.disconnect();
     }, []);
 
     // ── Color picker mouse drag ───────────────────────────────────────────────
@@ -753,7 +741,7 @@ export default function PlayModePanel({
     const curColor = (ed?.getAttributes('textStyle') as { color?: string })?.color ?? '#ffffff';
 
     return (
-        <div ref={panelRootRef} style={{ display: "flex", flexDirection: "column", height: "100%", background: "#111827", color: "#e2e8f0", fontSize: 13, overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#111827", color: "#e2e8f0", fontSize: 13, overflow: "hidden" }}>
 
             {/* ── TOP: Lines / Per line / Per fly (replaces editor toolbar) ── */}
             <div style={{ display: "flex", gap: 6, alignItems: "center", padding: "4px 8px", borderBottom: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)", flexShrink: 0, flexWrap: "wrap" }}>
@@ -775,37 +763,22 @@ export default function PlayModePanel({
                         onChange={e => setWordsPerFly(Math.max(1, Math.min(20, Number(e.target.value))))}
                         style={{ width: 34, background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 4, padding: "1px 3px", fontSize: 11, textAlign: "center" }} />
                 </label>
-                {/* Board scale indicator — appears when editor is zoomed to match the blackboard */}
-                {panelPx > 0 && contentScale != null && contentScale < 0.98 && (
-                    <span title="Editor zoomed to match blackboard scale" style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 700, color: 'rgba(99,102,241,0.7)', background: 'rgba(99,102,241,0.12)', borderRadius: 4, padding: '2px 5px', letterSpacing: '0.05em', flexShrink: 0 }}>
-                        Board {Math.round(contentScale * 100)}%
-                    </span>
-                )}
+
             </div>
 
-            {/* Rich editor — zoomed to match the blackboard canvas scale so fonts appear identical */}
-            {(() => {
-                // Compute zoom: never exceed 1 or the panel width
-                const bbScale = contentScale ?? 1;
-                const editorZoom = panelPx > 0 ? Math.min(bbScale, panelPx / CANVAS_W) : bbScale;
-                const editorBoxW = Math.round(CANVAS_W * editorZoom);
-                return (
-                    <div style={{ flex: 1, overflow: "auto", pointerEvents: isActive ? "none" : "auto", opacity: isActive ? 0.5 : 1, display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ width: CANVAS_W, zoom: editorZoom, transformOrigin: 'top left', flexShrink: 0, maxWidth: editorBoxW }}>
-                            <RichEditor
-                                value={editorHtml}
-                                onChange={setEditorHtml}
-                                onEditorReady={e => { editorRef.current = e; }}
-                                placeholder="Type text here, then click Start Playing…"
-                                minHeight={160}
-                                disableImage
-                                hideToolbar
-                                style={{ border: "none", borderRadius: 0, background: "transparent" }}
-                            />
-                        </div>
-                    </div>
-                );
-            })()}
+            {/* Rich editor */}
+            <div style={{ flex: 1, overflow: "auto", pointerEvents: isActive ? "none" : "auto", opacity: isActive ? 0.5 : 1 }}>
+                <RichEditor
+                    value={editorHtml}
+                    onChange={setEditorHtml}
+                    onEditorReady={e => { editorRef.current = e; }}
+                    placeholder="Type text here, then click Start Playing…"
+                    minHeight={160}
+                    disableImage
+                    hideToolbar
+                    style={{ border: "none", borderRadius: 0, background: "transparent" }}
+                />
+            </div>
 
             {/* ── BOTTOM: all formatting + animation + anchor + progress + buttons ── */}
             <div

@@ -1122,7 +1122,7 @@ export default function RoomCoursePanel({
                             title={drawTool ? `Active: ${drawTool} — click to toggle toolbar` : 'Drawing tools'}
                             onClick={showToolbar}
                             style={{
-                                position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)',
+                                position: 'absolute', right: 0, bottom: 8,
                                 width: 20, height: 56, borderRadius: '8px 0 0 8px',
                                 border: 'none',
                                 background: drawTool ? 'rgba(99,102,241,0.65)' : 'rgba(20,20,40,0.72)',
