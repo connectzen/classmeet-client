@@ -94,6 +94,12 @@ function parseRichToStyledWords(html: string): StyledWord[] {
             cur.fontStyle = cur.fontStyle.includes('italic') ? 'bold italic' : 'bold';
         if (tag === 'em' || tag === 'i')
             cur.fontStyle = cur.fontStyle.includes('bold') ? 'bold italic' : 'italic';
+        // heading tags — apply UA-equivalent font sizes and bold when not overridden inline
+        const HEADING_SIZES: Record<string, number> = { h1: 36, h2: 28, h3: 22, h4: 20, h5: 18, h6: 16 };
+        if (HEADING_SIZES[tag]) {
+            if (!st.fontSize) cur.fontSizePx = HEADING_SIZES[tag];
+            if (!fw) cur.fontStyle = cur.fontStyle.includes('italic') ? 'bold italic' : 'bold';
+        }
 
         // <li>: start a new line, inject bullet, then flatten any inner <p> so it
         // doesn't trigger another lineIdx++ and separate the bullet from its text.
