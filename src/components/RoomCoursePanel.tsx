@@ -1112,9 +1112,7 @@ export default function RoomCoursePanel({
                 </div>
 
                 {/* Content wrapper */}
-                <div ref={wrapperRef} style={{ flex: 1, position: 'relative', overflow: 'hidden' }}
-                    onMouseEnter={isTeacher ? showToolbar : undefined}
-                    onMouseLeave={isTeacher ? hideToolbar : undefined}>
+                <div ref={wrapperRef} style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
 
                     {/* Always-visible tools handle tab — teachers only; gives a permanent click target to open the toolbar */}
                     {isTeacher && (
