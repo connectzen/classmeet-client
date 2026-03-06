@@ -1174,9 +1174,13 @@ export default function RoomCoursePanel({
         const r = c.getBoundingClientRect();
         const cx = (e.clientX - r.left) / r.width;
         const rawCy = (e.clientY - r.top) / r.height;
-        // Clamp: don't allow text anchor to sit behind the floating header pill (~52px logical)
+        // On the blackboard the floating header pill is hidden, so the full canvas area
+        // is valid for text. Only clamp away from the pill when on the lesson canvas and
+        // not scrolled (pill sits at ~52 logical px from the top).
         const scrolled = (contentRef.current?.scrollTop ?? 0) > 0;
-        const cy = scrolled ? rawCy : Math.max(52 / (canvasRef.current?.clientHeight ?? canvasH), rawCy);
+        const cy = (scrolled || showBlackboardRef.current)
+            ? rawCy
+            : Math.max(52 / (canvasRef.current?.clientHeight ?? canvasH), rawCy);
         setTextInput({ vx: e.clientX, vy: e.clientY, cx, cy });
         onTextAnchorSet?.(cx, cy);
         // Tell students where the teacher is about to type (blinking caret indicator)
@@ -1552,10 +1556,15 @@ export default function RoomCoursePanel({
                                     const { drawColor: dc, textFontSize: tfsz } = drawState.current;
                                     onDrawPrevCb.current?.({ x1: newCx, y1: newCy, x2: newCx, y2: newCy, color: dc, size: 0, mode: 'text', text: '__text_anchor__', fontSizePx: tfsz });
                                 } else {
-                                    // ── Normal mode: close overlay; teacher can click again to open elsewhere ──
+                                    // ── Normal mode: commit old text and immediately open new text at the
+                                    // clicked position. This avoids the 150 ms debounce window that would
+                                    // block a canvas onClick from re-opening the input.
                                     committingRef.current = true;
-                                    lastCommitRef.current = Date.now(); // debounce canvas click after overlay closes
-                                    setTextInput(null);
+                                    lastCommitRef.current = Date.now();
+                                    const { drawColor: dc2, textFontSize: tfsz2 } = drawState.current;
+                                    setTextInput({ vx: e.clientX, vy: e.clientY, cx: newCx, cy: newCy });
+                                    if (ta) { ta.value = ''; }
+                                    onDrawPrevCb.current?.({ x1: newCx, y1: newCy, x2: newCx, y2: newCy, color: dc2, size: 0, mode: 'text', text: '__text_anchor__', fontSizePx: tfsz2 });
                                 }
                             }}
                         >
