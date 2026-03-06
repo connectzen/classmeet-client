@@ -92,7 +92,7 @@ interface Props {
 
 type DrawTool = 'pen' | 'highlight' | 'eraser' | 'text' | 'circle' | 'rect' | 'square' | 'arrow' | 'line';
 
-const DRAW_COLORS = ['#ff4444', '#ff9900', '#ffdd00', '#44ff88', '#00ccff', '#ffffff'];
+const DRAW_COLORS = ['#ff4444', '#ff9900', '#ffdd00', '#44ff88', '#00ccff', '#000000'];
 const TOOL_SIZES: Record<string, number> = { S: 0.6, M: 1, L: 2 };
 const SHAPE_TOOLS = ['circle', 'rect', 'square', 'arrow', 'line'];
 
@@ -262,7 +262,7 @@ export default function RoomCoursePanel({
     const [loading, setLoading] = useState(true);
 
     const [drawTool, setDrawTool] = useState<DrawTool | null>(null);
-    const [drawColor, setDrawColor] = useState('#ff4444');
+    const [drawColor, setDrawColor] = useState('#000000');
     const [drawSizeKey, setDrawSizeKey] = useState<'S' | 'M' | 'L'>('M');
     const [textFontStyle, setTextFontStyle] = useState<'normal' | 'bold' | 'italic' | 'bold italic'>('bold');
     const [textFontFamily, setTextFontFamily] = useState('Inter, sans-serif');
@@ -1156,7 +1156,7 @@ export default function RoomCoursePanel({
                                 → same scrollHeight → canvas coords map identically. */}
                             <div ref={innerContentRef} style={{ padding: showBlackboard ? 0 : '20px', boxSizing: 'border-box', width: CANVAS_W, minWidth: CANVAS_W }}>
                                 {showBlackboard ? (
-                                    <div style={{ width: CANVAS_W, height: canvasH, background: 'linear-gradient(135deg, #0d1117 0%, #0f1923 100%)', borderRadius: 0 }} />
+                                    <div style={{ width: CANVAS_W, height: canvasH, background: '#ffffff', borderRadius: 0 }} />
                                 ) : loading ? (
                                     <div style={{ color: 'var(--text-muted)', padding: 40, textAlign: 'center' }}>Loading course…</div>
                                 ) : !course ? (
@@ -1273,6 +1273,9 @@ export default function RoomCoursePanel({
                                 // Skip if the click landed inside the toolbar
                                 const tb = toolbarRef.current;
                                 if (tb && tb.contains(e.target as Node)) return;
+                                // Skip if the click landed inside the textarea itself — let the
+                                // browser handle cursor positioning natively without committing text.
+                                if (textareaRef.current && (e.target === textareaRef.current || textareaRef.current.contains(e.target as Node))) return;
                                 const c = canvasRef.current;
                                 if (!c) return;
                                 const r = c.getBoundingClientRect();
@@ -1323,7 +1326,7 @@ export default function RoomCoursePanel({
                                     left: `${textInput.cx * CANVAS_W * contentScale}px`,
                                     width: `${Math.max(20, (1 - textInput.cx) * CANVAS_W * contentScale - 24 * contentScale)}px`,
                                     height: `${Math.max(40, (1 - textInput.cy) * canvasH * contentScale)}px`,
-                                    background: 'transparent',
+                                       background: 'transparent',
                                     color: drawColor,
                                     caretColor: drawColor,
                                     border: 'none', outline: 'none', resize: 'none',
@@ -1513,7 +1516,7 @@ export default function RoomCoursePanel({
                                     transition: 'all 0.15s' }}
                                 onMouseEnter={e => { if (!blackboardMode) e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
                                 onMouseLeave={e => { if (!blackboardMode) e.currentTarget.style.background = 'transparent'; }}>
-                                {blackboardMode ? '■ Board' : '□ Board'}
+                                {blackboardMode ? '■ White' : '□ White'}
                             </button>
                             <div style={{ height: 1, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />
 
