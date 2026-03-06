@@ -1324,7 +1324,7 @@ export default function RoomCoursePanel({
                                     width: `${Math.max(20, (1 - textInput.cx) * CANVAS_W * contentScale - 24 * contentScale)}px`,
                                     height: `${Math.max(40, (1 - textInput.cy) * canvasH * contentScale)}px`,
                                     background: 'transparent',
-                                    color: 'transparent',
+                                    color: drawColor,
                                     caretColor: drawColor,
                                     border: 'none', outline: 'none', resize: 'none',
                                     padding: 0, margin: 0, boxSizing: 'border-box', overflow: 'hidden',
@@ -1338,13 +1338,8 @@ export default function RoomCoursePanel({
                                 onChange={e => {
                                     const { drawSizeKey: sk, drawColor: dc, textFontStyle: tfs, textFontFamily: tff, textFontSize: tfsz } = drawState.current;
                                     const seg = { x1: textInput.cx, y1: textInput.cy, x2: textInput.cx, y2: textInput.cy, color: dc, size: TOOL_SIZES[sk], mode: 'text' as const, text: e.target.value || ' ', fontStyle: tfs, fontFamily: tff, fontSizePx: tfsz };
-                                    // Draw live preview on teacher's own canvas
-                                    const p = previewRef.current;
-                                    if (p) {
-                                        const ctx = p.getContext('2d');
-                                        if (ctx) { ctx.clearRect(0, 0, p.width, p.height); ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0); drawOnCanvas(ctx, seg, p.width / physScaleRef.current, p.height / physScaleRef.current); }
-                                    }
-                                    // Send to students
+                                    // Teacher sees their text in the visible textarea directly.
+                                    // Send live preview to students.
                                     onDrawPrevCb.current?.(seg);
                                 }}
                                 onKeyDown={e => {
@@ -1360,11 +1355,10 @@ export default function RoomCoursePanel({
                                         const spaces = '    '; // 4-space indent
                                         ta.value = ta.value.slice(0, start) + spaces + ta.value.slice(end);
                                         ta.selectionStart = ta.selectionEnd = start + spaces.length;
-                                        // Manually update canvas preview (bypasses React synthetic onChange)
+                                        // Teacher sees Tab result directly in the visible textarea.
+                                        // Send preview to students (bypasses React synthetic onChange).
                                         const { drawSizeKey: sk, drawColor: dc, textFontStyle: tfs, textFontFamily: tff, textFontSize: tfsz } = drawState.current;
                                         const tabSeg = { x1: textInput.cx, y1: textInput.cy, x2: textInput.cx, y2: textInput.cy, color: dc, size: TOOL_SIZES[sk], mode: 'text' as const, text: ta.value || ' ', fontStyle: tfs, fontFamily: tff, fontSizePx: tfsz };
-                                        const tp = previewRef.current;
-                                        if (tp) { const tctx = tp.getContext('2d'); if (tctx) { tctx.clearRect(0, 0, tp.width, tp.height); tctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0); drawOnCanvas(tctx, tabSeg, tp.width / physScaleRef.current, tp.height / physScaleRef.current); } }
                                         onDrawPrevCb.current?.(tabSeg);
                                         return;
                                     }
