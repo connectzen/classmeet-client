@@ -376,6 +376,9 @@ export default function PlayModePanel({
 
     const anchorRef       = useRef(anchor);    anchorRef.current      = anchor;
     const canvasHRef      = useRef(canvasH);   canvasHRef.current     = canvasH;
+    // Visual canvas height = canvasH × contentScale (screen pixels). Used as the planning
+    // height so line spacing equals fontSizePx × 1.4 screen px — matching the editor exactly.
+    const contentScaleRef = useRef(contentScale ?? 1); contentScaleRef.current = contentScale ?? 1;
     const speedRef        = useRef(speedIdx);  speedRef.current       = speedIdx;
     const animTypeRef     = useRef(animType);  animTypeRef.current    = animType;
     const wordsPerLineRef   = useRef(wordsPerLine);   wordsPerLineRef.current   = wordsPerLine;
@@ -567,14 +570,17 @@ export default function PlayModePanel({
         // Open blackboard for teacher locally only — students are NOT notified.
         // Teacher controls student visibility via the Share button in the course panel.
         if (!isBlackboardOnRef.current) onEnableBlackboardLocal();
+        // Use the visual (screen-pixel) canvas height so line spacing = fontSizePx × 1.4 px,
+        // matching the Play editor exactly regardless of the blackboard panel's zoom level.
+        const visualH = canvasHRef.current * contentScaleRef.current;
         const plan = buildGroupPlan(
             styledWords,
             wordsPerFlyRef.current,
             wordsPerLineRef.current,
             linesPerBlockRef.current,
             // Clamp default anchor so play text doesn't start behind the floating header pill (~52px)
-            Math.max(anchorRef.current?.cy ?? 0.09, 52 / Math.max(1, canvasHRef.current)),
-            canvasHRef.current,
+            Math.max(anchorRef.current?.cy ?? 0.09, 52 / Math.max(1, visualH)),
+            visualH,
         );
         if (!plan.length) return;
         // Unlock broadcast immediately so students see content from the first play action
@@ -638,7 +644,7 @@ export default function PlayModePanel({
                 wordsPerLineRef.current,
                 linesPerBlockRef.current,
                 anchorNow.cy,
-                canvasHRef.current,
+                canvasHRef.current * contentScaleRef.current,
                 lineOffset,
             );
             if (!newPlan.length) { setPlayState('done'); return; }
