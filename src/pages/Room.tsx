@@ -1270,8 +1270,11 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                     </div>
                 </div>
 
-                {/* CONTROLS: Vertical strip (desktop) / bottom bar (mobile) */}
-                <div className="room-controls">
+
+            </div>
+
+            {/* CONTROLS: horizontal bottom bar (desktop + mobile) */}
+            <div className="room-controls">
                     <button id="btn-toggle-mic" className={`control-btn ${micOn ? '' : 'control-btn-off'}`} onClick={toggleMic}>
                         {micOn ? '🎙️' : '🔇'}
                         <span className="control-label">{micOn ? 'Mute' : 'Unmute'}</span>
@@ -1350,8 +1353,6 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                     <button id="btn-leave-room" className="control-btn control-btn-leave" onClick={handleLeaveIntentional}>
                         🚪 <span className="control-label">Leave</span>
                     </button>
-                </div>
-
             </div>
         </div>
     );
