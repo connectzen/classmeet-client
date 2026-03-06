@@ -1015,8 +1015,8 @@ export default function RoomCoursePanel({
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--surface-2)', borderRadius: 12, overflow: 'hidden', position: 'relative' }}>
 
-            {/* ── Compact floating pill — always visible, hover to expand ── */}
-            <div
+            {/* ── Compact floating pill — hidden on blackboard, hover to expand otherwise ── */}
+            {!showBlackboard && <div
                 style={{ position: 'absolute', top: 6, left: '50%', transform: 'translateX(-50%)', zIndex: 30, pointerEvents: 'auto' }}
                 onMouseEnter={() => setHeaderHovered(true)}
                 onMouseLeave={() => setHeaderHovered(false)}
@@ -1046,10 +1046,10 @@ export default function RoomCoursePanel({
                                 marginLeft: 2 }}>✏</button>
                     )}
                 </div>
-            </div>
+            </div>}
 
-            {/* Full expanded header — overlays content on hover */}
-            {headerHovered && (
+            {/* Full expanded header — overlays content on hover, hidden on blackboard */}
+            {headerHovered && !showBlackboard && (
                 <div
                     style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 31, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: 'rgba(10,10,20,0.95)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(99,102,241,0.25)', flexWrap: 'wrap' }}
                     onMouseEnter={() => setHeaderHovered(true)}
