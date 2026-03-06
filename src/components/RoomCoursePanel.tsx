@@ -202,6 +202,7 @@ function drawOnCanvas(ctx: CanvasRenderingContext2D, seg: DrawSeg, w: number, h:
         const startX  = seg.x1 * w;
         let   curY    = seg.y1 * h;
         const drawLine = (text: string, x: number, y: number) => {
+            if (y >= h) return; // line is below canvas bottom — skip
             ctx.fillText(text, x, y);
             if (seg.underline) {
                 const tw = ctx.measureText(text).width;
@@ -230,6 +231,7 @@ function drawOnCanvas(ctx: CanvasRenderingContext2D, seg: DrawSeg, w: number, h:
             return [...chunks, buf];
         };
         for (const rawLine of (seg.text || '').split('\n')) {
+            if (curY >= h) break; // past canvas bottom — stop rendering
             if (rawLine === '') { curY += lineH; continue; }
             const words = rawLine.split(' ');
             let cur = '';
@@ -1178,13 +1180,16 @@ export default function RoomCoursePanel({
         // is valid for text. Only clamp away from the pill when on the lesson canvas and
         // not scrolled (pill sits at ~52 logical px from the top).
         const scrolled = (contentRef.current?.scrollTop ?? 0) > 0;
-        const cy = (scrolled || showBlackboardRef.current)
+        const topClamped = (scrolled || showBlackboardRef.current)
             ? rawCy
             : Math.max(52 / (canvasRef.current?.clientHeight ?? canvasH), rawCy);
-        setTextInput({ vx: e.clientX, vy: e.clientY, cx, cy });
-        onTextAnchorSet?.(cx, cy);
         // Tell students where the teacher is about to type (blinking caret indicator)
         const { drawColor: dc, textFontSize: tfsz } = drawState.current;
+        // Reserve at least one line height from the bottom so text never overflows the board.
+        const maxCy = 1 - (tfsz * 1.4) / (canvasRef.current?.clientHeight ?? canvasH);
+        const cy = Math.min(topClamped, Math.max(0, maxCy));
+        setTextInput({ vx: e.clientX, vy: e.clientY, cx, cy });
+        onTextAnchorSet?.(cx, cy);
         onDrawPrevCb.current?.({ x1: cx, y1: cy, x2: cx, y2: cy, color: dc, size: 0, mode: 'text', text: '__text_anchor__', fontSizePx: tfsz });
     }, [drawTool]);
 
@@ -1530,7 +1535,9 @@ export default function RoomCoursePanel({
                                 if (!c) return;
                                 const r = c.getBoundingClientRect();
                                 const newCx = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
-                                const newCy = Math.max(0, Math.min(1, (e.clientY - r.top)  / r.height));
+                                const { textFontSize: tfsz2 } = drawState.current;
+                                const maxNewCy = 1 - (tfsz2 * 1.4) / (c.clientHeight || canvasH);
+                                const newCy = Math.max(0, Math.min(Math.max(0, maxNewCy), (e.clientY - r.top) / r.height));
 
                                 // Commit whatever has been typed at the current anchor
                                 const ta = textareaRef.current;
