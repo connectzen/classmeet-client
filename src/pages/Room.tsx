@@ -210,6 +210,8 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
 
     // ── Socket event handlers ────────────────────────────────────────────
     const handleParticipantJoined = useCallback((p: Participant) => {
+        // Guard: ignore events for our own socket (can happen during StrictMode double-mount or reconnect race)
+        if (p.socketId === socketIdRef.current) return;
         setParticipants((prev) => new Map(prev).set(p.socketId, { ...p, isMuted: false, isCamOff: false }));
         addNewPeer(p.socketId);
         if (p.role === 'teacher') setTeacherGraceCountdown(null);
@@ -435,10 +437,12 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     // so that peer offers include our video/audio tracks from the start.
     useEffect(() => {
         if (socketId && existingParticipants.length > 0 && localStream) {
-            existingParticipants.forEach((p) =>
+            // Filter out self in case of a race (StrictMode / reconnect) where our old socket appears in the list
+            const others = existingParticipants.filter(p => p.socketId !== socketId);
+            others.forEach((p) =>
                 setParticipants((prev) => new Map(prev).set(p.socketId, { ...p, isMuted: false, isCamOff: false }))
             );
-            initiatePeerConnections(existingParticipants);
+            initiatePeerConnections(others);
         }
     }, [socketId, existingParticipants.length, localStream]);
 
@@ -714,10 +718,11 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         setTimeout(() => { clearSession(); onLeave(); }, 500);
     };
 
-    // Build participant list for sidebar
+    // Build participant list for sidebar — filter out own socketId from the map as a final safety net
+    // against self-duplication caused by StrictMode double-mount or WebSocket reconnect races
     const allParticipants: ParticipantState[] = [
         { socketId: '__local__', name, role, isMuted: !micOn, isCamOff: !camOn },
-        ...Array.from(participants.values()),
+        ...Array.from(participants.values()).filter(p => p.socketId !== socketId),
     ];
 
     // Participants shown in the sidebar / thumbnail strip — exclude whoever is spotlighted.
@@ -954,16 +959,16 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 const naturalIdx = Math.min(students.findIndex(p => p.socketId === spotlightId), 3);
                                 const teacherSlot = naturalIdx >= 0 ? naturalIdx : 0;
                                 gridSlots[teacherSlot] = localTeacher;
-                                // Fill remaining slots with other students
-                                const others = students.filter(p => p.socketId !== spotlightId);
+                                // Fill remaining slots with other students (exclude spotlighted + local user already placed)
+                                const others = students.filter(p => p.socketId !== spotlightId && p.socketId !== '__local__');
                                 let si = 0;
                                 for (let i = 0; i < 4; i++) {
                                     if (gridSlots[i] !== null) continue;
                                     gridSlots[i] = others[si++] ?? null;
                                 }
                             } else {
-                                // Teacher is on main screen — show students in slots
-                                students.slice(0, 4).forEach((s, i) => { gridSlots[i] = s; });
+                                // Teacher/local user is on main screen — show remote students in slots only
+                                students.filter(s => s.socketId !== '__local__').slice(0, 4).forEach((s, i) => { gridSlots[i] = s; });
                             }
 
                             return gridSlots.map((p, i) => {
