@@ -1229,24 +1229,6 @@ export default function RoomCoursePanel({
                                 />
                             )}
 
-                            {/* Play Mode HTML overlay — full-canvas, each line absolutely positioned.
-                                HTML is teacher-generated (text is escHtml-escaped, CSS from controlled
-                                data model), so DOMPurify is skipped to avoid any style-stripping. */}
-                            {playHtml ? (
-                                <div
-                                    style={{
-                                        position: 'absolute',
-                                        top: 0, left: 0,
-                                        width: '100%', height: '100%',
-                                        pointerEvents: 'none',
-                                        zIndex: 18,
-                                        overflow: 'hidden',
-                                    }}
-                                    // eslint-disable-next-line react/no-danger
-                                    dangerouslySetInnerHTML={{ __html: playHtml }}
-                                />
-                            ) : null}
-
                             {/* Teacher cursor dot — visible to students in real time */}
                             {!isTeacher && teacherCursor && (
                                 <div style={{
@@ -1279,6 +1261,24 @@ export default function RoomCoursePanel({
                                 }} />
                             )}
                         </div>
+                        {/* Play Mode HTML overlay — OUTSIDE the zoom wrapper so font-sizes render at
+                            their true pixel values, exactly matching what the Play editor shows.
+                            Width/height are the visual (CSS) dimensions of the scaled canvas. */}
+                        {playHtml ? (
+                            <div
+                                style={{
+                                    position: 'absolute',
+                                    top: 0, left: 0,
+                                    width: CANVAS_W * contentScale,
+                                    height: canvasH * contentScale,
+                                    pointerEvents: 'none',
+                                    zIndex: 18,
+                                    overflow: 'hidden',
+                                }}
+                                // eslint-disable-next-line react/no-danger
+                                dangerouslySetInnerHTML={{ __html: playHtml }}
+                            />
+                        ) : null}
                     </div>
 
                     {/* Full-screen text input overlay — covers entire presenting area while teacher types.

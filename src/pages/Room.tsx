@@ -1055,9 +1055,9 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
 
                     {/* Spotlight or Quiz/Course (when toggle ON) */}
                     <div className="spotlight-area">
-                        {courseToggleOn && role === 'teacher' ? (
+                        {(courseToggleOn || blackboardOn) && role === 'teacher' ? (
                             <RoomCoursePanel
-                                courseIds={sessionCourseIds}
+                                courseIds={courseToggleOn ? sessionCourseIds : []}
                                 serverUrl={SERVER_URL}
                                 role={role}
                                 activeLessonIdx={courseLessonIdx}
@@ -1102,9 +1102,9 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 playAnchor={playAnchor}
                                 isPlayActive={isPlayActive}
                             />
-                        ) : courseToggleOn && role !== 'teacher' ? (
+                        ) : (courseToggleOn || blackboardOn) && role !== 'teacher' ? (
                             <RoomCoursePanel
-                                courseIds={sessionCourseIds}
+                                courseIds={courseToggleOn ? sessionCourseIds : []}
                                 serverUrl={SERVER_URL}
                                 role={role}
                                 activeLessonIdx={courseLessonIdx}
@@ -1310,6 +1310,19 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 setCourseToggleOn(next);
                                 if (!next) { emitCourseToggle(false, []); setCourseSharedWithStudents(false); }
                                 if (next) { if (quizToggleOn && roomQuiz) stopRoomQuiz(); setQuizToggleOn(false); }
+                            }}
+                        />
+                    )}
+
+                    {/* Blackboard toggle — teacher only, independent from Course */}
+                    {role === 'teacher' && (
+                        <CtrlToggle
+                            label="Blackboard"
+                            on={blackboardOn}
+                            onChange={() => {
+                                const next = !blackboardOn;
+                                setBlackboardOn(next);
+                                emitBlackboardToggle(next);
                             }}
                         />
                     )}
