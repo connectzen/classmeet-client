@@ -90,11 +90,22 @@ interface Props {
     onContentScaleChange?: (scale: number) => void;
 }
 
-type DrawTool = 'pen' | 'highlight' | 'eraser' | 'text' | 'circle' | 'rect' | 'square' | 'arrow' | 'line';
+type DrawTool = 'pen' | 'highlight' | 'eraser' | 'text' | 'circle' | 'rect' | 'square' | 'arrow' | 'line' | 'selector';
 
-const DRAW_COLORS = ['#ff4444', '#ff9900', '#ffdd00', '#44ff88', '#00ccff', '#000000'];
+const DRAW_COLORS = ['#ff4444', '#ff9900', '#ffdd00', '#44ff88', '#00ccff', '#ffffff'];
 const TOOL_SIZES: Record<string, number> = { S: 0.6, M: 1, L: 2 };
 const SHAPE_TOOLS = ['circle', 'rect', 'square', 'arrow', 'line'];
+
+// Returns true when the point (px,py) — in normalized [0,1] coords — falls within
+// the bounding box of a history group, extended by `pad` on every side.
+function groupHitTest(segs: DrawSeg[], px: number, py: number, pad: number): boolean {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const s of segs) {
+        minX = Math.min(minX, s.x1, s.x2); minY = Math.min(minY, s.y1, s.y2);
+        maxX = Math.max(maxX, s.x1, s.x2); maxY = Math.max(maxY, s.y1, s.y2);
+    }
+    return px >= minX - pad && px <= maxX + pad && py >= minY - pad && py <= maxY + pad;
+}
 
 // Capture device pixel ratio once. Allows canvas buffer to match physical pixels
 // so text and drawings are crisp on HiDPI/Retina screens instead of upscaled.
@@ -111,15 +122,16 @@ const FONT_FAMILIES: { label: string; value: string }[] = [
 ];
 
 const TOOL_DEFS: { id: DrawTool; icon: string; tip: string; cursor: string }[] = [
-    { id: 'pen',       icon: '✏',  tip: 'Pen',        cursor: 'crosshair' },
-    { id: 'highlight', icon: '▌',  tip: 'Highlight',  cursor: 'crosshair' },
-    { id: 'text',      icon: 'T',  tip: 'Text',       cursor: 'text'      },
-    { id: 'eraser',    icon: '◻',  tip: 'Eraser',     cursor: 'cell'      },
-    { id: 'arrow',     icon: '↗',  tip: 'Arrow',      cursor: 'crosshair' },
-    { id: 'line',      icon: '/',  tip: 'Line',       cursor: 'crosshair' },
-    { id: 'circle',    icon: '○',  tip: 'Circle',     cursor: 'crosshair' },
-    { id: 'rect',      icon: '▭',  tip: 'Rectangle',  cursor: 'crosshair' },
-    { id: 'square',    icon: '□',  tip: 'Square',     cursor: 'crosshair' },
+    { id: 'pen',       icon: '✏',  tip: 'Pen',           cursor: 'crosshair' },
+    { id: 'highlight', icon: '▌',  tip: 'Highlight',     cursor: 'crosshair' },
+    { id: 'text',      icon: 'T',  tip: 'Text',          cursor: 'text'      },
+    { id: 'eraser',    icon: '◻',  tip: 'Eraser',        cursor: 'cell'      },
+    { id: 'selector',  icon: '⊹',  tip: 'Select & move', cursor: 'default'   },
+    { id: 'arrow',     icon: '↗',  tip: 'Arrow',         cursor: 'crosshair' },
+    { id: 'line',      icon: '/',  tip: 'Line',          cursor: 'crosshair' },
+    { id: 'circle',    icon: '○',  tip: 'Circle',        cursor: 'crosshair' },
+    { id: 'rect',      icon: '▭',  tip: 'Rectangle',     cursor: 'crosshair' },
+    { id: 'square',    icon: '□',  tip: 'Square',        cursor: 'crosshair' },
 ];
 
 // ── Canvas drawing helper ──────────────────────────────────────────────────
@@ -262,7 +274,7 @@ export default function RoomCoursePanel({
     const [loading, setLoading] = useState(true);
 
     const [drawTool, setDrawTool] = useState<DrawTool | null>(null);
-    const [drawColor, setDrawColor] = useState('#000000');
+    const [drawColor, setDrawColor] = useState('#ff4444');
     const [drawSizeKey, setDrawSizeKey] = useState<'S' | 'M' | 'L'>('M');
     const [textFontStyle, setTextFontStyle] = useState<'normal' | 'bold' | 'italic' | 'bold italic'>('bold');
     const [textFontFamily, setTextFontFamily] = useState('Inter, sans-serif');
@@ -281,6 +293,8 @@ export default function RoomCoursePanel({
     const [lessonKey, setLessonKey] = useState(0);
     const [canvasH, setCanvasH] = useState(600);
     const [toolbarScale, setToolbarScale] = useState(1);
+    // Selection box overlay — shown when selector tool is active and a shape is picked
+    const [selectionBox, setSelectionBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
     // Horizontal padding applied to student view so content is centered and
     // matches the teacher's content area width (teacher has toolbar on the right).
     const [contentPaddingX, setContentPaddingX] = useState(0);
@@ -329,6 +343,24 @@ export default function RoomCoursePanel({
     // Last received snapshot (student late-join) — drawn before segs on replay
     const snapshotImgRef = useRef<HTMLImageElement | null>(null);
 
+    // ── Undo / Redo history (teacher-only) ───────────────────────────────────
+    // Each entry is ONE complete drawing action (all pen segs in a stroke, or a
+    // single shape/text seg). Separate stacks per surface so switching boards
+    // doesn't mix actions.
+    const lessonHistory      = useRef<DrawSeg[][]>([]);
+    const lessonRedoStack    = useRef<DrawSeg[][]>([]);
+    const blackboardHistory  = useRef<DrawSeg[][]>([]);
+    const blackboardRedoStack = useRef<DrawSeg[][]>([]);
+    // Buffer that collects pen/eraser/highlight micro-segs during a single drag —
+    // flushed to the history stack on mouseup.
+    const drawStrokeBuffer   = useRef<DrawSeg[]>([]);
+
+    // ── Selector tool refs ────────────────────────────────────────────────────
+    const selectedGroupIdxRef = useRef<number | null>(null);
+    const selDragStart        = useRef<{ x: number; y: number } | null>(null);
+    const selOrigGroup        = useRef<DrawSeg[] | null>(null);
+    const selIsDragging       = useRef(false);
+
     // Always-fresh refs so document-level handlers never have stale closures
     const isTeacher  = role === 'teacher';
     const drawActive = isTeacher && drawTool !== null;
@@ -358,11 +390,98 @@ export default function RoomCoursePanel({
         });
     }, [onBlackboardToggle]);
 
+    // ── Undo / Redo helpers ────────────────────────────────────────────────────
+    const handleUndo = useCallback(() => {
+        if (!isTeacher) return;
+        const isBoard = showBlackboardRef.current;
+        const history = isBoard ? blackboardHistory.current : lessonHistory.current;
+        const redo    = isBoard ? blackboardRedoStack.current : lessonRedoStack.current;
+        if (history.length === 0) return;
+        const last = history.pop()!;
+        redo.push(last);
+        const rebuilt = history.flat();
+        if (isBoard) { blackboardSegs.current = rebuilt; } else { committedSegs.current = rebuilt; }
+        replayRef.current();
+    }, [isTeacher]);
+
+    const handleRedo = useCallback(() => {
+        if (!isTeacher) return;
+        const isBoard = showBlackboardRef.current;
+        const history = isBoard ? blackboardHistory.current : lessonHistory.current;
+        const redo    = isBoard ? blackboardRedoStack.current : lessonRedoStack.current;
+        if (redo.length === 0) return;
+        const stroke = redo.pop()!;
+        history.push(stroke);
+        const rebuilt = history.flat();
+        if (isBoard) { blackboardSegs.current = rebuilt; } else { committedSegs.current = rebuilt; }
+        replayRef.current();
+    }, [isTeacher]);
+
+    // Selector: draw group on preview canvas with a selection-box overlay
+    const renderSelectorPreview = useCallback((segs: DrawSeg[]) => {
+        const prev = previewRef.current;
+        if (!prev) return;
+        const ctx = prev.getContext('2d');
+        if (!ctx) return;
+        const lw = prev.width / physScaleRef.current, lh = prev.height / physScaleRef.current;
+        ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, prev.width, prev.height);
+        ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0);
+        for (const s of segs) drawOnCanvas(ctx, s, lw, lh);
+        // Compute bounding box in logical px
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const s of segs) {
+            minX = Math.min(minX, s.x1 * lw, s.x2 * lw); minY = Math.min(minY, s.y1 * lh, s.y2 * lh);
+            maxX = Math.max(maxX, s.x1 * lw, s.x2 * lw); maxY = Math.max(maxY, s.y1 * lh, s.y2 * lh);
+        }
+        const PAD = 6;
+        ctx.save();
+        ctx.setLineDash([5, 4]); ctx.strokeStyle = '#6366f1'; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.9;
+        ctx.strokeRect(minX - PAD, minY - PAD, maxX - minX + PAD * 2, maxY - minY + PAD * 2);
+        ctx.restore();
+        // Mirror to React state so the box also shows as a CSS overlay (visible after mouseup)
+        setSelectionBox({ x: (minX - PAD) / lw, y: (minY - PAD) / lh, w: (maxX - minX + PAD * 2) / lw, h: (maxY - minY + PAD * 2) / lh });
+    }, []);
+
     // Sync internal blackboardMode when blackboardActive prop becomes true
     // (e.g. Play Mode auto-enables the blackboard for the teacher)
     useEffect(() => {
         if (blackboardActive) setBlackboardMode(true);
     }, [blackboardActive]);
+
+    // ── Keyboard shortcuts: Ctrl+Z = undo, Ctrl+Y / Ctrl+Shift+Z = redo ──────
+    useEffect(() => {
+        if (!isTeacher) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); handleUndo(); }
+                else if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); handleRedo(); }
+            }
+        };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, [isTeacher, handleUndo, handleRedo]);
+
+    // ── Selector: clear selection when switching away from the selector tool ──
+    useEffect(() => {
+        if (drawTool !== 'selector') {
+            if (selectedGroupIdxRef.current !== null) {
+                // Restore any temporarily-lifted shape back onto the committed canvas
+                const isBoard = showBlackboardRef.current;
+                const history = isBoard ? blackboardHistory.current : lessonHistory.current;
+                const target  = isBoard ? blackboardSegs : committedSegs;
+                target.current = history.flat();
+                replayRef.current();
+            }
+            setSelectionBox(null);
+            selectedGroupIdxRef.current = null;
+            selOrigGroup.current = null;
+            selDragStart.current = null;
+            // Clear preview canvas of any selection overlay
+            const prev = previewRef.current;
+            if (prev) { const ctx = prev.getContext('2d'); if (ctx) { ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0, 0, prev.width, prev.height); } }
+        }
+    }, [drawTool]);
 
     // ── Data loading ──────────────────────────────────────────────────────────
     useEffect(() => {
@@ -427,6 +546,12 @@ export default function RoomCoursePanel({
         committedSegs.current = [];
         blackboardSegs.current = [];
         snapshotImgRef.current = null;
+        // Reset history and redo stacks for all surfaces
+        lessonHistory.current = []; lessonRedoStack.current = [];
+        blackboardHistory.current = []; blackboardRedoStack.current = [];
+        drawStrokeBuffer.current = [];
+        selectedGroupIdxRef.current = null; selOrigGroup.current = null;
+        setSelectionBox(null);
         const c = canvasRef.current;
         if (c) { const ctx = c.getContext('2d'); if (ctx) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, c.width, c.height); } }
         const p = previewRef.current;
@@ -577,6 +702,48 @@ export default function RoomCoursePanel({
             const inCanvas = e.clientX >= r.left && e.clientX <= r.right
                            && e.clientY >= r.top  && e.clientY <= r.bottom;
             if (!inCanvas) return;
+
+            // ── Selector tool ─────────────────────────────────────────────────
+            if (drawTool === 'selector') {
+                e.preventDefault();
+                const p = pt(e);
+                const isBoard = showBlackboardRef.current;
+                const history = isBoard ? blackboardHistory.current : lessonHistory.current;
+                // Normalized padding ≈ 12 logical px
+                const PAD = 12 / (canvas.width / physScaleRef.current);
+                let hitIdx = -1;
+                for (let i = history.length - 1; i >= 0; i--) {
+                    if (groupHitTest(history[i], p.x, p.y, PAD)) { hitIdx = i; break; }
+                }
+                if (hitIdx >= 0) {
+                    selectedGroupIdxRef.current = hitIdx;
+                    selDragStart.current = p;
+                    selOrigGroup.current = history[hitIdx].map(s => ({ ...s }));
+                    selIsDragging.current = false;
+                    isDrawing.current = true;
+                    // Lift group off committed canvas (replay without it)
+                    const target = isBoard ? blackboardSegs : committedSegs;
+                    target.current = history.flatMap((g, i2) => i2 === hitIdx ? [] : g);
+                    replayRef.current();
+                    // Show on preview canvas with selection box
+                    renderSelectorPreview(selOrigGroup.current);
+                } else {
+                    // Clicked empty space — deselect
+                    if (selectedGroupIdxRef.current !== null) {
+                        const isB = showBlackboardRef.current;
+                        const hist = isB ? blackboardHistory.current : lessonHistory.current;
+                        const tgt  = isB ? blackboardSegs : committedSegs;
+                        tgt.current = hist.flat();
+                        replayRef.current();
+                    }
+                    selectedGroupIdxRef.current = null; selOrigGroup.current = null;
+                    setSelectionBox(null);
+                    const prevCnv = previewRef.current;
+                    if (prevCnv) { const pCtx = prevCnv.getContext('2d'); if (pCtx) { pCtx.setTransform(1,0,0,1,0,0); pCtx.clearRect(0, 0, prevCnv.width, prevCnv.height); } }
+                }
+                return;
+            }
+
             e.preventDefault();
             isDrawing.current = true;
             const p = pt(e);
@@ -610,6 +777,20 @@ export default function RoomCoursePanel({
             if (!isDrawing.current) return;
             const { drawTool, drawColor, drawSizeKey } = drawState.current;
             if (!drawTool || drawTool === 'text') return;
+
+            // ── Selector: drag-to-move ─────────────────────────────────────────
+            if (drawTool === 'selector') {
+                if (!selOrigGroup.current || !selDragStart.current) return;
+                const p = pt(e);
+                const dx = p.x - selDragStart.current.x, dy = p.y - selDragStart.current.y;
+                if (Math.abs(dx) > 0.003 || Math.abs(dy) > 0.003) selIsDragging.current = true;
+                if (selIsDragging.current) {
+                    const moved = selOrigGroup.current.map(s => ({ ...s, x1: s.x1 + dx, y1: s.y1 + dy, x2: s.x2 + dx, y2: s.y2 + dy }));
+                    renderSelectorPreview(moved);
+                }
+                return;
+            }
+
             const p = pt(e);
             if (isShape(drawTool)) {
                 const s = shapeStart.current, prev = previewRef.current;
@@ -632,6 +813,7 @@ export default function RoomCoursePanel({
                         currentEphemeralStroke.current.push(seg);
                     } else {
                         (showBlackboardRef.current ? blackboardSegs.current : committedSegs.current).push(seg);
+                        drawStrokeBuffer.current.push(seg); // buffer for undo history
                         const ctx = canvas.getContext('2d');
                         if (ctx) { ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0); drawOnCanvas(ctx, seg, canvas.width / physScaleRef.current, canvas.height / physScaleRef.current); }
                         onDrawSegCb.current?.(seg);
@@ -646,6 +828,34 @@ export default function RoomCoursePanel({
             isDrawing.current = false;
             const { drawTool, drawColor, drawSizeKey } = drawState.current;
             if (!drawTool) return;
+
+            // ── Selector: finalize move ────────────────────────────────────────
+            if (drawTool === 'selector') {
+                const isBoard = showBlackboardRef.current;
+                const history = isBoard ? blackboardHistory.current : lessonHistory.current;
+                if (selectedGroupIdxRef.current !== null && selOrigGroup.current && selDragStart.current) {
+                    if (selIsDragging.current) {
+                        const p = pt(e);
+                        const dx = p.x - selDragStart.current.x, dy = p.y - selDragStart.current.y;
+                        const moved = selOrigGroup.current.map(s => ({ ...s, x1: s.x1 + dx, y1: s.y1 + dy, x2: s.x2 + dx, y2: s.y2 + dy }));
+                        history[selectedGroupIdxRef.current] = moved;
+                    }
+                    // Always rebuild committed from history (restores shape if no drag, or commits moved position)
+                    const target = isBoard ? blackboardSegs : committedSegs;
+                    target.current = history.flat();
+                    replayRef.current();
+                    // Show selection box on final position
+                    const finalSegs = history[selectedGroupIdxRef.current];
+                    if (finalSegs) renderSelectorPreview(finalSegs); else {
+                        const prev2 = previewRef.current;
+                        if (prev2) { const pCtx = prev2.getContext('2d'); if (pCtx) { pCtx.setTransform(1,0,0,1,0,0); pCtx.clearRect(0, 0, prev2.width, prev2.height); } }
+                        setSelectionBox(null);
+                    }
+                }
+                selDragStart.current = null; selIsDragging.current = false;
+                return;
+            }
+
             if (isShape(drawTool) && shapeStart.current) {
                 const p = pt(e);
                 const prev = previewRef.current;
@@ -664,13 +874,24 @@ export default function RoomCoursePanel({
                     const ctx = canvas.getContext('2d');
                     if (ctx) { ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0); drawOnCanvas(ctx, seg, canvas.width / physScaleRef.current, canvas.height / physScaleRef.current); }
                     onDrawSegCb.current?.(seg);
+                    // Record in history, clear redo
+                    const hist = showBlackboardRef.current ? blackboardHistory.current : lessonHistory.current;
+                    hist.push([seg]);
+                    (showBlackboardRef.current ? blackboardRedoStack.current : lessonRedoStack.current).length = 0;
                     // Clear students' preview canvas now that the final segment is committed
                     onDrawPrevCb.current?.({ x1: 0, y1: 0, x2: 0, y2: 0, color: 'transparent', size: 0, mode: 'pen', text: '__clear_preview__' });
                 }
                 shapeStart.current = null;
             }
             lastPt.current = null;
-            // Flush any buffered pen ephemeral stroke (non-shape) on release
+            // Flush any buffered pen/eraser/highlight stroke on release
+            if (!drawState.current.ephemeralMode && drawStrokeBuffer.current.length > 0) {
+                const hist = showBlackboardRef.current ? blackboardHistory.current : lessonHistory.current;
+                hist.push([...drawStrokeBuffer.current]);
+                (showBlackboardRef.current ? blackboardRedoStack.current : lessonRedoStack.current).length = 0;
+                drawStrokeBuffer.current = [];
+            }
+            // Flush any buffered ephemeral pen stroke (non-shape) on release
             if (drawState.current.ephemeralMode && currentEphemeralStroke.current.length > 0) {
                 const releasedAt = Date.now();
                 for (const s of currentEphemeralStroke.current) {
@@ -978,16 +1199,23 @@ export default function RoomCoursePanel({
         const c = canvasRef.current;
         if (c) { const ctx = c.getContext('2d'); if (ctx) { ctx.setTransform(physScaleRef.current, 0, 0, physScaleRef.current, 0, 0); drawOnCanvas(ctx, seg, c.width / physScaleRef.current, c.height / physScaleRef.current); } }
         onDrawSegCb.current?.(seg);
+        // Record in history, clear redo stack
+        const hist = showBlackboardRef.current ? blackboardHistory.current : lessonHistory.current;
+        hist.push([seg]);
+        (showBlackboardRef.current ? blackboardRedoStack.current : lessonRedoStack.current).length = 0;
     }, []);
 
     const handleClear = useCallback(() => {
         // Only clear the active surface; the other surface's drawings are preserved.
         if (showBlackboardRef.current) {
             blackboardSegs.current = [];
+            blackboardHistory.current = []; blackboardRedoStack.current = [];
         } else {
             committedSegs.current = [];
             snapshotImgRef.current = null;
+            lessonHistory.current = []; lessonRedoStack.current = [];
         }
+        drawStrokeBuffer.current = [];
         const c = canvasRef.current;
         if (c) { const ctx = c.getContext('2d'); if (ctx) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, c.width, c.height); } }
         const p = previewRef.current;
@@ -995,6 +1223,7 @@ export default function RoomCoursePanel({
         ephemeralStrokes.current = [];
         currentEphemeralStroke.current = [];
         persistentSnapshot.current = null;
+        setSelectionBox(null); selectedGroupIdxRef.current = null; selOrigGroup.current = null;
         onDrawClear?.();
     }, [onDrawClear]);
 
@@ -1156,7 +1385,7 @@ export default function RoomCoursePanel({
                                 → same scrollHeight → canvas coords map identically. */}
                             <div ref={innerContentRef} style={{ padding: showBlackboard ? 0 : '20px', boxSizing: 'border-box', width: CANVAS_W, minWidth: CANVAS_W }}>
                                 {showBlackboard ? (
-                                    <div style={{ width: CANVAS_W, height: canvasH, background: '#ffffff', borderRadius: 0 }} />
+                                    <div style={{ width: CANVAS_W, height: canvasH, background: 'linear-gradient(135deg, #0d1117 0%, #0f1923 100%)', borderRadius: 0 }} />
                                 ) : loading ? (
                                     <div style={{ color: 'var(--text-muted)', padding: 40, textAlign: 'center' }}>Loading course…</div>
                                 ) : !course ? (
@@ -1189,6 +1418,22 @@ export default function RoomCoursePanel({
                                 style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 16 }} />
 
                             {/* Play anchor indicator removed — was showing as a stray dashed line on the blackboard */}
+
+                            {/* Selector tool: dashed indigo bounding box around selected shape (teacher) */}
+                            {isTeacher && selectionBox && (
+                                <div style={{
+                                    position: 'absolute',
+                                    left: selectionBox.x * CANVAS_W,
+                                    top: selectionBox.y * canvasH,
+                                    width: selectionBox.w * CANVAS_W,
+                                    height: selectionBox.h * canvasH,
+                                    border: '1.5px dashed #6366f1',
+                                    borderRadius: 3,
+                                    pointerEvents: 'none',
+                                    zIndex: 17,
+                                    boxShadow: '0 0 0 1px rgba(99,102,241,0.25)',
+                                }} />
+                            )}
 
                             {/* Play-mode click interceptor — covers canvas area so any click stops the game */}
                             {isPlayActive && isTeacher && (
@@ -1516,7 +1761,7 @@ export default function RoomCoursePanel({
                                     transition: 'all 0.15s' }}
                                 onMouseEnter={e => { if (!blackboardMode) e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
                                 onMouseLeave={e => { if (!blackboardMode) e.currentTarget.style.background = 'transparent'; }}>
-                                {blackboardMode ? '■ White' : '□ White'}
+                                {blackboardMode ? '■ Board' : '□ Board'}
                             </button>
                             <div style={{ height: 1, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />
 
@@ -1599,6 +1844,26 @@ export default function RoomCoursePanel({
                                         justifyContent: 'center', transition: 'background 0.15s' }}
                                     onMouseEnter={e => { e.currentTarget.style.background = 'rgba(248,113,113,0.18)'; }}
                                     onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>🗑</button>
+                            </div>
+
+                            <div style={{ height: 1, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />
+
+                            {/* ── Undo / Redo: 2-column ── */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 30px)', gap: 4 }}>
+                                <button onClick={handleUndo} title="Undo (Ctrl+Z)"
+                                    style={{ width: 30, height: 30, borderRadius: 7, border: 'none',
+                                        background: 'transparent', color: 'var(--text-muted)', fontSize: 15,
+                                        cursor: 'pointer', display: 'flex', alignItems: 'center',
+                                        justifyContent: 'center', transition: 'background 0.15s' }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>↩</button>
+                                <button onClick={handleRedo} title="Redo (Ctrl+Y)"
+                                    style={{ width: 30, height: 30, borderRadius: 7, border: 'none',
+                                        background: 'transparent', color: 'var(--text-muted)', fontSize: 15,
+                                        cursor: 'pointer', display: 'flex', alignItems: 'center',
+                                        justifyContent: 'center', transition: 'background 0.15s' }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>↪</button>
                             </div>
 
                             {/* ── Share toggle ── */}
