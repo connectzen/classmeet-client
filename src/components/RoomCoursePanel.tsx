@@ -1007,8 +1007,9 @@ export default function RoomCoursePanel({
     // Find active topic for current lesson
     const activeTopic  = lesson ? (course?.topics ?? []).find(t => t.lessons?.some(l => l.id === lesson.id)) ?? null : null;
 
-    // Toolbar is visible while hovered OR while a draw tool is active (so it doesn't vanish mid-draw).
-    const toolbarShouldShow = toolbarVisible || drawTool !== null;
+    // Toolbar is only visible while toolbarVisible is true (set by button click, cleared on mouse leave).
+    // Selecting a tool does NOT keep it pinned — cursor leaving the popup dismisses it.
+    const toolbarShouldShow = toolbarVisible;
 
     // ── Render ────────────────────────────────────────────────────────────────
     return (
