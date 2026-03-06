@@ -1522,9 +1522,10 @@ export default function RoomCoursePanel({
                                 // Skip if the click landed inside the toolbar
                                 const tb = toolbarRef.current;
                                 if (tb && tb.contains(e.target as Node)) return;
-                                // Skip if the click landed inside the textarea itself — let the
-                                // browser handle cursor positioning natively without committing text.
-                                if (textareaRef.current && (e.target === textareaRef.current || textareaRef.current.contains(e.target as Node))) return;
+                                // In typing mode any click repositions the cursor; only skip textarea
+                                // clicks in normal mode (where the user may click within typed text
+                                // to reposition the caret without committing).
+                                if (!typingMode && textareaRef.current && (e.target === textareaRef.current || textareaRef.current.contains(e.target as Node))) return;
                                 const c = canvasRef.current;
                                 if (!c) return;
                                 const r = c.getBoundingClientRect();
