@@ -1188,27 +1188,7 @@ export default function RoomCoursePanel({
                             <canvas ref={previewRef}
                                 style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 16 }} />
 
-                            {/* Play anchor indicator — dashed line showing where play text starts */}
-                            {isTeacher && showBlackboard && playAnchor && !isPlayActive && !playHtml && (
-                                <div style={{
-                                    position: 'absolute',
-                                    top: `${playAnchor.cy * 100}%`,
-                                    left: 0, right: 0,
-                                    height: 0,
-                                    borderTop: '1.5px dashed rgba(99,102,241,0.5)',
-                                    pointerEvents: 'none',
-                                    zIndex: 17,
-                                    display: 'flex', alignItems: 'flex-start',
-                                }}>
-                                    <span style={{
-                                        fontSize: 9, fontWeight: 700, color: 'rgba(99,102,241,0.7)',
-                                        background: 'rgba(10,10,30,0.7)', borderRadius: '0 4px 4px 0',
-                                        padding: '1px 5px', lineHeight: 1.6, letterSpacing: '0.04em',
-                                        textTransform: 'uppercase', userSelect: 'none',
-                                        transform: 'translateY(-1px)',
-                                    }}>Start position</span>
-                                </div>
-                            )}
+                            {/* Play anchor indicator removed — was showing as a stray dashed line on the blackboard */}
 
                             {/* Play-mode click interceptor — covers canvas area so any click stops the game */}
                             {isPlayActive && isTeacher && (
