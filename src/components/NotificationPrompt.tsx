@@ -22,10 +22,6 @@ export default function NotificationPrompt({ onDone }: Props) {
         }
     };
 
-    const handleSkip = () => {
-        onDone();
-    };
-
     return (
         <div style={{
             position: 'fixed', inset: 0, zIndex: 99999,
@@ -105,23 +101,7 @@ export default function NotificationPrompt({ onDone }: Props) {
                             {loading ? '⏳  Asking permission…' : '🔔  Allow Notifications'}
                         </button>
 
-                        <button
-                            onClick={handleSkip}
-                            disabled={loading}
-                            style={{
-                                width: '100%',
-                                padding: '12px 20px',
-                                borderRadius: 14,
-                                border: '1px solid rgba(255,255,255,0.08)',
-                                background: 'transparent',
-                                color: '#64748b',
-                                fontWeight: 600,
-                                fontSize: 14,
-                                cursor: loading ? 'not-allowed' : 'pointer',
-                            }}
-                        >
-                            Not now
-                        </button>
+
                     </>
                 ) : (
                     <div style={{ paddingTop: 8 }}>
