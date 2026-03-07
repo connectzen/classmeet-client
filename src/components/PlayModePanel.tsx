@@ -453,7 +453,7 @@ export default function PlayModePanel({
     const [pickerHsv,  setPickerHsv]  = useState({ h: 0, s: 0, v: 100 });
     const [hexInput,   setHexInput]   = useState('#ffffff');
     const [pickerRect, setPickerRect] = useState<DOMRect | null>(null);
-    const [bottomHovered, setBottomHovered] = useState(false);
+
     // Track panel pixel width for editor-zoom calculation
     const [panelPx, setPanelPx] = useState(0);
     const groupPlanRef    = useRef<GroupPlan[]>([]);
@@ -823,9 +823,9 @@ export default function PlayModePanel({
 
     // Shared style for all compact dropdowns in the control rows
     const sel: React.CSSProperties = {
-        padding: "1px 3px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.1)",
-        background: "#1e293b", color: "#94a3b8", fontSize: 10, cursor: "pointer",
-        colorScheme: "dark", maxWidth: 72,
+        padding: "3px 6px", borderRadius: 5, border: "1px solid rgba(255,255,255,0.18)",
+        background: "#1e293b", color: "#cbd5e1", fontSize: 12, cursor: "pointer",
+        colorScheme: "dark", maxWidth: 80,
     };
     // Action-select: value is always "" so it resets after each pick
     const applyFormat = (v: string) => {
@@ -917,9 +917,7 @@ export default function PlayModePanel({
 
             {/* ── BOTTOM: all formatting + animation + anchor + progress + buttons ── */}
             <div
-                onMouseEnter={() => setBottomHovered(true)}
-                onMouseLeave={() => setBottomHovered(false)}
-                style={{ padding: "4px 8px 6px", borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", display: "flex", flexDirection: "column", gap: 4, flexShrink: 0, opacity: (isActive || bottomHovered) ? 1 : 0.55, transition: "opacity 0.2s" }}>
+                style={{ padding: "8px 10px 10px", borderTop: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.04)", display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
 
                 {/* Row 1 — character formatting: Para Font Sz B I U [color] */}
                 <div style={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "nowrap", overflow: 'hidden' }}>
@@ -1006,7 +1004,7 @@ export default function PlayModePanel({
                         const cmd = () => ed?.chain().focus()[i === 0 ? 'toggleBold' : i === 1 ? 'toggleItalic' : 'toggleUnderline']().run();
                         return (
                             <button key={lbl} disabled={isActive} onClick={cmd}
-                                style={{ padding: "0px 4px", fontSize: 10, borderRadius: 4, border: "none", flexShrink: 0, cursor: isActive ? "default" : "pointer", fontWeight: lbl === 'B' ? 900 : 400, fontStyle: lbl === 'I' ? 'italic' : 'normal', textDecoration: lbl === 'U' ? 'underline' : 'none', background: active ? "#6366f1" : "#1e293b", color: active ? "#fff" : "#94a3b8", opacity: isActive ? 0.4 : 1 }}>
+                                style={{ padding: "3px 7px", fontSize: 12, borderRadius: 5, border: "1px solid rgba(255,255,255,0.12)", flexShrink: 0, cursor: isActive ? "default" : "pointer", fontWeight: lbl === 'B' ? 900 : 400, fontStyle: lbl === 'I' ? 'italic' : 'normal', textDecoration: lbl === 'U' ? 'underline' : 'none', background: active ? "#6366f1" : "#1e293b", color: active ? "#fff" : "#94a3b8", opacity: isActive ? 0.4 : 1 }}>
                                 {lbl}
                             </button>
                         );

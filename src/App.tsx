@@ -5,7 +5,7 @@ import Room from './pages/Room';
 import AdminDashboard from './pages/AdminDashboard';
 import GuestJoin from './components/GuestJoin';
 import DownloadApp from './pages/DownloadApp';
-import NotificationPrompt from './components/NotificationPrompt';
+
 
 type View = 'landing' | 'room' | 'admin' | 'guest' | 'download';
 
@@ -23,8 +23,6 @@ export default function App() {
     const [session, setSession] = useState<RoomSession | null>(null);
     const [guestCode, setGuestCode] = useState<string | null>(null);
     const [downloadMode, setDownloadMode] = useState<'install' | 'welcome'>('install');
-    const [showNotifPrompt, setShowNotifPrompt] = useState(false);
-
     useEffect(() => {
         // Detect if running inside the installed PWA shell
         const isStandalone =
@@ -34,16 +32,6 @@ export default function App() {
         // Clear the install handoff flag if present — the app opens normally.
         if (isStandalone && localStorage.getItem('cm_pending_welcome') === '1') {
             localStorage.removeItem('cm_pending_welcome');
-        }
-
-        // Show notification permission prompt on first launch inside the PWA.
-        if (
-            isStandalone &&
-            'Notification' in window &&
-            Notification.permission === 'default' &&
-            !localStorage.getItem('cm_notif_asked')
-        ) {
-            setShowNotifPrompt(true);
         }
 
         const params = new URLSearchParams(window.location.search);
@@ -95,12 +83,7 @@ export default function App() {
 
     return (
         <AuthProvider>
-            {showNotifPrompt && (
-                <NotificationPrompt onDone={() => {
-                    localStorage.setItem('cm_notif_asked', '1');
-                    setShowNotifPrompt(false);
-                }} />
-            )}
+
             {view === 'download' && <DownloadApp mode={downloadMode} onDone={() => setView('landing')} />}
             {view === 'guest' && guestCode && (
                 <GuestJoin

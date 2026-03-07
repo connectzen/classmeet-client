@@ -2244,12 +2244,12 @@ button:active:not(:disabled),
 .room-controls {
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
   flex-wrap: nowrap;
-  gap: 6px;
-  padding: 6px 10px;
-  padding-bottom: max(6px, env(safe-area-inset-bottom));
+  gap: 5px;
+  padding: 7px 12px;
+  padding-bottom: max(7px, env(safe-area-inset-bottom));
   background: var(--surface);
   border-left: none;
   border-top: 1px solid var(--border);
@@ -2262,16 +2262,18 @@ button:active:not(:disabled),
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  flex: 0 0 auto;
-  min-width: 0;
-  padding: 8px 4px;
+  justify-content: center;
+  gap: 4px;
+  flex: 1 1 0;
+  min-width: 52px;
+  max-width: 96px;
+  padding: 10px 6px;
   border-radius: var(--r-md);
   border: 1.5px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 1.2rem;
   cursor: pointer;
   transition: all var(--t);
   box-sizing: border-box;
@@ -2325,9 +2327,9 @@ button:active:not(:disabled),
 }
 
 .control-label {
-  font-size: 0.6rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
