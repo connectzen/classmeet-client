@@ -29,14 +29,9 @@ export default function App() {
             window.matchMedia('(display-mode: standalone)').matches ||
             (navigator as Navigator & { standalone?: boolean }).standalone === true;
 
-        // Handoff: browser tab set this flag before triggering the native install prompt
-        // or as soon as the iOS guide was shown. The PWA standalone window reads it on
-        // first launch, shows the welcome/notification screen, then clears the flag.
+        // Clear the install handoff flag if present — the app opens normally.
         if (isStandalone && localStorage.getItem('cm_pending_welcome') === '1') {
             localStorage.removeItem('cm_pending_welcome');
-            setDownloadMode('welcome');
-            setView('download');
-            return;
         }
 
         const params = new URLSearchParams(window.location.search);

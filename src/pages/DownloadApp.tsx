@@ -313,39 +313,13 @@ function SuccessScreen({ notifPermission, justInstalled, onDone }: {
 
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-    // ── Mobile first-launch after install: minimal success + auto-redirect ──
-    // Show a clean "Installation successful" message and redirect to google.com.
-    // This only triggers on mobile, inside the standalone shell, on first open.
-    useEffect(() => {
-        if (!(isStandalone && justInstalled && isMobile)) return;
-        const t = setTimeout(() => {
-            window.location.href = 'https://google.com';
-        }, 2500);
-        return () => clearTimeout(t);
-    }, [isStandalone, justInstalled, isMobile]);
-
-    if (isStandalone && justInstalled && isMobile) {
-        return (
-            <div style={styles.fullPage}>
-                <div style={styles.successRing}>
-                    <span style={{ fontSize: 52 }}>✅</span>
-                </div>
-                <h1 style={{ ...styles.appName, marginTop: 28, fontSize: 26 }}>
-                    Installation successful.
-                </h1>
-                <p style={{ fontSize: 17, color: '#6ee7b7', fontWeight: 600, margin: '10px 0 0', textAlign: 'center' }}>
-                    You are good to go.
-                </p>
-            </div>
-        );
-    }
-
-    // ── Desktop / browser-tab flow ───────────────────────────────────────────
+    // ── Browser-tab / download-page flow ───────────────────────────────────────
+    // Only redirect from the download page (browser tab), never from inside the app.
     useEffect(() => {
         if (isStandalone) return;
         const t = setTimeout(() => {
             window.location.href = 'https://google.com';
-        }, 3000);
+        }, 2500);
         return () => clearTimeout(t);
     }, [isStandalone]);
 
@@ -354,63 +328,16 @@ function SuccessScreen({ notifPermission, justInstalled, onDone }: {
             <div style={styles.successRing}>
                 <span style={{ fontSize: 52 }}>✅</span>
             </div>
-
-            <h1 style={{ ...styles.appName, marginTop: 28 }}>{justInstalled ? 'Welcome to the Family! 🎉' : 'ClassMeet is Ready 🎓'}</h1>
-
-            <p style={{ fontSize: 16, color: '#94a3b8', maxWidth: 320, margin: '12px auto 36px', lineHeight: 1.7, textAlign: 'center' }}>
-                {justInstalled
-                    ? "We're so proud to have you with us — teacher or student. We will work hard every day so that great education happens here."
-                    : 'The app is installed on your device. Close this browser and open ClassMeet from your home screen.'}
+            <h1 style={{ ...styles.appName, marginTop: 28, fontSize: 26 }}>
+                Installation successful.
+            </h1>
+            <p style={{ fontSize: 17, color: '#6ee7b7', fontWeight: 600, margin: '10px 0 0', textAlign: 'center' }}>
+                You are good to go.
+            </p>
+            <p style={{ fontSize: 13, color: '#64748b', marginTop: 16, textAlign: 'center' }}>
+                Redirecting you shortly…
             </p>
 
-            {/* Notification permission result */}
-            {notifPermission !== null && (
-                <div style={{ ...styles.successCard, marginBottom: 12, background: notifPermission === 'granted' ? 'rgba(16,185,129,0.08)' : 'rgba(100,116,139,0.12)', borderColor: notifPermission === 'granted' ? 'rgba(16,185,129,0.25)' : 'rgba(100,116,139,0.25)' }}>
-                    <div style={{ fontSize: 24, marginBottom: 8 }}>{notifPermission === 'granted' ? '🔔' : '🔕'}</div>
-                    <p style={{ margin: 0, fontSize: 14, color: notifPermission === 'granted' ? '#6ee7b7' : '#94a3b8', lineHeight: 1.6 }}>
-                        {notifPermission === 'granted'
-                            ? "Notifications enabled! We'll alert you when class is about to start."
-                            : 'No notifications — you can enable them later in your device settings.'}
-                    </p>
-                </div>
-            )}
-
-            {/* Instruction card — context-aware for standalone vs browser */}
-            <div style={styles.successCard}>
-                <div style={{ fontSize: 28, marginBottom: 10 }}>{isStandalone ? '🚀' : '🏠'}</div>
-                <p style={{ margin: 0, fontSize: 15, color: '#c7d2fe', lineHeight: 1.7 }}>
-                    {isStandalone
-                        ? <>Tap the button below to <strong style={{ color: '#a5b4fc' }}>start using ClassMeet</strong>!</>
-                        : <>You're all set! This tab will redirect to Google shortly — find the{' '}
-                            <strong style={{ color: '#a5b4fc' }}>ClassMeet</strong> icon on your
-                            home screen and open it.</>}
-                </p>
-            </div>
-
-            {/* Primary CTA — "Start" in standalone, "Close Browser" in browser tab */}
-            {isStandalone ? (
-                <button
-                    onClick={() => { if (onDone) { onDone(); } else { window.location.href = '/'; } }}
-                    style={{ marginTop: 20, padding: '14px 32px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', letterSpacing: 0.3, boxShadow: '0 6px 32px rgba(99,102,241,0.55)' }}
-                >
-                    🚀 &nbsp;Start Using ClassMeet
-                </button>
-            ) : (
-                <button
-                    onClick={() => { window.location.href = 'https://google.com'; }}
-                    style={{ marginTop: 20, padding: '14px 32px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', letterSpacing: 0.3 }}
-                >
-                    → &nbsp;Go to Google
-                </button>
-            )}
-
-            {/* Secondary step */}
-            <div style={{ ...styles.successCard, marginTop: 20, background: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.25)' }}>
-                <div style={{ fontSize: 28, marginBottom: 10 }}>✏️</div>
-                <p style={{ margin: 0, fontSize: 15, color: '#6ee7b7', lineHeight: 1.7 }}>
-                    Create your free account inside the app — then start teaching or studying. Your adventure begins now!
-                </p>
-            </div>
         </div>
     );
 }
