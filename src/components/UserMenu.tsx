@@ -4,6 +4,7 @@ import { useUser } from '../lib/AuthContext';
 import { insforge } from '../lib/insforge';
 import ProfileEditModal from './ProfileEditModal';
 import InviteLinksSection from './InviteLinksSection';
+import { subscribeToPush } from '../lib/pushSubscription';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -23,10 +24,20 @@ export default function UserMenu({ userRole }: UserMenuProps) {
     const [deleteTyped, setDeleteTyped] = useState('');
     const [deleting, setDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState('');
+    const [notifPerm, setNotifPerm] = useState<NotificationPermission>(
+        'Notification' in window ? Notification.permission : 'denied'
+    );
     const menuRef = useRef<HTMLDivElement>(null);
     const showInviteLinksItem = userRole === 'teacher' || userRole === 'member';
 
     useEffect(() => { setAvatarLoadFailed(false); }, [user?.profile?.avatar_url]);
+
+    const handleEnableNotifications = async () => {
+        if (notifPerm !== 'default') return;
+        await subscribeToPush(user?.id);
+        setNotifPerm('Notification' in window ? Notification.permission : 'denied');
+        setOpen(false);
+    };
 
     // Close when clicking/touching outside — mousedown alone misses iOS Safari tap events
     // on non-interactive elements, so we listen to touchstart as well.
@@ -324,6 +335,29 @@ export default function UserMenu({ userRole }: UserMenuProps) {
                                 <line x1="22" y1="11" x2="16" y2="11" />
                             </svg>
                             Invite links
+                        </button>
+                    )}
+
+                    {/* Notifications */}
+                    {notifPerm !== 'denied' && (
+                        <button
+                            onClick={handleEnableNotifications}
+                            disabled={notifPerm === 'granted'}
+                            style={{
+                                width: '100%', padding: '11px 12px', border: 'none', borderRadius: 10,
+                                background: 'transparent',
+                                color: notifPerm === 'granted' ? '#4ade80' : 'var(--text, #e8e8f0)',
+                                fontSize: 13, fontWeight: 600,
+                                cursor: notifPerm === 'granted' ? 'default' : 'pointer',
+                                display: 'flex', alignItems: 'center', gap: 8, transition: 'background 0.15s',
+                                textAlign: 'left', marginBottom: 4, minHeight: 44,
+                                opacity: notifPerm === 'granted' ? 0.8 : 1,
+                            }}
+                            onMouseEnter={e => { if (notifPerm === 'default') e.currentTarget.style.background = 'rgba(99,102,241,0.1)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                        >
+                            <span style={{ fontSize: 15 }}>{notifPerm === 'granted' ? '🔔' : '🔕'}</span>
+                            {notifPerm === 'granted' ? 'Notifications On' : 'Enable Notifications'}
                         </button>
                     )}
 
