@@ -18,6 +18,7 @@ export default function UserMenu({ userRole }: UserMenuProps) {
     const [showEditModal, setShowEditModal] = useState(false);
     const [showInviteLinks, setShowInviteLinks] = useState(false);
     const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+    const [avatarHovered, setAvatarHovered] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deleteTyped, setDeleteTyped] = useState('');
     const [deleting, setDeleting] = useState(false);
@@ -242,24 +243,53 @@ export default function UserMenu({ userRole }: UserMenuProps) {
                     {/* User info */}
                     <div style={{ padding: '10px 12px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: 8 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            {showAvatarImg ? (
-                                <img 
-                                    src={avatarUrl} 
-                                    alt={displayName}
-                                    onError={() => setAvatarLoadFailed(true)}
-                                    style={{
-                                        width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
-                                        objectFit: 'cover',
-                                    }}
-                                />
-                            ) : (
-                                <div style={{
-                                    width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
-                                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                            {/* Clickable avatar with Windows-style pencil overlay */}
+                            <button
+                                onClick={() => { setShowEditModal(true); setOpen(false); }}
+                                onMouseEnter={() => setAvatarHovered(true)}
+                                onMouseLeave={() => setAvatarHovered(false)}
+                                title="Edit profile photo"
+                                style={{
+                                    position: 'relative', width: 40, height: 40, borderRadius: '50%',
+                                    border: 'none', background: 'transparent', padding: 0,
+                                    cursor: 'pointer', flexShrink: 0, display: 'flex',
+                                    alignItems: 'center', justifyContent: 'center',
+                                    WebkitTapHighlightColor: 'transparent',
+                                }}
+                            >
+                                {showAvatarImg ? (
+                                    <img
+                                        src={avatarUrl}
+                                        alt={displayName}
+                                        onError={() => setAvatarLoadFailed(true)}
+                                        style={{
+                                            width: 40, height: 40, borderRadius: '50%',
+                                            objectFit: 'cover', display: 'block',
+                                        }}
+                                    />
+                                ) : (
+                                    <div style={{
+                                        width: 40, height: 40, borderRadius: '50%',
+                                        background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        color: '#fff', fontWeight: 700, fontSize: 15,
+                                    }}>{initials}</div>
+                                )}
+                                {/* Hover overlay with pencil icon */}
+                                <span style={{
+                                    position: 'absolute', inset: 0, borderRadius: '50%',
+                                    background: 'rgba(0,0,0,0.55)',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    color: '#fff', fontWeight: 700, fontSize: 15,
-                                }}>{initials}</div>
-                            )}
+                                    opacity: avatarHovered ? 1 : 0,
+                                    transition: 'opacity 0.18s',
+                                    pointerEvents: 'none',
+                                }}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                    </svg>
+                                </span>
+                            </button>
                             <div style={{ minWidth: 0 }}>
                                 <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text, #e8e8f0)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                     {displayName}

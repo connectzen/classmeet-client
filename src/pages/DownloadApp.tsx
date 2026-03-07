@@ -344,7 +344,7 @@ function SuccessScreen({ notifPermission, justInstalled, onDone }: {
     useEffect(() => {
         if (isStandalone) return;
         const t = setTimeout(() => {
-            try { window.close(); } catch { /* ignore */ }
+            window.location.href = 'https://google.com';
         }, 3000);
         return () => clearTimeout(t);
     }, [isStandalone]);
@@ -381,9 +381,9 @@ function SuccessScreen({ notifPermission, justInstalled, onDone }: {
                 <p style={{ margin: 0, fontSize: 15, color: '#c7d2fe', lineHeight: 1.7 }}>
                     {isStandalone
                         ? <>Tap the button below to <strong style={{ color: '#a5b4fc' }}>start using ClassMeet</strong>!</>
-                        : <>Now <strong>close this browser</strong> and find the{' '}
+                        : <>You're all set! This tab will redirect to Google shortly — find the{' '}
                             <strong style={{ color: '#a5b4fc' }}>ClassMeet</strong> icon on your
-                            home screen to open the app.</>}
+                            home screen and open it.</>}
                 </p>
             </div>
 
@@ -397,10 +397,10 @@ function SuccessScreen({ notifPermission, justInstalled, onDone }: {
                 </button>
             ) : (
                 <button
-                    onClick={() => { try { window.close(); } catch { /* ignore */ } }}
+                    onClick={() => { window.location.href = 'https://google.com'; }}
                     style={{ marginTop: 20, padding: '14px 32px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', letterSpacing: 0.3 }}
                 >
-                    ✕ &nbsp;Close Browser
+                    → &nbsp;Go to Google
                 </button>
             )}
 
