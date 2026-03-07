@@ -124,8 +124,8 @@ export default function DownloadApp() {
                 <OtherBrowserHint platform={platform} />
             )}
 
-            <p style={styles.legalNote}>
-                100% free · No account needed to install · Create yours inside the app
+            <p className="cm-hint-pulse" style={{ ...styles.legalNote, fontSize: 13 }}>
+                ✅ 100% free · No account needed to install · Create yours inside the app
             </p>
 
             {/* ── Install confirmation modal ── */}
