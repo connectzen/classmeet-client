@@ -499,7 +499,6 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
                                             onBlur={() => { if (isEdit) handleUpdateCourse(); }}
                                             placeholder="Description (optional)"
                                             minHeight={56}
-                                            compact
                                         />
                                     </div>
                                 </div>

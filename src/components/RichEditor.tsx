@@ -603,7 +603,7 @@ export default function RichEditor({
 
             {/* Toolbar — hidden in chatMode or when parent supplies its own controls */}
             {!chatMode && !hideToolbar && (
-                <div style={{ display: 'flex', gap: 3, padding: '6px 8px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexWrap: 'nowrap', overflowX: 'auto', alignItems: 'center', background: 'rgba(255,255,255,0.02)' }}>
+                <div style={{ display: 'flex', gap: 3, padding: '6px 8px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexWrap: 'wrap', alignItems: 'center', background: 'rgba(255,255,255,0.02)' }}>
                     {/* Heading — custom dropdown with hover preview */}
                     <HeadingDropdown editor={editor} />
                     {/* Font + Size — hide in compact mode */}
