@@ -4,8 +4,9 @@ import Landing from './pages/Landing';
 import Room from './pages/Room';
 import AdminDashboard from './pages/AdminDashboard';
 import GuestJoin from './components/GuestJoin';
+import DownloadApp from './pages/DownloadApp';
 
-type View = 'landing' | 'room' | 'admin' | 'guest';
+type View = 'landing' | 'room' | 'admin' | 'guest' | 'download';
 
 interface RoomSession {
     roomCode: string;
@@ -28,6 +29,8 @@ export default function App() {
             setGuestCode(code);
             setView('guest');
             window.history.replaceState({}, '', window.location.pathname || '/');
+        } else if (window.location.pathname === '/download-app') {
+            setView('download');
         }
     }, []);
 
@@ -69,6 +72,7 @@ export default function App() {
 
     return (
         <AuthProvider>
+            {view === 'download' && <DownloadApp />}
             {view === 'guest' && guestCode && (
                 <GuestJoin
                     code={guestCode}
