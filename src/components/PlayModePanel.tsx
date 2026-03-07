@@ -1,4 +1,5 @@
 ﻿import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import RichEditor, { isRichEmpty } from "./RichEditor";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -327,6 +328,108 @@ function buildGroupPlan(
         }
     }
     return plan;
+}
+
+// ── PlayDropdown — compact hover-preview dropdown for the play mode toolbar ───
+interface PlayDropdownOption { label: string; value: string; }
+function PlayDropdown({
+    currentLabel,
+    options,
+    disabled,
+    onCapture,
+    onPreview,
+    onRestore,
+    onApply,
+    selStyle,
+}: {
+    currentLabel: string;
+    options: PlayDropdownOption[];
+    disabled: boolean;
+    onCapture: () => void;
+    onPreview: (v: string) => void;
+    onRestore: () => void;
+    onApply: (v: string) => void;
+    selStyle: React.CSSProperties;
+}) {
+    const [open, setOpen] = useState(false);
+    const [pos, setPos] = useState({ top: 0, left: 0 });
+    const btnRef = useRef<HTMLButtonElement>(null);
+
+    function handleToggle(e: React.MouseEvent) {
+        e.preventDefault();
+        if (disabled) return;
+        if (!open && btnRef.current) {
+            const r = btnRef.current.getBoundingClientRect();
+            // Clamp so menu stays within viewport
+            const menuW = 140;
+            const left = Math.min(r.left, window.innerWidth - menuW - 4);
+            const top = r.bottom + 2;
+            setPos({ top, left });
+            onCapture();
+        }
+        setOpen(o => !o);
+    }
+    function handleSelect(v: string) {
+        onApply(v);
+        setOpen(false);
+    }
+    function handleClose() {
+        onRestore();
+        setOpen(false);
+    }
+
+    return (
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+            {open && createPortal(
+                <div style={{ position: 'fixed', inset: 0, zIndex: 99990 }} onMouseDown={e => e.preventDefault()} onClick={handleClose} />,
+                document.body
+            )}
+            <button
+                ref={btnRef}
+                type="button"
+                disabled={disabled}
+                onMouseDown={handleToggle}
+                style={{
+                    ...selStyle,
+                    cursor: disabled ? 'default' : 'pointer',
+                    display: 'inline-flex', alignItems: 'center', gap: 2,
+                    opacity: disabled ? 0.4 : 1,
+                    maxWidth: 60,
+                }}
+            >
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{currentLabel}</span>
+                <span style={{ fontSize: 7, opacity: 0.6, flexShrink: 0 }}>▾</span>
+            </button>
+            {open && createPortal(
+                <div style={{
+                    position: 'fixed', top: pos.top, left: pos.left, zIndex: 99991,
+                    background: '#1e2132', borderRadius: 6, border: '1px solid rgba(99,102,241,0.3)',
+                    boxShadow: '0 6px 20px rgba(0,0,0,0.5)', minWidth: 100, padding: '3px 0',
+                    maxHeight: 220, overflowY: 'auto',
+                }}>
+                    {options.map(opt => (
+                        <div
+                            key={opt.value}
+                            onMouseDown={e => e.preventDefault()}
+                            onClick={() => handleSelect(opt.value)}
+                            onMouseEnter={() => onPreview(opt.value)}
+                            onMouseLeave={() => onRestore()}
+                            style={{
+                                padding: '4px 12px', cursor: 'pointer', fontSize: 11,
+                                color: '#e2e8f0', transition: 'background 0.1s',
+                                whiteSpace: 'nowrap',
+                            }}
+                            onMouseOver={e => { (e.currentTarget as HTMLDivElement).style.background = 'rgba(99,102,241,0.18)'; }}
+                            onMouseOut={e => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
+                        >
+                            {opt.label}
+                        </div>
+                    ))}
+                </div>,
+                document.body
+            )}
+        </div>
+    );
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -752,6 +855,26 @@ export default function PlayModePanel({
     const isUnder  = ed?.isActive('underline') ?? false;
     const curColor = (ed?.getAttributes('textStyle') as { color?: string })?.color ?? '#ffffff';
 
+    // ── Saved values for hover-preview restore ───────────────────────────────
+    const savedHeadingRef = useRef('');
+    const savedFontRef    = useRef('');
+    const savedSizeRef    = useRef('');
+
+    const currentHeading = ed?.isActive('heading', { level: 1 }) ? 'H1'
+        : ed?.isActive('heading', { level: 2 }) ? 'H2'
+        : ed?.isActive('heading', { level: 3 }) ? 'H3' : 'Para';
+    const currentFontVal = (ed?.getAttributes('textStyle') as { fontFamily?: string })?.fontFamily ?? '';
+    const currentFontLabel = PLAY_FONTS.find(f => f.value === currentFontVal)?.label ?? 'Font';
+    const currentSizePx = (ed?.getAttributes('textStyle') as { fontSize?: string })?.fontSize ?? '';
+    const currentSizeVal = currentSizePx.replace('px', '');
+
+    const HEADING_OPTIONS_PLAY = [
+        { label: 'Normal', value: '0' },
+        { label: 'H1', value: '1' },
+        { label: 'H2', value: '2' },
+        { label: 'H3', value: '3' },
+    ];
+
     return (
         <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#111827", color: "#e2e8f0", fontSize: 13, overflow: "hidden" }}>
 
@@ -800,25 +923,84 @@ export default function PlayModePanel({
 
                 {/* Row 1 — character formatting: Para Font Sz B I U [color] */}
                 <div style={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "nowrap", overflow: 'hidden' }}>
-                    <select value="" disabled={isActive} onChange={e => applyHeading(e.target.value)} style={{ ...sel, maxWidth: 50, opacity: isActive ? 0.4 : 1 }}>
-                        <option value="">Para</option>
-                        <option value="0">Normal</option>
-                        <option value="1">H1</option>
-                        <option value="2">H2</option>
-                        <option value="3">H3</option>
-                    </select>
-                    <select value="" disabled={isActive}
-                        onChange={e => { const v = e.target.value; if (!v || !ed) return; ed.chain().focus().setMark('textStyle', { fontFamily: v }).run(); }}
-                        style={{ ...sel, maxWidth: 50, opacity: isActive ? 0.4 : 1 }}>
-                        <option value="">Font</option>
-                        {PLAY_FONTS.filter(f => f.value).map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-                    </select>
-                    <select value="" disabled={isActive}
-                        onChange={e => { const v = e.target.value; if (!v || !ed) return; ed.chain().focus().setMark('textStyle', { fontSize: v + 'px' }).run(); }}
-                        style={{ ...sel, maxWidth: 36, opacity: isActive ? 0.4 : 1 }}>
-                        <option value="">Sz</option>
-                        {PLAY_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                    <PlayDropdown
+                        currentLabel={currentHeading}
+                        options={HEADING_OPTIONS_PLAY}
+                        disabled={isActive}
+                        selStyle={sel}
+                        onCapture={() => {
+                            const e = editorRef.current;
+                            savedHeadingRef.current = e?.isActive('heading', { level: 1 }) ? '1'
+                                : e?.isActive('heading', { level: 2 }) ? '2'
+                                : e?.isActive('heading', { level: 3 }) ? '3' : '0';
+                        }}
+                        onPreview={v => {
+                            const e = editorRef.current;
+                            if (!e) return;
+                            if (v === '0') e.chain().setParagraph().run();
+                            else e.chain().setHeading({ level: Number(v) as 1|2|3 }).run();
+                        }}
+                        onRestore={() => {
+                            const e = editorRef.current;
+                            const saved = savedHeadingRef.current;
+                            if (!e) return;
+                            if (saved === '0') e.chain().setParagraph().run();
+                            else e.chain().setHeading({ level: Number(saved) as 1|2|3 }).run();
+                        }}
+                        onApply={v => applyHeading(v)}
+                    />
+                    <PlayDropdown
+                        currentLabel={currentFontLabel}
+                        options={PLAY_FONTS.map(f => ({ label: f.label, value: f.value }))}
+                        disabled={isActive}
+                        selStyle={sel}
+                        onCapture={() => { savedFontRef.current = currentFontVal; }}
+                        onPreview={v => {
+                            const e = editorRef.current;
+                            if (!e) return;
+                            if (v) e.chain().setMark('textStyle', { fontFamily: v }).run();
+                            else e.chain().setMark('textStyle', { fontFamily: null }).run();
+                        }}
+                        onRestore={() => {
+                            const e = editorRef.current;
+                            const saved = savedFontRef.current;
+                            if (!e) return;
+                            if (saved) e.chain().setMark('textStyle', { fontFamily: saved }).run();
+                            else e.chain().setMark('textStyle', { fontFamily: null }).run();
+                        }}
+                        onApply={v => {
+                            const e = editorRef.current;
+                            if (!e) return;
+                            if (v) e.chain().focus().setMark('textStyle', { fontFamily: v }).run();
+                            else e.chain().focus().setMark('textStyle', { fontFamily: null }).run();
+                        }}
+                    />
+                    <PlayDropdown
+                        currentLabel={currentSizeVal || 'Sz'}
+                        options={[{ label: 'Default', value: '' }, ...PLAY_SIZES.map(s => ({ label: s, value: s }))]}
+                        disabled={isActive}
+                        selStyle={sel}
+                        onCapture={() => { savedSizeRef.current = currentSizeVal; }}
+                        onPreview={v => {
+                            const e = editorRef.current;
+                            if (!e) return;
+                            if (v) e.chain().setMark('textStyle', { fontSize: v + 'px' }).run();
+                            else e.chain().setMark('textStyle', { fontSize: null }).run();
+                        }}
+                        onRestore={() => {
+                            const e = editorRef.current;
+                            const saved = savedSizeRef.current;
+                            if (!e) return;
+                            if (saved) e.chain().setMark('textStyle', { fontSize: saved + 'px' }).run();
+                            else e.chain().setMark('textStyle', { fontSize: null }).run();
+                        }}
+                        onApply={v => {
+                            const e = editorRef.current;
+                            if (!e) return;
+                            if (v) e.chain().focus().setMark('textStyle', { fontSize: v + 'px' }).run();
+                            else e.chain().focus().setMark('textStyle', { fontSize: null }).run();
+                        }}
+                    />
                     {(['B', 'I', 'U'] as const).map((lbl, i) => {
                         const active = [isBold, isItalic, isUnder][i];
                         const cmd = () => ed?.chain().focus()[i === 0 ? 'toggleBold' : i === 1 ? 'toggleItalic' : 'toggleUnderline']().run();

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useEditor, EditorContent, ReactNodeViewRenderer, NodeViewWrapper } from '@tiptap/react';
 import { Extension, NodeViewProps } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
@@ -279,16 +280,21 @@ function SizeDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
         else editor?.chain().setMark('textStyle', { fontSize: null }).run();
     }
 
+    const clampedLeft = Math.min(pos.left, window.innerWidth - 80);
+
     return (
         <div style={{ position: 'relative' }}>
-            {open && <div style={{ position: 'fixed', inset: 0, zIndex: 9000 }} onMouseDown={e => e.preventDefault()} onClick={() => { handleSizeLeave(); setOpen(false); }} />}
+            {open && createPortal(
+                <div style={{ position: 'fixed', inset: 0, zIndex: 9000 }} onMouseDown={e => e.preventDefault()} onClick={() => { handleSizeLeave(); setOpen(false); }} />,
+                document.body
+            )}
             <button ref={btnRef} type="button" onMouseDown={handleToggle}
                 style={{ padding: '3px 8px', borderRadius: 5, border: 'none', background: open ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)', color: current ? '#a5b4fc' : '#94a3b8', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
                 {current || 'Size'} <span style={{ fontSize: 9, opacity: 0.6 }}>▾</span>
             </button>
-            {open && (
+            {open && createPortal(
                 <div onWheel={e => e.stopPropagation()}
-                    style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9001, background: '#1e2132', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 72, padding: '4px 0', maxHeight: 280, overflowY: 'auto' }}>
+                    style={{ position: 'fixed', top: pos.top, left: clampedLeft, zIndex: 9001, background: '#1e2132', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 72, padding: '4px 0', maxHeight: 280, overflowY: 'auto' }}>
                     <div
                         onMouseDown={e => e.preventDefault()}
                         onClick={() => onSelect('')}
@@ -305,7 +311,8 @@ function SizeDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
                             {size}
                         </div>
                     ))}
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );
@@ -355,9 +362,13 @@ function FontDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentLabel}</span>
                 <span style={{ fontSize: 9, opacity: 0.6, flexShrink: 0 }}>▾</span>
             </button>
-            {open && (
+            {open && createPortal(
+                <div style={{ position: 'fixed', inset: 0, zIndex: 9000 }} onMouseDown={e => e.preventDefault()} onClick={() => { handleFontLeave(); setOpen(false); }} />,
+                document.body
+            )}
+            {open && createPortal(
                 <div onWheel={e => e.stopPropagation()}
-                    style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9001, background: '#1e2132', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 190, padding: '4px 0', maxHeight: 300, overflowY: 'auto' }}>
+                    style={{ position: 'fixed', top: pos.top, left: Math.min(pos.left, window.innerWidth - 198), zIndex: 9001, background: '#1e2132', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 190, padding: '4px 0', maxHeight: 300, overflowY: 'auto' }}>
                     {FONTS.map(font => (
                         <div key={font.value}
                             onMouseDown={e => e.preventDefault()}
@@ -368,7 +379,8 @@ function FontDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
                             {font.label}
                         </div>
                     ))}
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );
@@ -415,13 +427,16 @@ function HeadingDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
 
     return (
         <div style={{ position: 'relative' }}>
-            {open && <div style={{ position: 'fixed', inset: 0, zIndex: 9000 }} onMouseDown={e => e.preventDefault()} onClick={() => { handleLeave(); setOpen(false); }} />}
+            {open && createPortal(
+                <div style={{ position: 'fixed', inset: 0, zIndex: 9000 }} onMouseDown={e => e.preventDefault()} onClick={() => { handleLeave(); setOpen(false); }} />,
+                document.body
+            )}
             <button ref={btnRef} type="button" onMouseDown={handleToggle}
                 style={{ padding: '3px 8px', borderRadius: 5, border: 'none', background: open ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)', color: headingLevel !== '0' ? '#a5b4fc' : '#94a3b8', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
                 {currentLabel} <span style={{ fontSize: 9, opacity: 0.6 }}>▾</span>
             </button>
-            {open && (
-                <div style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9001, background: '#1e2132', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 100, padding: '4px 0' }}>
+            {open && createPortal(
+                <div style={{ position: 'fixed', top: pos.top, left: Math.min(pos.left, window.innerWidth - 108), zIndex: 9001, background: '#1e2132', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 100, padding: '4px 0' }}>
                     {HEADING_OPTIONS.map(opt => (
                         <div key={opt.value}
                             onMouseDown={e => e.preventDefault()}
@@ -432,7 +447,8 @@ function HeadingDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
                             {opt.label}
                         </div>
                     ))}
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );
@@ -634,10 +650,10 @@ export default function RichEditor({
                             <span style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8', borderBottom: `3px solid ${currentColor}`, paddingBottom: 1, lineHeight: 1 }}>A</span>
                             <span style={{ fontSize: 11, color: '#64748b' }}>▾</span>
                         </button>
-                        {showColorPicker && (
+                        {showColorPicker && createPortal(
                             <>
                                 <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onMouseDown={e => { e.preventDefault(); if (originalColorRef.current) editor?.chain().focus().setColor(originalColorRef.current).run(); else editor?.chain().focus().unsetColor().run(); setShowColorPicker(false); }} />
-                                <div style={{ position: 'fixed', top: colorPickerPos.top, left: colorPickerPos.left, zIndex: 9999, background: '#1a1a2e', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 10, padding: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', minWidth: 158, maxHeight: 260, overflowY: 'auto' }}>
+                                <div style={{ position: 'fixed', top: colorPickerPos.top, left: Math.min(colorPickerPos.left, window.innerWidth - 166), zIndex: 9999, background: '#1a1a2e', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 10, padding: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', minWidth: 158, maxHeight: 260, overflowY: 'auto' }}>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 5, marginBottom: 8 }}>
                                         {COLOR_PRESETS.map(color => (
                                             <button
@@ -660,7 +676,8 @@ export default function RichEditor({
                                         />
                                     </div>
                                 </div>
-                            </>
+                            </>,
+                            document.body
                         )}
                     </div>
                     {divider}

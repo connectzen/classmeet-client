@@ -420,7 +420,7 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
                 background: 'linear-gradient(160deg,#1e2130 0%,#181c2a 100%)',
                 borderRadius: 18,
                 width: '100%',
-                maxWidth: step === 2 ? 1060 : 580,
+                maxWidth: step === 2 ? 720 : 580,
                 boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.25)',
                 border: '1px solid rgba(99,102,241,0.25)',
                 transition: 'max-width 0.3s cubic-bezier(0.4,0,0.2,1)',
@@ -477,8 +477,8 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
                     {step === 2 && courseId && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                             {/* Course title / description quick edit */}
-                            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap', paddingBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                                <div style={{ flex: 1, minWidth: 180 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                                <div>
                                     <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#6366f1', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Title</label>
                                     <div style={{ borderRadius: 9, border: '1px solid rgba(99,102,241,0.25)', background: 'rgba(99,102,241,0.05)', overflow: 'hidden' }}>
                                         <RichEditor
@@ -491,7 +491,7 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
                                         />
                                     </div>
                                 </div>
-                                <div style={{ flex: 2, minWidth: 220 }}>
+                                <div>
                                     <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#6366f1', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Description</label>
                                     <div style={{ borderRadius: 9, border: '1px solid rgba(255,255,255,0.09)', background: 'rgba(255,255,255,0.02)', overflow: 'hidden' }}>
                                         <RichEditor
