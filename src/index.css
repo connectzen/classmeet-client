@@ -3056,6 +3056,45 @@ button:active:not(:disabled),
   }
 }
 
+/* ── MEDIUM / TABLET (600–1024px): two fixed columns, thumbnail strip at top ── */
+@media (min-width: 600px) and (max-width: 1024px) {
+  :root {
+    /* Cap each column at half viewport so both always fit side by side */
+    --tiktok-col-w: min(calc((100vh - 52px) * 9 / 20), calc(50vw - 4px));
+  }
+
+  /* Override mobile's column layout — row with two fixed columns centered */
+  .room-body {
+    flex-direction: row !important;
+    justify-content: center;
+  }
+
+  /* Host column — fixed width */
+  .room-center {
+    flex: 0 0 auto !important;
+    width: var(--tiktok-col-w) !important;
+    min-height: 0 !important;
+  }
+
+  /* Show chat/play sidebar (overrides desktop-only: none from mobile block) */
+  .room-chat-sidebar {
+    display: flex !important;
+    flex-direction: column;
+    width: var(--tiktok-col-w);
+    flex-shrink: 0;
+  }
+
+  /* Hide student sidebars — no room for them at this width */
+  .room-participants-sidebar { display: none !important; }
+  .room-right-sidebar        { display: none !important; }
+
+  /* Keep thumbnail strip — students scroll horizontally at top of host column */
+  .mobile-thumbnail-strip { display: flex !important; }
+
+  /* Hide mobile-only chat/play buttons — chat sidebar is now directly visible */
+  .mobile-only { display: none !important; }
+}
+
 /* Quill editor dark theme (CourseEditor) */
 .ql-toolbar.ql-snow,
 .ql-container.ql-snow {
@@ -3724,7 +3763,7 @@ input[type="radio"] {
   .dashboard-panel { padding: 22px 24px; }
   .classes-grid { grid-template-columns: repeat(2, 1fr); }
   :root { --tiktok-col-w: calc((100vh - 52px) * 9 / 20); }
-  .room-participants-sidebar { min-width: 0; }
+  .room-participants-sidebar { display: none; }
   .room-right-sidebar { display: none; }
   .admin-sidebar { width: 180px; }
   .admin-stats-grid { grid-template-columns: repeat(3, 1fr); }
