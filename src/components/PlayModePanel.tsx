@@ -151,6 +151,8 @@ interface Props {
     contentScale?: number;
     /** Increments each time the teacher clicks the blackboard during play — triggers an immediate stop. */
     stopSignal?: number;
+    /** Opens the blackboard for ALL participants (teacher + students) when Play is pressed. */
+    emitBlackboardOpen?: () => void;
 }
 
 /** Escape user text for safe HTML injection. */
@@ -442,6 +444,7 @@ export default function PlayModePanel({
     onPlayActiveChange,
     contentScale,
     stopSignal,
+    emitBlackboardOpen,
 }: Props) {
     const [wordsPerLine,    setWordsPerLine]   = useState(5);
     const [wordsPerFly,     setWordsPerFly]    = useState(1);
@@ -493,6 +496,7 @@ export default function PlayModePanel({
     const onPlayHtmlRef   = useRef(onPlayHtml);   onPlayHtmlRef.current   = onPlayHtml;
     const emitPlayShowRef = useRef(emitPlayShow); emitPlayShowRef.current = emitPlayShow;
     const emitPlayClearRef = useRef(emitPlayClear); emitPlayClearRef.current = emitPlayClear;
+    const emitBlackboardOpenRef = useRef(emitBlackboardOpen); emitBlackboardOpenRef.current = emitBlackboardOpen;
     const isBlackboardOnRef = useRef(isBlackboardOn); isBlackboardOnRef.current = isBlackboardOn;
     // Guards student broadcast: false until teacher presses Next for the first time.
     // Teacher always sees live animation; students only receive data after first Next press.
@@ -559,7 +563,7 @@ export default function PlayModePanel({
                 : ''
             ).join('');
         onPlayHtmlRef.current(html);
-        emitPlayShowRef.current(html);
+        if (broadcastUnlockedRef.current) emitPlayShowRef.current(html);
     }, []);
 
     /**
@@ -638,9 +642,9 @@ export default function PlayModePanel({
                 charBufRef.current = animText.slice(0, charBufRef.current.length + 1);
                 // Build the live overlay HTML (committed lines + partial current word)
                 const flyHtml = buildFlyOverlay(entry, charBufRef.current, '');
-                // Update teacher's overlay and broadcast to students on every tick
+                // Update teacher's overlay; only broadcast to students once unlocked (after first Next)
                 onPlayHtmlRef.current(flyHtml);
-                emitPlayShowRef.current(flyHtml);
+                if (broadcastUnlockedRef.current) emitPlayShowRef.current(flyHtml);
                 if (charBufRef.current.length >= animText.length) {
                     stopInterval();
                     charBufRef.current = "";
@@ -673,9 +677,9 @@ export default function PlayModePanel({
         if (isRichEmpty(editorHtml)) return;
         const styledWords = parseRichToStyledWords(editorHtml);
         if (!styledWords.length) return;
-        // Open blackboard for teacher locally only — students are NOT notified.
-        // Teacher controls student visibility via the Share button in the course panel.
+        // Open blackboard for teacher AND broadcast to all students.
         if (!isBlackboardOnRef.current) onEnableBlackboardLocal();
+        emitBlackboardOpenRef.current?.();
         // Use the visual (screen-pixel) canvas height so line spacing = fontSizePx × 1.4 px,
         // matching the Play editor exactly regardless of the blackboard panel's zoom level.
         const visualH = canvasHRef.current * contentScaleRef.current;
@@ -691,9 +695,10 @@ export default function PlayModePanel({
             visualH,
         );
         if (!plan.length) return;
-        // Unlock broadcast immediately so students see content from the first play action
-        broadcastUnlockedRef.current = true;
-        // Clear both teacher's and students' overlay before starting a new session
+        // Keep broadcast LOCKED — students see the empty blackboard but no text yet.
+        // The first Next press unlocks broadcast and sends the first word.
+        broadcastUnlockedRef.current = false;
+        // Clear both teacher's and students' overlay before starting a new session.
         lineHtmlsRef.current = [];
         onPlayHtmlRef.current('');
         emitPlayClearRef.current();
@@ -701,11 +706,14 @@ export default function PlayModePanel({
         wordsConsumedRef.current = 0;
         groupPlanRef.current = plan;
         setTotalGroups(plan.length);
-        animateGroup(0);
+        // Start at index -1 so the first Next press calls animateGroup(0).
+        setCurrentGroupIdx(-1);
+        setPlayState('ready-next');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [onEnableBlackboardLocal, animateGroup, editorHtml]);
+    }, [onEnableBlackboardLocal, editorHtml]);
 
     const handleNext        = useCallback(() => {
+        broadcastUnlockedRef.current = true; // unlock on first (and subsequent) Next press
         animateGroup(currentGroupIdx + 1);
     }, [currentGroupIdx, animateGroup]);
     const handlePauseResume = useCallback(() => setPlayState(p => p === "paused" ? "playing" : "paused"), []);
@@ -735,6 +743,7 @@ export default function PlayModePanel({
      *  If the teacher clicked a new blackboard position since Stop, rebuild the remaining
      *  plan from that new anchor so text continues there instead of the old location. */
     const handleResume = useCallback(() => {
+        broadcastUnlockedRef.current = true; // Resume always broadcasts to students
         const anchorNow = anchorRef.current;
         const anchorWas = anchorAtStopRef.current;
         const anchorMoved = !!anchorNow && !!anchorWas &&

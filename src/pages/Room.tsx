@@ -856,6 +856,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                             isBlackboardOn={blackboardOn}
                             onPlayActiveChange={setIsPlayActive}
                             onEnableBlackboardLocal={() => setBlackboardOn(true)}
+                            emitBlackboardOpen={() => { setBlackboardOn(true); emitBlackboardToggle(true); }}
                             onPlayHtml={html => setTeacherPlayHtml(html)}
                             emitPlayShow={html => emitPlayShow(html)}
                             emitPlayClear={() => emitPlayClear()}
@@ -1270,6 +1271,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 isBlackboardOn={blackboardOn}
                                 onPlayActiveChange={setIsPlayActive}
                                 onEnableBlackboardLocal={() => setBlackboardOn(true)}
+                                emitBlackboardOpen={() => { setBlackboardOn(true); emitBlackboardToggle(true); }}
                                 onPlayHtml={html => setTeacherPlayHtml(html)}
                                 emitPlayShow={html => emitPlayShow(html)}
                                 emitPlayClear={() => emitPlayClear()}
