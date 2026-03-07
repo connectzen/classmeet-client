@@ -20,7 +20,7 @@ interface Meeting {
 }
 interface AdminStats { membersCount: number; teachersCount: number; studentsCount: number; liveGuestCount: number; }
 interface HealthStatus { status: 'ok' | 'degraded'; database?: string; error?: string; }
-type Tab = 'overview' | 'members' | 'teachers' | 'students' | 'messages' | 'pending' | 'meetings';
+type Tab = 'overview' | 'members' | 'teachers' | 'students' | 'messages' | 'pending' | 'meetings' | 'notifications';
 
 const NAV_ITEMS: { key: Tab; icon: string; label: string }[] = [
     { key: 'overview',  icon: '◈', label: 'Overview'  },
@@ -29,6 +29,7 @@ const NAV_ITEMS: { key: Tab; icon: string; label: string }[] = [
     { key: 'students',  icon: '◉', label: 'Students'  },
     { key: 'pending',   icon: '⏳', label: 'Pending'   },
     { key: 'meetings',  icon: '📅', label: 'Meetings'  },
+    { key: 'notifications', icon: '🔔', label: 'Notify' },
     { key: 'messages',  icon: '◆', label: 'Messages'  },
 ];
 
@@ -73,6 +74,15 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
     const [meetings, setMeetings] = useState<Meeting[]>([]);
     const [loadingMeetings, setLoadingMeetings] = useState(false);
     const [showCreateMeeting, setShowCreateMeeting] = useState(false);
+
+    // ── Notifications (push campaigns) state ─────────────────────────────
+    interface PushCampaign { id: string; title: string; body: string; url: string | null; audience: string; audience_val: string | null; sent_count: number; created_at: string; }
+    const [campaigns, setCampaigns] = useState<PushCampaign[]>([]);
+    const [loadingCampaigns, setLoadingCampaigns] = useState(false);
+    const [campaignForm, setCampaignForm] = useState({ title: '', body: '', url: '', audience: 'all', audienceVal: '' });
+    const [sendingCampaign, setSendingCampaign] = useState(false);
+    const [campaignResult, setCampaignResult] = useState<{ sent: number } | null>(null);
+    const [campaignError, setCampaignError] = useState('');
     const [meetingError, setMeetingError] = useState('');
     const [endingMeetingId, setEndingMeetingId] = useState<string | null>(null);
     const [meetingForm, setMeetingForm] = useState({
@@ -167,6 +177,13 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
         try { const r = await fetch(`${SERVER_URL}/api/all-users`); if (r.ok) setAllUsers(await r.json()); } catch {}
     }, []);
 
+    const fetchCampaigns = useCallback(async () => {
+        if (!user?.id) return;
+        setLoadingCampaigns(true);
+        try { const r = await fetch(`${SERVER_URL}/api/admin/push-campaigns?adminId=${encodeURIComponent(user.id)}`); if (r.ok) setCampaigns(await r.json()); } catch {}
+        setLoadingCampaigns(false);
+    }, [user?.id]);
+
     // ── Real-time auto-refresh via socket.io ─────────────────────────────
     const refreshCurrentTab = useCallback(() => {
         if (tab === 'overview') { fetchTeachers(); fetchStudents(); fetchMembers(); fetchAdminStats(); fetchPendingUsers(); fetchSentMessages(); fetchMeetings(); }
@@ -175,7 +192,8 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
         else if (tab === 'students') fetchStudents();
         else if (tab === 'pending')  fetchPendingUsers();
         else if (tab === 'meetings') { fetchMeetings(); fetchAllRooms(); fetchAllUsers(); }
-    }, [tab, fetchTeachers, fetchStudents, fetchMembers, fetchAdminStats, fetchPendingUsers, fetchSentMessages, fetchMeetings, fetchAllRooms, fetchAllUsers]);
+        else if (tab === 'notifications') { fetchCampaigns(); fetchAllRooms(); fetchAllUsers(); }
+    }, [tab, fetchTeachers, fetchStudents, fetchMembers, fetchAdminStats, fetchPendingUsers, fetchSentMessages, fetchMeetings, fetchAllRooms, fetchAllUsers, fetchCampaigns]);
 
     // 30-second polling for the active tab
     useEffect(() => {
@@ -240,6 +258,7 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
         if (tab === 'students') { fetchStudents(); }
         if (tab === 'pending')  fetchPendingUsers();
         if (tab === 'meetings') { fetchMeetings(); fetchAllRooms(); fetchAllUsers(); }
+        if (tab === 'notifications') { fetchCampaigns(); fetchAllRooms(); fetchAllUsers(); }
         if (tab === 'messages') { /* ChatDrawer handles its own data */ }
     }, [tab, fetchTeachers, fetchStudents, fetchMembers, fetchAdminStats, fetchHealth, fetchSentMessages, fetchPendingUsers, fetchMeetings, fetchAllRooms, fetchAllUsers]);
 
@@ -1071,6 +1090,132 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                     )}
 
                     {/* MESSAGES */}
+                    {tab === 'notifications' && (
+                        <div style={{ maxWidth: 720 }}>
+                            <PageHeader title="Push Notifications" subtitle="Send push alerts to installed PWA users" />
+
+                            {/* Compose form */}
+                            <Card title="New Campaign" style={{ marginBottom: 20 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                    {campaignError && <ErrorMsg>{campaignError}</ErrorMsg>}
+                                    {campaignResult && (
+                                        <div style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 10, padding: '10px 14px', color: '#86efac', fontSize: 13 }}>
+                                            ✅ Sent to {campaignResult.sent} device{campaignResult.sent !== 1 ? 's' : ''}!
+                                        </div>
+                                    )}
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                        <div>
+                                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600, textTransform: 'uppercase' }}>Title *</div>
+                                            <Input placeholder="e.g. Class starting now!" value={campaignForm.title} onChange={v => setCampaignForm(f => ({ ...f, title: v }))} />
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600, textTransform: 'uppercase' }}>Link (optional)</div>
+                                            <Input placeholder="https://... or /" value={campaignForm.url} onChange={v => setCampaignForm(f => ({ ...f, url: v }))} />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600, textTransform: 'uppercase' }}>Message *</div>
+                                        <textarea
+                                            rows={3}
+                                            placeholder="What do you want to tell them?"
+                                            value={campaignForm.body}
+                                            onChange={e => setCampaignForm(f => ({ ...f, body: e.target.value }))}
+                                            style={{ width: '100%', background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', color: 'var(--text)', fontSize: 13, resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                                        />
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, alignItems: 'end' }}>
+                                        <div>
+                                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600, textTransform: 'uppercase' }}>Audience *</div>
+                                            <select
+                                                value={campaignForm.audience}
+                                                onChange={e => setCampaignForm(f => ({ ...f, audience: e.target.value, audienceVal: '' }))}
+                                                style={{ width: '100%', background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', color: 'var(--text)', fontSize: 13, colorScheme: 'dark' }}
+                                            >
+                                                <option value="all">Everyone (all users)</option>
+                                                <option value="teachers">All Teachers</option>
+                                                <option value="students">All Students</option>
+                                                <option value="room">Students of a specific class</option>
+                                                <option value="user">One specific user</option>
+                                            </select>
+                                        </div>
+                                        {campaignForm.audience === 'room' && (
+                                            <div>
+                                                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600, textTransform: 'uppercase' }}>Pick Class</div>
+                                                <select
+                                                    value={campaignForm.audienceVal}
+                                                    onChange={e => setCampaignForm(f => ({ ...f, audienceVal: e.target.value }))}
+                                                    style={{ width: '100%', background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', color: 'var(--text)', fontSize: 13, colorScheme: 'dark' }}
+                                                >
+                                                    <option value="">— choose a class —</option>
+                                                    {allRooms.map(r => <option key={r.id} value={r.id}>{r.name} ({r.code})</option>)}
+                                                </select>
+                                            </div>
+                                        )}
+                                        {campaignForm.audience === 'user' && (
+                                            <div>
+                                                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600, textTransform: 'uppercase' }}>Pick User</div>
+                                                <select
+                                                    value={campaignForm.audienceVal}
+                                                    onChange={e => setCampaignForm(f => ({ ...f, audienceVal: e.target.value }))}
+                                                    style={{ width: '100%', background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', color: 'var(--text)', fontSize: 13, colorScheme: 'dark' }}
+                                                >
+                                                    <option value="">— choose a user —</option>
+                                                    {allUsers.map(u => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
+                                                </select>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <button
+                                        disabled={sendingCampaign || !campaignForm.title.trim() || !campaignForm.body.trim()}
+                                        onClick={async () => {
+                                            if (!user?.id) return;
+                                            setSendingCampaign(true); setCampaignError(''); setCampaignResult(null);
+                                            try {
+                                                const r = await fetch(`${SERVER_URL}/api/admin/push-campaign`, {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ adminId: user.id, title: campaignForm.title, body: campaignForm.body, url: campaignForm.url || '/', audience: campaignForm.audience, audienceVal: campaignForm.audienceVal || undefined }),
+                                                });
+                                                const data = await r.json();
+                                                if (!r.ok) { setCampaignError(data.error || 'Failed to send'); }
+                                                else { setCampaignResult(data); setCampaignForm({ title: '', body: '', url: '', audience: 'all', audienceVal: '' }); fetchCampaigns(); }
+                                            } catch { setCampaignError('Network error'); }
+                                            setSendingCampaign(false);
+                                        }}
+                                        style={{ alignSelf: 'flex-start', padding: '10px 24px', borderRadius: 10, border: 'none', background: sendingCampaign ? 'rgba(99,102,241,0.5)' : 'linear-gradient(135deg,#6366f1,#4f46e5)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: sendingCampaign ? 'not-allowed' : 'pointer' }}
+                                    >
+                                        {sendingCampaign ? '⏳ Sending…' : '🔔 Send Notification'}
+                                    </button>
+                                </div>
+                            </Card>
+
+                            {/* Campaign history */}
+                            <Card title="Campaign History">
+                                {loadingCampaigns ? <Loading /> : campaigns.length === 0 ? <Empty icon="🔔" message="No campaigns sent yet" /> : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        {campaigns.map(c => (
+                                            <div key={c.id} style={{ background: 'var(--surface-3)', borderRadius: 10, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                                                    <span style={{ fontWeight: 700, color: 'var(--text)', fontSize: 14 }}>{c.title}</span>
+                                                    <span style={{ fontSize: 11, color: '#86efac', background: 'rgba(34,197,94,0.12)', borderRadius: 6, padding: '2px 8px', flexShrink: 0 }}>{c.sent_count} sent</span>
+                                                </div>
+                                                <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{c.body}</div>
+                                                <div style={{ display: 'flex', gap: 10, fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                                                    <span>Audience: <b style={{ color: 'var(--text-muted)' }}>{c.audience}{c.audience_val ? ` (${c.audience_val})` : ''}</b></span>
+                                                    <span>· {new Date(c.created_at).toLocaleString()}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </Card>
+                        </div>
+                    )}
+
                     {tab === 'messages' && (
                         <div style={{ height: 'calc(100vh - 130px)' }}>
                             <ChatDrawer
