@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { subscribeToPush } from '../lib/pushSubscription';
 
 interface Props {
     onDone: () => void;
+    userId?: string; // pass the logged-in user's ID if available
 }
 
-export default function NotificationPrompt({ onDone }: Props) {
+export default function NotificationPrompt({ onDone, userId }: Props) {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<NotificationPermission | null>(null);
 
@@ -13,6 +15,10 @@ export default function NotificationPrompt({ onDone }: Props) {
         try {
             const perm = await Notification.requestPermission();
             setResult(perm);
+            if (perm === 'granted') {
+                // Subscribe to web push in the background (don't block on failure)
+                subscribeToPush(userId).catch(() => {});
+            }
         } catch {
             setResult('denied');
         } finally {

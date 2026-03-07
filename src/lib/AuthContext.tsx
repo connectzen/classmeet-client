@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { insforge } from './insforge';
+import { resubscribeForUser } from './pushSubscription';
 
 interface UserProfile {
     name?: string;
@@ -35,8 +36,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         insforge.auth.getCurrentUser().then(({ data }) => {
-            setUser((data?.user as AuthUser) ?? null);
+            const u = (data?.user as AuthUser) ?? null;
+            setUser(u);
             setIsLoaded(true);
+            // Re-associate push subscription with the logged-in user
+            if (u?.id) resubscribeForUser(u.id).catch(() => {});
         }).catch(() => {
             setUser(null);
             setIsLoaded(true);
