@@ -140,6 +140,28 @@ export default function DownloadApp() {
     );
 }
 
+// ── CSS for hint animation (injected once) ──────────────────────────────────
+const HINT_STYLE_ID = 'cm-hint-pulse';
+if (!document.getElementById(HINT_STYLE_ID)) {
+    const s = document.createElement('style');
+    s.id = HINT_STYLE_ID;
+    s.textContent = `
+        @keyframes cm-pulse-green {
+            0%,100% { opacity: 1; text-shadow: 0 0 0px #4ade80; }
+            50%      { opacity: 0.75; text-shadow: 0 0 8px #4ade80, 0 0 16px #22c55e; }
+        }
+        .cm-hint-pulse {
+            animation: cm-pulse-green 2s ease-in-out infinite;
+            color: #4ade80 !important;
+            font-weight: 600;
+        }
+        .cm-hint-pulse strong {
+            color: #86efac !important;
+        }
+    `;
+    document.head.appendChild(s);
+}
+
 // ── Install Modal ─────────────────────────────────────────────────────────────
 
 function InstallModal({ installing, onConfirm, onClose }: {
@@ -191,8 +213,8 @@ function InstallModal({ installing, onConfirm, onClose }: {
                     Maybe later
                 </button>
 
-                <p style={{ marginTop: 16, fontSize: 11, color: '#475569', textAlign: 'center' }}>
-                    Two prompts will appear — tap <strong style={{ color: '#94a3b8' }}>Install</strong>, then <strong style={{ color: '#94a3b8' }}>Allow</strong> for class alerts.
+                <p className="cm-hint-pulse" style={{ marginTop: 16, fontSize: 12, textAlign: 'center' }}>
+                    ✨ Two prompts will appear — tap <strong>Install</strong>, then <strong>Allow</strong> for class alerts.
                 </p>
             </div>
         </div>
