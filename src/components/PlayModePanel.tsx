@@ -149,6 +149,8 @@ interface Props {
     onPlayActiveChange?: (active: boolean) => void;
     /** The blackboard panel's current content-scale (wrapperWidth / 640). Used to zoom editor to match. */
     contentScale?: number;
+    /** Increments each time the teacher clicks the blackboard during play — triggers an immediate stop. */
+    stopSignal?: number;
 }
 
 /** Escape user text for safe HTML injection. */
@@ -439,6 +441,7 @@ export default function PlayModePanel({
     onEnableBlackboardLocal, isBlackboardOn,
     onPlayActiveChange,
     contentScale,
+    stopSignal,
 }: Props) {
     const [wordsPerLine,    setWordsPerLine]   = useState(5);
     const [wordsPerFly,     setWordsPerFly]    = useState(1);
@@ -676,13 +679,18 @@ export default function PlayModePanel({
         // Use the visual (screen-pixel) canvas height so line spacing = fontSizePx × 1.4 px,
         // matching the Play editor exactly regardless of the blackboard panel's zoom level.
         const visualH = canvasHRef.current * contentScaleRef.current;
+        // On the blackboard there is no floating header pill, so start at cy=0.
+        // On the lesson canvas, clamp to at least 52px from top to clear the pill.
+        const headerClearanceFrac = isBlackboardOnRef.current
+            ? 0
+            : 52 / Math.max(1, visualH);
+        const startCy = Math.max(anchorRef.current?.cy ?? 0, headerClearanceFrac);
         const plan = buildGroupPlan(
             styledWords,
             wordsPerFlyRef.current,
             wordsPerLineRef.current,
             linesPerBlockRef.current,
-            // Clamp default anchor so play text doesn't start behind the floating header pill (~52px)
-            Math.max(anchorRef.current?.cy ?? 0.09, 52 / Math.max(1, visualH)),
+            startCy,
             visualH,
         );
         if (!plan.length) return;
@@ -816,6 +824,15 @@ export default function PlayModePanel({
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [anchor]);
+
+    // ── Direct stop signal — fires immediately when blackboard is clicked during play ──
+    useEffect(() => {
+        if (!stopSignal) return; // 0 = initial mount, ignore
+        const ps = playStateRef.current;
+        if (ps === 'playing' || ps === 'ready-next' || ps === 'paused') {
+            handleStop();
+        }
+    }, [stopSignal, handleStop]);
 
     const isActive = playState !== "idle";
 

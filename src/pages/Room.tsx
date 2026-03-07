@@ -67,6 +67,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [playAnchor,       setPlayAnchor]       = useState<{ cx: number; cy: number } | null>(null);
     const [playCanvasH,      setPlayCanvasH]      = useState(600);
     const [isPlayActive,     setIsPlayActive]     = useState(false);
+    const [playStopSignal,   setPlayStopSignal]   = useState(0);
     // HTML overlay produced by teacher's PlayModePanel — shown on blackboard for all
     const [teacherPlayHtml,  setTeacherPlayHtml]  = useState('');
     const [studentPlayHtml,  setStudentPlayHtml]  = useState('');
@@ -859,6 +860,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                             emitPlayShow={html => emitPlayShow(html)}
                             emitPlayClear={() => emitPlayClear()}
                             contentScale={bbContentScale}
+                            stopSignal={playStopSignal}
                         />
                     </div>
                 </div>
@@ -1104,6 +1106,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 blackboardActive={blackboardOn}
                                 onBlackboardToggle={(on) => { setBlackboardOn(on); emitBlackboardToggle(on); }}
                                 onTextAnchorSet={(cx, cy) => setPlayAnchor({ cx, cy })}
+                                onPlayStopRequest={() => setPlayStopSignal(s => s + 1)}
                                 onCanvasHChange={h => setPlayCanvasH(h)}
                                 onContentScaleChange={setBbContentScale}
                                 playHtml={teacherPlayHtml}

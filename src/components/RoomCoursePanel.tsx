@@ -68,6 +68,8 @@ interface Props {
     onBlackboardToggle?: (on: boolean) => void;
     // Called when teacher clicks to set text anchor — used by Play Mode panel
     onTextAnchorSet?: (cx: number, cy: number) => void;
+    // Called immediately when teacher clicks blackboard during active play — triggers direct stop
+    onPlayStopRequest?: () => void;
     // Called whenever the internal canvas height changes — used by Play Mode panel
     onCanvasHChange?: (h: number) => void;
     // Live play-mode animation frame — drawn on preview canvas each tick (teacher side)
@@ -271,6 +273,7 @@ export default function RoomCoursePanel({
     blackboardActive, onBlackboardToggle,
     playHtml, playAnchor, isPlayActive,
     onContentScaleChange,
+    onPlayStopRequest,
 }: Props) {
     const [courses, setCourses] = useState<CourseData[]>([]);
     const [loading, setLoading] = useState(true);
@@ -1457,6 +1460,8 @@ export default function RoomCoursePanel({
                                         // Clamp away from the floating header pill (~52px)
                                         const scrolled = (contentRef.current?.scrollTop ?? 0) > 0;
                                         const cy = scrolled ? rawCy : Math.max(52 / c.clientHeight, rawCy);
+                                        // Stop play immediately (direct signal), then record new anchor
+                                        onPlayStopRequest?.();
                                         onTextAnchorSet?.(cx, cy);
                                     }}
                                 />
