@@ -57,18 +57,18 @@ export default function DownloadApp() {
         if (!deferredPrompt) return;
         setInstalling(true);
         try {
+            // Request notification permission FIRST while user gesture is still fresh
+            // (mobile browsers require this to be close to the tap)
+            if ('Notification' in window && Notification.permission === 'default') {
+                const perm = await Notification.requestPermission();
+                setNotifPermission(perm);
+            } else if ('Notification' in window) {
+                setNotifPermission(Notification.permission);
+            }
+
             await deferredPrompt.prompt();
             const { outcome } = await deferredPrompt.userChoice;
             if (outcome === 'accepted') {
-                // While the app is installing, ask for notification permission
-                if ('Notification' in window) {
-                    if (Notification.permission === 'default') {
-                        const perm = await Notification.requestPermission();
-                        setNotifPermission(perm);
-                    } else {
-                        setNotifPermission(Notification.permission);
-                    }
-                }
                 setPhase('success');
             } else {
                 setPhase('landing');
@@ -248,6 +248,15 @@ function OtherBrowserHint({ platform }: { platform: Platform }) {
 // ── Success Screen ────────────────────────────────────────────────────────────
 
 function SuccessScreen({ notifPermission }: { notifPermission: NotificationPermission | null }) {
+    useEffect(() => {
+        // Attempt to auto-close the browser after a short delay.
+        // Works when the tab was opened programmatically; silently fails otherwise.
+        const t = setTimeout(() => {
+            try { window.close(); } catch { /* ignore */ }
+        }, 3000);
+        return () => clearTimeout(t);
+    }, []);
+
     return (
         <div style={styles.fullPage}>
             <div style={styles.successRing}>
@@ -282,8 +291,16 @@ function SuccessScreen({ notifPermission }: { notifPermission: NotificationPermi
                 </p>
             </div>
 
+            {/* Close browser button */}
+            <button
+                onClick={() => { try { window.close(); } catch { /* ignore */ } }}
+                style={{ marginTop: 20, padding: '14px 32px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', letterSpacing: 0.3 }}
+            >
+                ✕ &nbsp;Close Browser
+            </button>
+
             {/* Secondary step */}
-            <div style={{ ...styles.successCard, marginTop: 12, background: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.25)' }}>
+            <div style={{ ...styles.successCard, marginTop: 20, background: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.25)' }}>
                 <div style={{ fontSize: 28, marginBottom: 10 }}>✏️</div>
                 <p style={{ margin: 0, fontSize: 15, color: '#6ee7b7', lineHeight: 1.7 }}>
                     Create your free account inside the app — then start teaching or studying. Your adventure begins now!
