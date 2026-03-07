@@ -84,59 +84,36 @@ export default function DownloadApp() {
 
     const canInstall = !!deferredPrompt; // Android / Chrome desktop only
 
-    return (
-        <div style={styles.page}>
-
-            {/* ── Header ── */}
-            <div style={styles.appIcon}>
-                <img src="/pwa-192x192.png" alt="ClassMeet icon" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            </div>
-
-            {/* Thank-you note */}
-            <p style={styles.thankYou}>🙏 Thank you for visiting ClassMeet!</p>
-
-            <h1 style={styles.appName}>Welcome! 🎓</h1>
-            <p style={styles.tagline}>Whether you teach or you learn — we built this for you. Your journey with ClassMeet starts right here.</p>
-
-            {/* ── Welcome messages ── */}
-            <div style={styles.featureList}>
-                {FEATURES.map(f => (
-                    <div key={f.icon} style={styles.featureRow}>
-                        <span style={styles.featureIcon}>{f.icon}</span>
-                        <span style={styles.featureText}>{f.text}</span>
-                    </div>
-                ))}
-            </div>
-
-            {/* ── CTA — platform-aware ── */}
-            {platform === 'ios' ? (
+    // Skip landing — go straight to the install card
+    if (platform === 'ios') {
+        return (
+            <div style={styles.page}>
                 <IosGuide />
-            ) : canInstall ? (
-                <button
-                    style={styles.ctaBtn}
-                    onClick={() => setPhase('modal')}
-                    onMouseOver={e => (e.currentTarget.style.opacity = '0.9')}
-                    onMouseOut={e  => (e.currentTarget.style.opacity = '1')}
-                >
-                    🎓&nbsp; Get ClassMeet — It's Free!
-                </button>
-            ) : (
+                <p className="cm-hint-pulse" style={{ ...styles.legalNote, fontSize: 13, marginTop: 24 }}>
+                    ✅ 100% free · No account needed to install · Create yours inside the app
+                </p>
+            </div>
+        );
+    }
+
+    if (!canInstall) {
+        return (
+            <div style={styles.page}>
                 <OtherBrowserHint platform={platform} />
-            )}
+                <p className="cm-hint-pulse" style={{ ...styles.legalNote, fontSize: 13, marginTop: 24 }}>
+                    ✅ 100% free · No account needed to install · Create yours inside the app
+                </p>
+            </div>
+        );
+    }
 
-            <p className="cm-hint-pulse" style={{ ...styles.legalNote, fontSize: 13 }}>
-                ✅ 100% free · No account needed to install · Create yours inside the app
-            </p>
-
-            {/* ── Install confirmation modal ── */}
-            {phase === 'modal' && (
-                <InstallModal
-                    installing={installing}
-                    onConfirm={triggerInstall}
-                    onClose={() => setPhase('landing')}
-                />
-            )}
-        </div>
+    return (
+        <InstallModal
+            installing={installing}
+            onConfirm={triggerInstall}
+            onClose={() => {}}
+            asPage
+        />
     );
 }
 
@@ -164,17 +141,17 @@ if (!document.getElementById(HINT_STYLE_ID)) {
 
 // ── Install Modal ─────────────────────────────────────────────────────────────
 
-function InstallModal({ installing, onConfirm, onClose }: {
+function InstallModal({ installing, onConfirm, onClose, asPage }: {
     installing: boolean;
     onConfirm: () => void;
     onClose: () => void;
+    asPage?: boolean;
 }) {
-    return (
-        <div style={styles.overlay} onClick={onClose}>
-            <div style={styles.modal} onClick={e => e.stopPropagation()}>
+    const content = (
+        <div style={asPage ? { ...styles.modal, boxShadow: 'none', background: 'transparent', maxWidth: 420, margin: '0 auto' } : styles.modal} onClick={e => e.stopPropagation()}>
 
-                {/* Close X */}
-                <button style={styles.closeBtn} onClick={onClose} aria-label="Close">✕</button>
+                {/* Close X — hidden when used as full page */}
+                {!asPage && <button style={styles.closeBtn} onClick={onClose} aria-label="Close">✕</button>}
 
                 {/* Icon */}
                 <div style={{ ...styles.appIcon, width: 72, height: 72, borderRadius: 16, margin: '0 auto 20px' }}>
@@ -213,8 +190,9 @@ function InstallModal({ installing, onConfirm, onClose }: {
                     ✨ Two prompts will appear — tap <strong>Install</strong>, then <strong>Allow</strong> for class alerts.
                 </p>
             </div>
-        </div>
     );
+    if (asPage) return <div style={styles.page}>{content}</div>;
+    return <div style={styles.overlay} onClick={onClose}>{content}</div>;
 }
 
 // ── iOS Guide ─────────────────────────────────────────────────────────────────
