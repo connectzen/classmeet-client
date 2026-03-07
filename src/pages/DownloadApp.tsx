@@ -209,10 +209,6 @@ function InstallModal({ installing, onConfirm, onClose }: {
                     {installing ? '⏳  Setting up your app…' : '🎓  Install ClassMeet — Free'}
                 </button>
 
-                <button style={styles.laterBtn} onClick={onClose}>
-                    Maybe later
-                </button>
-
                 <p className="cm-hint-pulse" style={{ marginTop: 16, fontSize: 12, textAlign: 'center' }}>
                     ✨ Two prompts will appear — tap <strong>Install</strong>, then <strong>Allow</strong> for class alerts.
                 </p>
