@@ -79,10 +79,13 @@ export default function DownloadApp() {
                 <img src="/pwa-192x192.png" alt="ClassMeet icon" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
 
-            <h1 style={styles.appName}>ClassMeet</h1>
-            <p style={styles.tagline}>Virtual Classroom — Better as an App</p>
+            {/* Thank-you note */}
+            <p style={styles.thankYou}>🙏 Thank you for visiting ClassMeet!</p>
 
-            {/* ── Feature list ── */}
+            <h1 style={styles.appName}>Welcome, Scholar! 🎓</h1>
+            <p style={styles.tagline}>We're so happy you're here. Your learning journey starts today.</p>
+
+            {/* ── Welcome messages ── */}
             <div style={styles.featureList}>
                 {FEATURES.map(f => (
                     <div key={f.icon} style={styles.featureRow}>
@@ -102,14 +105,14 @@ export default function DownloadApp() {
                     onMouseOver={e => (e.currentTarget.style.opacity = '0.9')}
                     onMouseOut={e  => (e.currentTarget.style.opacity = '1')}
                 >
-                    📲&nbsp; Install ClassMeet — Free
+                    🎓&nbsp; Get ClassMeet — It's Free!
                 </button>
             ) : (
                 <OtherBrowserHint platform={platform} />
             )}
 
             <p style={styles.legalNote}>
-                Free · No account needed to install · Sign up inside the app
+                100% free · No account needed to install · Create yours inside the app
             </p>
 
             {/* ── Install confirmation modal ── */}
@@ -143,10 +146,10 @@ function InstallModal({ installing, onConfirm, onClose }: {
                     <img src="/pwa-192x192.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 </div>
 
-                <h2 style={styles.modalTitle}>Install ClassMeet</h2>
+                <h2 style={styles.modalTitle}>You're Almost In! 🌟</h2>
                 <p style={styles.modalSubtitle}>
-                    Add ClassMeet to your device for the best experience —
-                    works just like a downloaded app, no app store needed.
+                    Install ClassMeet for free and join thousands of students
+                    already learning and growing together every day.
                 </p>
 
                 {/* Benefits */}
@@ -165,7 +168,7 @@ function InstallModal({ installing, onConfirm, onClose }: {
                     onClick={onConfirm}
                     disabled={installing}
                 >
-                    {installing ? '⏳  Installing…' : '🚀  Install Now'}
+                    {installing ? '⏳  Setting up your app…' : '🎓  Install ClassMeet — Free'}
                 </button>
 
                 <button style={styles.laterBtn} onClick={onClose}>
@@ -173,7 +176,7 @@ function InstallModal({ installing, onConfirm, onClose }: {
                 </button>
 
                 <p style={{ marginTop: 16, fontSize: 11, color: '#475569', textAlign: 'center' }}>
-                    Your browser will show a small confirmation prompt — just click <strong style={{ color: '#94a3b8' }}>Install</strong>.
+                    A small confirmation box will appear — just tap <strong style={{ color: '#94a3b8' }}>Install</strong> to confirm.
                 </p>
             </div>
         </div>
@@ -244,27 +247,27 @@ function SuccessScreen() {
                 <span style={{ fontSize: 52 }}>✅</span>
             </div>
 
-            <h1 style={{ ...styles.appName, marginTop: 28 }}>ClassMeet is Installed!</h1>
+            <h1 style={{ ...styles.appName, marginTop: 28 }}>Welcome to the Family! 🎉</h1>
 
-            <p style={{ fontSize: 16, color: '#94a3b8', maxWidth: 300, margin: '12px auto 36px', lineHeight: 1.7, textAlign: 'center' }}>
-                Your app is ready to go.
+            <p style={{ fontSize: 16, color: '#94a3b8', maxWidth: 320, margin: '12px auto 36px', lineHeight: 1.7, textAlign: 'center' }}>
+                We're so proud to have you with us. We will work hard every day to help you grow and succeed in your education.
             </p>
 
             {/* Instruction card */}
             <div style={styles.successCard}>
                 <div style={{ fontSize: 28, marginBottom: 10 }}>🏠</div>
                 <p style={{ margin: 0, fontSize: 15, color: '#c7d2fe', lineHeight: 1.7 }}>
-                    <strong>Close this browser</strong> and open the{' '}
-                    <strong style={{ color: '#a5b4fc' }}>ClassMeet</strong> icon from your
-                    home screen or desktop to launch the app.
+                    Now <strong>close this browser</strong> and find the{' '}
+                    <strong style={{ color: '#a5b4fc' }}>ClassMeet</strong> icon on your
+                    home screen to open the app.
                 </p>
             </div>
 
             {/* Secondary step */}
             <div style={{ ...styles.successCard, marginTop: 12, background: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.25)' }}>
-                <div style={{ fontSize: 28, marginBottom: 10 }}>👤</div>
+                <div style={{ fontSize: 28, marginBottom: 10 }}>✏️</div>
                 <p style={{ margin: 0, fontSize: 15, color: '#6ee7b7', lineHeight: 1.7 }}>
-                    Inside the app, sign up or log in to join or host your first live class session.
+                    Once inside, create your free account — your learning adventure begins the moment you sign up!
                 </p>
             </div>
         </div>
@@ -276,12 +279,12 @@ function SuccessScreen() {
 function AlreadyInstalledScreen() {
     return (
         <div style={styles.fullPage}>
-            <div style={{ fontSize: 72, marginBottom: 16 }}>📱</div>
+            <div style={{ fontSize: 72, marginBottom: 16 }}>🎓</div>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: '#e0e7ff', margin: '0 0 12px', textAlign: 'center' }}>
-                You're in the App!
+                Welcome Back, Scholar!
             </h1>
-            <p style={{ fontSize: 15, color: '#94a3b8', maxWidth: 300, textAlign: 'center', lineHeight: 1.6 }}>
-                ClassMeet is already installed and running. You're good to go — no action needed.
+            <p style={{ fontSize: 15, color: '#94a3b8', maxWidth: 320, textAlign: 'center', lineHeight: 1.7 }}>
+                Thank you for choosing ClassMeet. You already have the app — simply open it and dive back into your learning journey. We're delighted to have you with us! 🌟
             </p>
         </div>
     );
@@ -290,17 +293,17 @@ function AlreadyInstalledScreen() {
 // ── Static Data ───────────────────────────────────────────────────────────────
 
 const FEATURES = [
-    { icon: '📺', text: 'Full-screen live classes — no browser chrome in the way' },
-    { icon: '⚡', text: 'Instant launch from your home screen or desktop' },
-    { icon: '📶', text: 'App shell loads offline between sessions' },
-    { icon: '🔒', text: 'Feels and behaves exactly like a native app' },
+    { icon: '🤝', text: 'We are here for you — let\'s learn and grow together' },
+    { icon: '📚', text: 'Live classes with real teachers, right at your fingertips' },
+    { icon: '💡', text: 'Quizzes, courses, and tools designed to make you shine' },
+    { icon: '🌍', text: 'Join a community of students working hard for a better future' },
 ];
 
 const MODAL_BENEFITS = [
-    'Full-screen video sessions without browser bars',
-    'One-tap launch from home screen',
-    'Fast offline app shell',
-    'No app store — installs directly from browser',
+    'Connect with your teacher anytime, anywhere',
+    'Join live classes and never miss a lesson',
+    'Take quizzes and track your own progress',
+    'It\'s completely free — built for students like you',
 ];
 
 const IOS_STEPS = [
@@ -357,6 +360,14 @@ const styles: Record<string, React.CSSProperties> = {
         marginBottom: 20,
         flexShrink: 0,
     },
+    thankYou: {
+        fontSize: 14,
+        color: '#a5b4fc',
+        fontWeight: 600,
+        letterSpacing: 0.3,
+        marginBottom: 12,
+        textAlign: 'center',
+    },
     appName: {
         fontSize: 36,
         fontWeight: 800,
@@ -371,6 +382,8 @@ const styles: Record<string, React.CSSProperties> = {
         color: '#94a3b8',
         margin: '0 0 36px',
         textAlign: 'center',
+        maxWidth: 320,
+        lineHeight: 1.6,
     },
     featureList: {
         display: 'flex',
