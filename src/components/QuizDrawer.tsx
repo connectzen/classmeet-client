@@ -179,33 +179,36 @@ export default function QuizDrawer({ userId, userName, userRole, open, onClose, 
     // ── Render ─────────────────────────────────────────────────────────────
     return (
         <>
-            {/* Backdrop */}
-            {open && (
-                <div
-                    onClick={onClose}
-                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 999, backdropFilter: 'blur(4px)' }}
-                />
-            )}
-
-            {/* Modal (centered) */}
-            <div style={{
-                position: 'fixed',
-                top: '50%',
-                left: '50%',
-                transform: open ? 'translate(-50%, -50%) scale(1)' : 'translate(-50%, -50%) scale(0.95)',
-                width: 'min(420px, 96vw)',
-                maxHeight: '92vh',
-                background: 'linear-gradient(180deg, #2c2b5c 0%,#1a1f38 100%)',
-                border: '1px solid rgba(99,102,241,0.3)',
-                borderRadius: 16,
-                zIndex: 1000,
-                opacity: open ? 1 : 0,
-                pointerEvents: open ? 'auto' : 'none',
-                transition: 'transform 0.25s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease',
-                display: 'flex', flexDirection: 'column',
-                boxShadow: '0 20px 60px rgba(99,102,241,0.15), 0 8px 32px rgba(0,0,0,0.4)',
-                overflow: 'hidden',
-            }}>
+            {/* Backdrop + centering container — no transform on the card so that
+                position:fixed dropdown panels inside RichEditor render at correct
+                viewport coordinates (CSS: transform creates a new containing block
+                for position:fixed descendants). */}
+            <div
+                onClick={onClose}
+                style={{
+                    position: 'fixed', inset: 0,
+                    background: 'rgba(0,0,0,0.5)',
+                    backdropFilter: 'blur(4px)',
+                    zIndex: 999,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    opacity: open ? 1 : 0,
+                    pointerEvents: open ? 'auto' : 'none',
+                    transition: 'opacity 0.25s ease',
+                }}
+            >
+            <div
+                onClick={e => e.stopPropagation()}
+                style={{
+                    width: 'min(420px, 96vw)',
+                    maxHeight: '92vh',
+                    background: 'linear-gradient(180deg, #2c2b5c 0%,#1a1f38 100%)',
+                    border: '1px solid rgba(99,102,241,0.3)',
+                    borderRadius: 16,
+                    display: 'flex', flexDirection: 'column',
+                    boxShadow: '0 20px 60px rgba(99,102,241,0.15), 0 8px 32px rgba(0,0,0,0.4)',
+                    overflow: 'hidden',
+                }}
+            >
                 {/* Header */}
                 <div style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -355,6 +358,7 @@ export default function QuizDrawer({ userId, userName, userRole, open, onClose, 
                         />
                     )}
                 </div>
+            </div>
             </div>
             {confirmState && (
                 <ConfirmModal

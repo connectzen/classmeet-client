@@ -596,11 +596,9 @@ export default function CurriculumEditor({ courseId, userId, onCoursesChange }: 
     }
 
     async function handleDeleteTopic(topicId: string) {
-        if (!confirm('Delete this topic and all its content?')) return;
         await fetch(`${SERVER}/api/topics/${topicId}`, { method: 'DELETE' }).catch(() => {});
         setTopics(prev => prev.filter(t => t.id !== topicId));
         setExpandedTopics(prev => { const s = new Set(prev); s.delete(topicId); return s; });
-        onCoursesChange?.();
     }
 
     function handleTopicDataChange(topicId: string, data: Partial<Topic>) {

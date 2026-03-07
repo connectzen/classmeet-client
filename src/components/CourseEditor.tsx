@@ -414,7 +414,7 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
             background: 'rgba(0,0,0,0.85)',
             backdropFilter: 'blur(4px)',
             display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-            padding: '40px 12px 40px', overflowY: 'auto',
+            padding: '72px 12px 40px', overflowY: 'auto',
         }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
             <div style={{
                 background: 'linear-gradient(160deg,#1e2130 0%,#181c2a 100%)',
