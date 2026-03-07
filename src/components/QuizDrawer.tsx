@@ -138,6 +138,7 @@ export default function QuizDrawer({ userId, userName, userRole, open, onClose, 
     }, []);
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
     const [loadingQuizzes, setLoadingQuizzes] = useState(false);
+    const [teacherRooms, setTeacherRooms] = useState<TeacherRoom[]>([]);
     const [courses, setCourses] = useState<{ id: string; title: string }[]>([]);
 
     // ── Fetch quizzes ──────────────────────────────────────────────────────
@@ -164,9 +165,16 @@ export default function QuizDrawer({ userId, userName, userRole, open, onClose, 
             if (r.ok) setCourses(await r.json());
         } catch { /* ignore */ }
     }
-    useEffect(() => { if (open) { fetchQuizzes(); if (canCreate) { fetchCourses(); } } }, [open]);
+    useEffect(() => { if (open) { fetchQuizzes(); if (canCreate) { fetchTeacherRooms(); fetchCourses(); } } }, [open]);
     useEffect(() => { if (open && view.name === 'list') fetchQuizzes(); }, [view]);
     useEffect(() => { if (quizScoreUpdateTrigger > 0) fetchQuizzes(); }, [quizScoreUpdateTrigger, fetchQuizzes]);
+
+    async function fetchTeacherRooms() {
+        try {
+            const r = await fetch(`${SERVER}/api/teacher/${userId}/rooms`);
+            if (r.ok) setTeacherRooms(await r.json());
+        } catch { /* ignore */ }
+    }
 
     // ── Back navigation ────────────────────────────────────────────────────
     function goBack() {
@@ -179,10 +187,10 @@ export default function QuizDrawer({ userId, userName, userRole, open, onClose, 
     // ── Render ─────────────────────────────────────────────────────────────
     return (
         <>
-            {/* Backdrop + centering container — no transform on the card so that
-                position:fixed dropdown panels inside RichEditor render at correct
-                viewport coordinates (CSS: transform creates a new containing block
-                for position:fixed descendants). */}
+            {/* Backdrop + centering — no transform on the card so that
+                position:fixed dropdown panels in RichEditor render at correct
+                viewport coordinates (CSS: transform creates a new containing
+                block for position:fixed descendants). */}
             <div
                 onClick={onClose}
                 style={{
@@ -199,8 +207,8 @@ export default function QuizDrawer({ userId, userName, userRole, open, onClose, 
             <div
                 onClick={e => e.stopPropagation()}
                 style={{
-                    width: 'min(420px, 96vw)',
-                    maxHeight: '92vh',
+                    width: 'min(960px, 96vw)',
+                    maxHeight: '90vh',
                     background: 'linear-gradient(180deg, #2c2b5c 0%,#1a1f38 100%)',
                     border: '1px solid rgba(99,102,241,0.3)',
                     borderRadius: 16,
@@ -510,11 +518,31 @@ function CreateQuizForm({ userId, courses, onCreated, onCancel }: {
     const [title, setTitle] = useState('');
     const [courseId, setCourseId] = useState('');
     const [timeLimit, setTimeLimit] = useState('');
+    const [targetGroupIds, setTargetGroupIds] = useState<string[]>([]);
+    const [targetStudentIds, setTargetStudentIds] = useState<string[]>([]);
+    const [groups, setGroups] = useState<{ id: string; name: string; member_count: number }[]>([]);
+    const [students, setStudents] = useState<{ id: string; name: string; email?: string }[]>([]);
     const [saving, setSaving] = useState(false);
     const [err, setErr] = useState('');
 
+    useEffect(() => {
+        if (!userId) return;
+        fetch(`${SERVER}/api/teacher/${userId}/groups`).then(r => r.ok ? r.json() : []).then(setGroups);
+        fetch(`${SERVER}/api/teacher/${userId}/students`).then(r => r.ok ? r.json() : []).then(setStudents);
+    }, [userId]);
+
+    function toggleGroup(id: string) {
+        setTargetGroupIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    }
+    function toggleStudent(id: string) {
+        setTargetStudentIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    }
+
     async function handleCreate() {
         if (isRichEmpty(title)) { setErr('Title is required'); return; }
+        const hasCourse = !!courseId;
+        const hasGroups = targetGroupIds.length > 0;
+        const hasStudents = targetStudentIds.length > 0;
         setSaving(true); setErr('');
         try {
             const r = await fetch(`${SERVER}/api/quizzes`, {
@@ -525,6 +553,8 @@ function CreateQuizForm({ userId, courses, onCreated, onCancel }: {
                     courseId: courseId || undefined,
                     createdBy: userId,
                     timeLimitMinutes: timeLimit ? Number(timeLimit) : null,
+                    targetGroupIds: hasGroups ? targetGroupIds : undefined,
+                    targetStudentIds: hasStudents ? targetStudentIds : undefined,
                 }),
             });
             const data = await r.json();
@@ -566,6 +596,40 @@ function CreateQuizForm({ userId, courses, onCreated, onCancel }: {
                 </>
             )}
 
+            {(groups.length > 0 || students.length > 0) && (
+                <div style={{ marginTop: 18 }}>
+                    <label className="quiz-label">Assign to group(s) or student(s)</label>
+                    <p style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 8 }}>Optionally target specific groups or students.</p>
+                    {groups.length > 0 && (
+                        <div style={{ marginBottom: 10 }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Groups</div>
+                            <div style={{ maxHeight: 100, overflowY: 'auto', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 8, background: 'rgba(99,102,241,0.05)' }}>
+                                {groups.map(g => (
+                                    <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(99,102,241,0.1)' }}>
+                                        <input type="checkbox" checked={targetGroupIds.includes(g.id)} onChange={() => toggleGroup(g.id)} style={{ accentColor: '#6366f1' }} />
+                                        <span style={{ fontSize: 13, fontWeight: 500 }}>{g.name}</span>
+                                        <span style={{ fontSize: 11, color: '#64748b' }}>({g.member_count} members)</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    {students.length > 0 && (
+                        <div>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Individual students</div>
+                            <div style={{ maxHeight: 100, overflowY: 'auto', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 8, background: 'rgba(99,102,241,0.05)' }}>
+                                {students.map(s => (
+                                    <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(99,102,241,0.1)' }}>
+                                        <input type="checkbox" checked={targetStudentIds.includes(s.id)} onChange={() => toggleStudent(s.id)} style={{ accentColor: '#6366f1' }} />
+                                        <span style={{ fontSize: 13, fontWeight: 500 }}>{s.name || s.email || 'Student'}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
             <label className="quiz-label" style={{ marginTop: 18 }}>Time Limit (minutes) — optional</label>
             <input
                 className="quiz-input"
@@ -585,7 +649,7 @@ function CreateQuizForm({ userId, courses, onCreated, onCancel }: {
     );
 }
 
-// ─── Edit Quiz Form ────────────────────────────────────────────────────────
+// ─── Edit Quiz Form (full form like Create, for editing quiz basics + assignment) ───
 function EditQuizForm({ quiz, userId, courses, onSaved, onCancel }: {
     quiz: Quiz;
     userId: string;
@@ -596,11 +660,30 @@ function EditQuizForm({ quiz, userId, courses, onSaved, onCancel }: {
     const [title, setTitle] = useState(quiz.title);
     const [courseId, setCourseId] = useState(quiz.course_id || '');
     const [timeLimit, setTimeLimit] = useState(quiz.time_limit_minutes != null ? String(quiz.time_limit_minutes) : '');
+    const [targetGroupIds, setTargetGroupIds] = useState<string[]>(quiz.target_group_ids || []);
+    const [targetStudentIds, setTargetStudentIds] = useState<string[]>(quiz.target_student_ids || []);
+    const [groups, setGroups] = useState<{ id: string; name: string; member_count: number }[]>([]);
+    const [students, setStudents] = useState<{ id: string; name: string; email?: string }[]>([]);
     const [saving, setSaving] = useState(false);
     const [err, setErr] = useState('');
 
+    useEffect(() => {
+        if (!userId) return;
+        fetch(`${SERVER}/api/teacher/${userId}/groups`).then(r => r.ok ? r.json() : []).then(setGroups);
+        fetch(`${SERVER}/api/teacher/${userId}/students`).then(r => r.ok ? r.json() : []).then(setStudents);
+    }, [userId]);
+
+    function toggleGroup(id: string) {
+        setTargetGroupIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    }
+    function toggleStudent(id: string) {
+        setTargetStudentIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    }
+
     async function handleSave() {
         if (isRichEmpty(title)) { setErr('Title is required'); return; }
+        const hasGroups = targetGroupIds.length > 0;
+        const hasStudents = targetStudentIds.length > 0;
         setSaving(true); setErr('');
         try {
             const r = await fetch(`${SERVER}/api/quizzes/${quiz.id}`, {
@@ -610,6 +693,8 @@ function EditQuizForm({ quiz, userId, courses, onSaved, onCancel }: {
                     title,
                     courseId: courseId || undefined,
                     timeLimitMinutes: timeLimit ? Number(timeLimit) : null,
+                    targetGroupIds: hasGroups ? targetGroupIds : undefined,
+                    targetStudentIds: hasStudents ? targetStudentIds : undefined,
                 }),
             });
             const data = await r.json();
@@ -639,6 +724,40 @@ function EditQuizForm({ quiz, userId, courses, onSaved, onCancel }: {
                         {courses.map(c => <option key={c.id} value={c.id}>{stripHtml(c.title)}</option>)}
                     </select>
                 </>
+            )}
+
+            {(groups.length > 0 || students.length > 0) && (
+                <div style={{ marginTop: 18 }}>
+                    <label className="quiz-label">Assign to group(s) or student(s)</label>
+                    <p style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 8 }}>Optionally target specific groups or students.</p>
+                    {groups.length > 0 && (
+                        <div style={{ marginBottom: 10 }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Groups</div>
+                            <div style={{ maxHeight: 100, overflowY: 'auto', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 8, background: 'rgba(99,102,241,0.05)' }}>
+                                {groups.map(g => (
+                                    <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(99,102,241,0.1)' }}>
+                                        <input type="checkbox" checked={targetGroupIds.includes(g.id)} onChange={() => toggleGroup(g.id)} style={{ accentColor: '#6366f1' }} />
+                                        <span style={{ fontSize: 13, fontWeight: 500 }}>{g.name}</span>
+                                        <span style={{ fontSize: 11, color: '#64748b' }}>({g.member_count} members)</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    {students.length > 0 && (
+                        <div>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Individual students</div>
+                            <div style={{ maxHeight: 100, overflowY: 'auto', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 8, background: 'rgba(99,102,241,0.05)' }}>
+                                {students.map(s => (
+                                    <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(99,102,241,0.1)' }}>
+                                        <input type="checkbox" checked={targetStudentIds.includes(s.id)} onChange={() => toggleStudent(s.id)} style={{ accentColor: '#6366f1' }} />
+                                        <span style={{ fontSize: 13, fontWeight: 500 }}>{s.name || s.email || 'Student'}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
             )}
 
             <label className="quiz-label" style={{ marginTop: 18 }}>Time Limit (minutes) — optional</label>
