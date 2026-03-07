@@ -2,7 +2,23 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+
+    <!-- PWA: icons & manifest -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48">
+    <link rel="icon" href="/icon.svg" sizes="any" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png">
+    <link rel="manifest" href="/manifest.webmanifest">
+
+    <!-- PWA: theme & standalone mode -->
+    <meta name="theme-color" content="#1e1b4b">
+    <!-- iOS standalone (hides Safari chrome when launched from Home Screen) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ClassMeet">
+    <!-- Windows tile -->
+    <meta name="msapplication-TileColor" content="#1e1b4b">
+    <meta name="msapplication-TileImage" content="/pwa-192x192.png">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
     <meta name="description" content="ClassMeet – WebRTC virtual classroom for teachers and students. Host or join real-time video sessions with up to 5 participants." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />

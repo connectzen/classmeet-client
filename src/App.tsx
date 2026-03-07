@@ -35,17 +35,34 @@ export default function App() {
         setView('admin');
     }, []);
 
+    const enterFullscreen = () => {
+        const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> };
+        if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    };
+
+    const exitFullscreen = () => {
+        const doc = document as Document & { webkitExitFullscreen?: () => void; webkitFullscreenElement?: Element | null };
+        if (doc.fullscreenElement || doc.webkitFullscreenElement) {
+            if (doc.exitFullscreen) doc.exitFullscreen().catch(() => {});
+            else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
+        }
+    };
+
     const handleJoinRoom = (roomCode: string, roomId: string, name: string, role: 'teacher' | 'student' | 'guest', roomName: string, isGuestRoomHost?: boolean) => {
         setSession({ roomCode, roomId, roomName, name, role, isGuestRoomHost: !!isGuestRoomHost });
         setView('room');
+        enterFullscreen();
     };
 
     const handleResumeSession = (s: { roomCode: string; roomId: string; roomName: string; role: 'teacher' | 'student'; name: string }) => {
         setSession(s);
         setView('room');
+        enterFullscreen();
     };
 
     const handleLeave = () => {
+        exitFullscreen();
         setSession(null);
         setView('landing');
     };

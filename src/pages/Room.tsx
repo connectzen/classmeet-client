@@ -48,6 +48,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
     const [showDevicePicker, setShowDevicePicker] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false); // mobile chat popup
     const [isMobilePlayOpen, setIsMobilePlayOpen] = useState(false); // mobile play panel
+    const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
     // mobile thumbnail strip is always visible — no toggle needed
     const [activeVideoDeviceId, setActiveVideoDeviceId] = useState<string | null>(null);
     const [activeAudioDeviceId, setActiveAudioDeviceId] = useState<string | null>(null);
@@ -123,6 +124,20 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
             setTimeout(() => setCodeCopied(false), 2000);
         });
     };
+
+    // Sync isFullscreen state whenever the browser enters/exits fullscreen
+    useEffect(() => {
+        const handleFsChange = () => {
+            const doc = document as Document & { webkitFullscreenElement?: Element | null };
+            setIsFullscreen(!!(doc.fullscreenElement || doc.webkitFullscreenElement));
+        };
+        document.addEventListener('fullscreenchange', handleFsChange);
+        document.addEventListener('webkitfullscreenchange', handleFsChange);
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFsChange);
+            document.removeEventListener('webkitfullscreenchange', handleFsChange);
+        };
+    }, []);
 
     // Save session immediately for rejoin capability
     useEffect(() => {
@@ -1402,6 +1417,34 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                             📴 <span className="control-label">End Class</span>
                         </button>
                     )}
+
+                    <button
+                        id="btn-fullscreen"
+                        className="control-btn"
+                        title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                        onClick={() => {
+                            if (isFullscreen) {
+                                if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+                                else (document as Document & { webkitExitFullscreen?: () => void }).webkitExitFullscreen?.();
+                            } else {
+                                if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+                                else (document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen?.();
+                            }
+                        }}
+                    >
+                        {isFullscreen ? (
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="4 14 10 14 10 20" /><polyline points="20 10 14 10 14 4" />
+                                <line x1="10" y1="14" x2="3" y2="21" /><line x1="21" y1="3" x2="14" y2="10" />
+                            </svg>
+                        ) : (
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" />
+                                <line x1="21" y1="3" x2="14" y2="10" /><line x1="3" y1="21" x2="10" y2="14" />
+                            </svg>
+                        )}
+                        <span className="control-label">{isFullscreen ? 'Window' : 'Full'}</span>
+                    </button>
 
                     <button id="btn-leave-room" className="control-btn control-btn-leave" onClick={handleLeaveIntentional}>
                         🚪 <span className="control-label">Leave</span>
