@@ -36,9 +36,8 @@ export default function App() {
             localStorage.removeItem('cm_pending_welcome');
         }
 
-        // Show notification permission prompt on first launch inside the PWA.
+        // Show notification permission prompt on first launch (browser or PWA).
         if (
-            isStandalone &&
             'Notification' in window &&
             Notification.permission === 'default' &&
             !localStorage.getItem('cm_notif_asked')
