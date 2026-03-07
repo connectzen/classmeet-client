@@ -123,12 +123,7 @@ if (!document.getElementById(HINT_STYLE_ID)) {
     const s = document.createElement('style');
     s.id = HINT_STYLE_ID;
     s.textContent = `
-        @keyframes cm-pulse-green {
-            0%,100% { opacity: 1; text-shadow: 0 0 0px #4ade80; }
-            50%      { opacity: 0.75; text-shadow: 0 0 8px #4ade80, 0 0 16px #22c55e; }
-        }
         .cm-hint-pulse {
-            animation: cm-pulse-green 2s ease-in-out infinite;
             color: #4ade80 !important;
             font-weight: 600;
         }
