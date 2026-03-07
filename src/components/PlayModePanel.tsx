@@ -679,12 +679,9 @@ export default function PlayModePanel({
         // Use the visual (screen-pixel) canvas height so line spacing = fontSizePx × 1.4 px,
         // matching the Play editor exactly regardless of the blackboard panel's zoom level.
         const visualH = canvasHRef.current * contentScaleRef.current;
-        // On the blackboard there is no floating header pill, so start at cy=0.
-        // On the lesson canvas, clamp to at least 52px from top to clear the pill.
-        const headerClearanceFrac = isBlackboardOnRef.current
-            ? 0
-            : 52 / Math.max(1, visualH);
-        const startCy = Math.max(anchorRef.current?.cy ?? 0, headerClearanceFrac);
+        // Play always starts at the very top-left (cy=0). The anchor is only used
+        // by handleResume to continue from a clicked position after a stop.
+        const startCy = 0;
         const plan = buildGroupPlan(
             styledWords,
             wordsPerFlyRef.current,

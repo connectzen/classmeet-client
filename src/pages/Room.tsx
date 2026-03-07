@@ -1274,6 +1274,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                                 emitPlayShow={html => emitPlayShow(html)}
                                 emitPlayClear={() => emitPlayClear()}
                                 contentScale={bbContentScale}
+                                stopSignal={playStopSignal}
                             />
                         ) : (
                             <ChatPanel messages={messages} mySocketId={socketId} onSend={sendMessage} hideHeader />
