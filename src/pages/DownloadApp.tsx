@@ -308,20 +308,48 @@ function SuccessScreen({ notifPermission, justInstalled, onDone }: {
     onDone?: () => void;
 }) {
     // True when running inside the installed PWA standalone shell (Android or iOS).
-    // In standalone mode, window.close() is a no-op, so we show a different CTA.
     const isStandalone =
         window.matchMedia('(display-mode: standalone)').matches ||
         (navigator as Navigator & { standalone?: boolean }).standalone === true;
 
     useEffect(() => {
-        if (isStandalone) return; // Don't try to close a standalone PWA window
-        // Attempt to auto-close the browser tab after a short delay.
-        // Works when the tab was opened programmatically; silently fails otherwise.
-        const t = setTimeout(() => {
-            try { window.close(); } catch { /* ignore */ }
-        }, 3000);
-        return () => clearTimeout(t);
-    }, [isStandalone]);
+        if (isStandalone && justInstalled) {
+            // First launch after install on mobile — redirect to Google after a
+            // brief moment so the user can read the confirmation message.
+            const t = setTimeout(() => {
+                window.location.href = 'https://www.google.com';
+            }, 2500);
+            return () => clearTimeout(t);
+        }
+
+        if (!isStandalone) {
+            // Browser tab — attempt to auto-close (works when opened programmatically).
+            const t = setTimeout(() => {
+                try { window.close(); } catch { /* ignore */ }
+            }, 3000);
+            return () => clearTimeout(t);
+        }
+    }, [isStandalone, justInstalled]);
+
+    // ── First-launch mobile confirmation screen ───────────────────────────────
+    if (isStandalone && justInstalled) {
+        return (
+            <div style={styles.fullPage}>
+                <div style={styles.successRing}>
+                    <span style={{ fontSize: 52 }}>✅</span>
+                </div>
+                <h1 style={{ ...styles.appName, marginTop: 28, fontSize: 28 }}>
+                    Installation Successful
+                </h1>
+                <p style={{ fontSize: 17, color: '#6ee7b7', maxWidth: 300, margin: '16px auto 0', lineHeight: 1.7, textAlign: 'center', fontWeight: 600 }}>
+                    You are good to go.
+                </p>
+                <p style={{ fontSize: 14, color: '#475569', maxWidth: 280, margin: '12px auto 0', textAlign: 'center', lineHeight: 1.6 }}>
+                    Redirecting you now…
+                </p>
+            </div>
+        );
+    }
 
     return (
         <div style={styles.fullPage}>
@@ -351,32 +379,21 @@ function SuccessScreen({ notifPermission, justInstalled, onDone }: {
 
             {/* Instruction card — context-aware for standalone vs browser */}
             <div style={styles.successCard}>
-                <div style={{ fontSize: 28, marginBottom: 10 }}>{isStandalone ? '🚀' : '🏠'}</div>
+                <div style={{ fontSize: 28, marginBottom: 10 }}>🏠</div>
                 <p style={{ margin: 0, fontSize: 15, color: '#c7d2fe', lineHeight: 1.7 }}>
-                    {isStandalone
-                        ? <>Tap the button below to <strong style={{ color: '#a5b4fc' }}>start using ClassMeet</strong>!</>
-                        : <>Now <strong>close this browser</strong> and find the{' '}
-                            <strong style={{ color: '#a5b4fc' }}>ClassMeet</strong> icon on your
-                            home screen to open the app.</>}
+                    Now <strong>close this browser</strong> and find the{' '}
+                    <strong style={{ color: '#a5b4fc' }}>ClassMeet</strong> icon on your
+                    home screen to open the app.
                 </p>
             </div>
 
-            {/* Primary CTA — "Start" in standalone, "Close Browser" in browser tab */}
-            {isStandalone ? (
-                <button
-                    onClick={() => { if (onDone) { onDone(); } else { window.location.href = '/'; } }}
-                    style={{ marginTop: 20, padding: '14px 32px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', letterSpacing: 0.3, boxShadow: '0 6px 32px rgba(99,102,241,0.55)' }}
-                >
-                    🚀 &nbsp;Start Using ClassMeet
-                </button>
-            ) : (
-                <button
-                    onClick={() => { try { window.close(); } catch { /* ignore */ } }}
-                    style={{ marginTop: 20, padding: '14px 32px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', letterSpacing: 0.3 }}
-                >
-                    ✕ &nbsp;Close Browser
-                </button>
-            )}
+            {/* Close browser button (browser tab only) */}
+            <button
+                onClick={() => { try { window.close(); } catch { /* ignore */ } }}
+                style={{ marginTop: 20, padding: '14px 32px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', letterSpacing: 0.3 }}
+            >
+                ✕ &nbsp;Close Browser
+            </button>
 
             {/* Secondary step */}
             <div style={{ ...styles.successCard, marginTop: 20, background: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.25)' }}>
