@@ -34,6 +34,7 @@ export default function DownloadApp() {
     const [phase,          setPhase]          = useState<Phase>('landing');
     const [installing,     setInstalling]     = useState(false);
     const [alreadyInstalled] = useState(isAlreadyInstalled);
+    const [notifPermission, setNotifPermission] = useState<NotificationPermission | null>(null);
 
     useEffect(() => {
         const onPrompt = (e: Event) => {
@@ -58,8 +59,20 @@ export default function DownloadApp() {
         try {
             await deferredPrompt.prompt();
             const { outcome } = await deferredPrompt.userChoice;
-            if (outcome === 'accepted') setPhase('success');
-            else setPhase('landing');
+            if (outcome === 'accepted') {
+                // While the app is installing, ask for notification permission
+                if ('Notification' in window) {
+                    if (Notification.permission === 'default') {
+                        const perm = await Notification.requestPermission();
+                        setNotifPermission(perm);
+                    } else {
+                        setNotifPermission(Notification.permission);
+                    }
+                }
+                setPhase('success');
+            } else {
+                setPhase('landing');
+            }
         } finally {
             setInstalling(false);
             setDeferredPrompt(null);
@@ -67,7 +80,7 @@ export default function DownloadApp() {
     };
 
     if (alreadyInstalled) return <AlreadyInstalledScreen />;
-    if (phase === 'success')  return <SuccessScreen />;
+    if (phase === 'success')  return <SuccessScreen notifPermission={notifPermission} />;
 
     const canInstall = !!deferredPrompt; // Android / Chrome desktop only
 
@@ -151,6 +164,9 @@ function InstallModal({ installing, onConfirm, onClose }: {
                     Install ClassMeet for free and join a growing community of
                     teachers and students learning together every day.
                 </p>
+                <p style={{ fontSize: 12, color: '#818cf8', textAlign: 'center', margin: '-4px 0 8px', lineHeight: 1.6 }}>
+                    🔔 After you install, we'll ask to send you class alerts so you never miss a live session.
+                </p>
 
                 {/* Benefits */}
                 <ul style={styles.benefitList}>
@@ -176,7 +192,7 @@ function InstallModal({ installing, onConfirm, onClose }: {
                 </button>
 
                 <p style={{ marginTop: 16, fontSize: 11, color: '#475569', textAlign: 'center' }}>
-                    A small confirmation box will appear — just tap <strong style={{ color: '#94a3b8' }}>Install</strong> to confirm.
+                    Two prompts will appear — tap <strong style={{ color: '#94a3b8' }}>Install</strong>, then <strong style={{ color: '#94a3b8' }}>Allow</strong> for class alerts.
                 </p>
             </div>
         </div>
@@ -240,7 +256,7 @@ function OtherBrowserHint({ platform }: { platform: Platform }) {
 
 // ── Success Screen ────────────────────────────────────────────────────────────
 
-function SuccessScreen() {
+function SuccessScreen({ notifPermission }: { notifPermission: NotificationPermission | null }) {
     return (
         <div style={styles.fullPage}>
             <div style={styles.successRing}>
@@ -252,6 +268,18 @@ function SuccessScreen() {
             <p style={{ fontSize: 16, color: '#94a3b8', maxWidth: 320, margin: '12px auto 36px', lineHeight: 1.7, textAlign: 'center' }}>
                 We're so proud to have you with us — teacher or student. We will work hard every day so that great education happens here.
             </p>
+
+            {/* Notification permission result */}
+            {notifPermission !== null && (
+                <div style={{ ...styles.successCard, marginBottom: 12, background: notifPermission === 'granted' ? 'rgba(16,185,129,0.08)' : 'rgba(100,116,139,0.12)', borderColor: notifPermission === 'granted' ? 'rgba(16,185,129,0.25)' : 'rgba(100,116,139,0.25)' }}>
+                    <div style={{ fontSize: 24, marginBottom: 8 }}>{notifPermission === 'granted' ? '🔔' : '🔕'}</div>
+                    <p style={{ margin: 0, fontSize: 14, color: notifPermission === 'granted' ? '#6ee7b7' : '#94a3b8', lineHeight: 1.6 }}>
+                        {notifPermission === 'granted'
+                            ? "Notifications enabled! We'll alert you when class is about to start."
+                            : 'No notifications — you can enable them later in your device settings.'}
+                    </p>
+                </div>
+            )}
 
             {/* Instruction card */}
             <div style={styles.successCard}>
