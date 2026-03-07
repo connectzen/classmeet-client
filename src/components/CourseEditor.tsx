@@ -420,10 +420,9 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
                 background: 'linear-gradient(160deg,#1e2130 0%,#181c2a 100%)',
                 borderRadius: 18,
                 width: '100%',
-                maxWidth: step === 2 ? 1060 : 580,
+                maxWidth: 1060,
                 boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.25)',
                 border: '1px solid rgba(99,102,241,0.25)',
-                transition: 'max-width 0.3s cubic-bezier(0.4,0,0.2,1)',
             }} onClick={e => e.stopPropagation()}>
                 {/* Header */}
                 <div style={{ padding: '18px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(99,102,241,0.06)', borderRadius: '18px 18px 0 0' }}>
