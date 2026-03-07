@@ -20,23 +20,28 @@ function getPlatform(): Platform {
 }
 
 function isAlreadyInstalled(): boolean {
+    // Only trust live display-mode — localStorage persists after uninstall
+    // so it cannot reliably indicate the app is currently installed.
     return (
         window.matchMedia('(display-mode: standalone)').matches ||
-        (navigator as Navigator & { standalone?: boolean }).standalone === true ||
-        localStorage.getItem('cm_installed') === '1'
+        (navigator as Navigator & { standalone?: boolean }).standalone === true
     );
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export default function DownloadApp() {
+export default function DownloadApp({ mode = 'install', onDone }: {
+    mode?: 'install' | 'welcome';
+    onDone?: () => void;
+}) {
     const [platform]       = useState<Platform>(getPlatform);
     const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-    const [phase,          setPhase]          = useState<Phase>('landing');
+    // In 'welcome' mode we arrive here already installed — jump straight to success
+    const [phase,          setPhase]          = useState<Phase>(() => mode === 'welcome' ? 'success' : 'landing');
     const [installing,     setInstalling]     = useState(false);
     const [alreadyInstalled] = useState(isAlreadyInstalled);
     const [notifPermission, setNotifPermission] = useState<NotificationPermission | null>(null);
-    const [justInstalled,   setJustInstalled]   = useState(false);
+    const [justInstalled,   setJustInstalled]   = useState(() => mode === 'welcome');
 
     useEffect(() => {
         const onPrompt = (e: Event) => {
@@ -44,7 +49,6 @@ export default function DownloadApp() {
             setDeferredPrompt(e as BeforeInstallPromptEvent);
         };
         const onInstalled = () => {
-            localStorage.setItem('cm_installed', '1');
             setDeferredPrompt(null);
             setJustInstalled(true);
             setPhase('success');
@@ -57,9 +61,25 @@ export default function DownloadApp() {
         };
     }, []);
 
+    // When launched in welcome mode (PWA standalone after install), request
+    // notification permission immediately so the user sees the same branded
+    // notification prompt the PC flow shows.
+    useEffect(() => {
+        if (mode !== 'welcome') return;
+        if (!('Notification' in window)) return;
+        if (Notification.permission !== 'default') {
+            setNotifPermission(Notification.permission);
+            return;
+        }
+        Notification.requestPermission().then(perm => setNotifPermission(perm));
+    }, [mode]);
+
     const triggerInstall = async () => {
         if (!deferredPrompt) return;
         setInstalling(true);
+        // Set the handoff flag BEFORE the native prompt so it survives even if
+        // the browser tab navigates away when the PWA standalone window opens.
+        localStorage.setItem('cm_pending_welcome', '1');
         try {
             // Request notification permission FIRST while user gesture is still fresh
             // (mobile browsers require this to be close to the tap)
@@ -73,11 +93,11 @@ export default function DownloadApp() {
             await deferredPrompt.prompt();
             const { outcome } = await deferredPrompt.userChoice;
             if (outcome === 'accepted') {
-                localStorage.setItem('cm_installed', '1');
                 setJustInstalled(true);
                 setPhase('success');
             } else {
-                // User dismissed — don't re-show the install card, just confirm and close
+                // User dismissed — clear the pending flag, show a confirmation
+                localStorage.removeItem('cm_pending_welcome');
                 setPhase('success');
             }
         } finally {
@@ -86,8 +106,8 @@ export default function DownloadApp() {
         }
     };
 
-    if (alreadyInstalled) return <AlreadyInstalledScreen />;
-    if (phase === 'success')  return <SuccessScreen notifPermission={notifPermission} justInstalled={justInstalled} />;
+    if (alreadyInstalled && mode !== 'welcome') return <AlreadyInstalledScreen />;
+    if (phase === 'success')  return <SuccessScreen notifPermission={notifPermission} justInstalled={justInstalled} onDone={onDone} />;
 
     const canInstall = !!deferredPrompt; // Android / Chrome desktop only
 
@@ -200,8 +220,36 @@ function InstallModal({ installing, onConfirm, onClose, asPage }: {
 // ── iOS Guide ─────────────────────────────────────────────────────────────────
 
 function IosGuide() {
+    // Set the handoff flag as soon as the user sees the guide — they've clearly
+    // expressed intent to install. The PWA will read this on first launch.
+    useEffect(() => {
+        localStorage.setItem('cm_pending_welcome', '1');
+    }, []);
+
     return (
-        <div style={{ width: '100%', maxWidth: 380 }}>
+        <div style={{ width: '100%', maxWidth: 400 }}>
+            {/* Branded header — matches the PC InstallModal look */}
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                <div style={{ ...styles.appIcon, width: 72, height: 72, borderRadius: 16, margin: '0 auto 16px' }}>
+                    <img src="/pwa-192x192.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
+                <h2 style={{ ...styles.modalTitle, fontSize: 22 }}>Install ClassMeet 🍎</h2>
+                <p style={{ fontSize: 13, color: '#94a3b8', margin: '6px 0 0', lineHeight: 1.5 }}>
+                    Free · No account needed to install · Create yours inside the app
+                </p>
+            </div>
+
+            {/* Benefits — same list as the PC modal */}
+            <ul style={{ ...styles.benefitList, marginBottom: 20 }}>
+                {MODAL_BENEFITS.map(item => (
+                    <li key={item} style={styles.benefitItem}>
+                        <span style={styles.checkCircle}>✓</span>
+                        {item}
+                    </li>
+                ))}
+            </ul>
+
+            {/* Safari notice */}
             <div style={styles.iosBanner}>
                 <span style={{ fontSize: 20 }}>🍎</span>
                 <span style={{ fontSize: 14, color: '#fbbf24', fontWeight: 600 }}>Open this page in Safari to install</span>
@@ -254,15 +302,26 @@ function OtherBrowserHint({ platform }: { platform: Platform }) {
 
 // ── Success Screen ────────────────────────────────────────────────────────────
 
-function SuccessScreen({ notifPermission, justInstalled }: { notifPermission: NotificationPermission | null; justInstalled: boolean }) {
+function SuccessScreen({ notifPermission, justInstalled, onDone }: {
+    notifPermission: NotificationPermission | null;
+    justInstalled: boolean;
+    onDone?: () => void;
+}) {
+    // True when running inside the installed PWA standalone shell (Android or iOS).
+    // In standalone mode, window.close() is a no-op, so we show a different CTA.
+    const isStandalone =
+        window.matchMedia('(display-mode: standalone)').matches ||
+        (navigator as Navigator & { standalone?: boolean }).standalone === true;
+
     useEffect(() => {
-        // Attempt to auto-close the browser after a short delay.
+        if (isStandalone) return; // Don't try to close a standalone PWA window
+        // Attempt to auto-close the browser tab after a short delay.
         // Works when the tab was opened programmatically; silently fails otherwise.
         const t = setTimeout(() => {
             try { window.close(); } catch { /* ignore */ }
         }, 3000);
         return () => clearTimeout(t);
-    }, []);
+    }, [isStandalone]);
 
     return (
         <div style={styles.fullPage}>
@@ -290,23 +349,34 @@ function SuccessScreen({ notifPermission, justInstalled }: { notifPermission: No
                 </div>
             )}
 
-            {/* Instruction card */}
+            {/* Instruction card — context-aware for standalone vs browser */}
             <div style={styles.successCard}>
-                <div style={{ fontSize: 28, marginBottom: 10 }}>🏠</div>
+                <div style={{ fontSize: 28, marginBottom: 10 }}>{isStandalone ? '🚀' : '🏠'}</div>
                 <p style={{ margin: 0, fontSize: 15, color: '#c7d2fe', lineHeight: 1.7 }}>
-                    Now <strong>close this browser</strong> and find the{' '}
-                    <strong style={{ color: '#a5b4fc' }}>ClassMeet</strong> icon on your
-                    home screen to open the app.
+                    {isStandalone
+                        ? <>Tap the button below to <strong style={{ color: '#a5b4fc' }}>start using ClassMeet</strong>!</>
+                        : <>Now <strong>close this browser</strong> and find the{' '}
+                            <strong style={{ color: '#a5b4fc' }}>ClassMeet</strong> icon on your
+                            home screen to open the app.</>}
                 </p>
             </div>
 
-            {/* Close browser button */}
-            <button
-                onClick={() => { try { window.close(); } catch { /* ignore */ } }}
-                style={{ marginTop: 20, padding: '14px 32px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', letterSpacing: 0.3 }}
-            >
-                ✕ &nbsp;Close Browser
-            </button>
+            {/* Primary CTA — "Start" in standalone, "Close Browser" in browser tab */}
+            {isStandalone ? (
+                <button
+                    onClick={() => { window.location.href = '/'; if (onDone) onDone(); }}
+                    style={{ marginTop: 20, padding: '14px 32px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', letterSpacing: 0.3, boxShadow: '0 6px 32px rgba(99,102,241,0.55)' }}
+                >
+                    🚀 &nbsp;Start Using ClassMeet
+                </button>
+            ) : (
+                <button
+                    onClick={() => { try { window.close(); } catch { /* ignore */ } }}
+                    style={{ marginTop: 20, padding: '14px 32px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', letterSpacing: 0.3 }}
+                >
+                    ✕ &nbsp;Close Browser
+                </button>
+            )}
 
             {/* Secondary step */}
             <div style={{ ...styles.successCard, marginTop: 20, background: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.25)' }}>
