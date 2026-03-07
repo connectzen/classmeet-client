@@ -420,7 +420,7 @@ export default function CourseEditor({ userId, course, onClose, onSaved }: Props
                 background: 'linear-gradient(160deg,#1e2130 0%,#181c2a 100%)',
                 borderRadius: 18,
                 width: '100%',
-                maxWidth: 420,
+                maxWidth: 680,
                 boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.25)',
                 border: '1px solid rgba(99,102,241,0.25)',
             }} onClick={e => e.stopPropagation()}>
