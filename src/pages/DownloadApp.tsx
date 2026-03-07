@@ -22,7 +22,8 @@ function getPlatform(): Platform {
 function isAlreadyInstalled(): boolean {
     return (
         window.matchMedia('(display-mode: standalone)').matches ||
-        (navigator as Navigator & { standalone?: boolean }).standalone === true
+        (navigator as Navigator & { standalone?: boolean }).standalone === true ||
+        localStorage.getItem('cm_installed') === '1'
     );
 }
 
@@ -35,6 +36,7 @@ export default function DownloadApp() {
     const [installing,     setInstalling]     = useState(false);
     const [alreadyInstalled] = useState(isAlreadyInstalled);
     const [notifPermission, setNotifPermission] = useState<NotificationPermission | null>(null);
+    const [justInstalled,   setJustInstalled]   = useState(false);
 
     useEffect(() => {
         const onPrompt = (e: Event) => {
@@ -42,7 +44,9 @@ export default function DownloadApp() {
             setDeferredPrompt(e as BeforeInstallPromptEvent);
         };
         const onInstalled = () => {
+            localStorage.setItem('cm_installed', '1');
             setDeferredPrompt(null);
+            setJustInstalled(true);
             setPhase('success');
         };
         window.addEventListener('beforeinstallprompt', onPrompt);
@@ -69,9 +73,12 @@ export default function DownloadApp() {
             await deferredPrompt.prompt();
             const { outcome } = await deferredPrompt.userChoice;
             if (outcome === 'accepted') {
+                localStorage.setItem('cm_installed', '1');
+                setJustInstalled(true);
                 setPhase('success');
             } else {
-                setPhase('landing');
+                // User dismissed — don't re-show the install card, just confirm and close
+                setPhase('success');
             }
         } finally {
             setInstalling(false);
@@ -80,7 +87,7 @@ export default function DownloadApp() {
     };
 
     if (alreadyInstalled) return <AlreadyInstalledScreen />;
-    if (phase === 'success')  return <SuccessScreen notifPermission={notifPermission} />;
+    if (phase === 'success')  return <SuccessScreen notifPermission={notifPermission} justInstalled={justInstalled} />;
 
     const canInstall = !!deferredPrompt; // Android / Chrome desktop only
 
@@ -247,7 +254,7 @@ function OtherBrowserHint({ platform }: { platform: Platform }) {
 
 // ── Success Screen ────────────────────────────────────────────────────────────
 
-function SuccessScreen({ notifPermission }: { notifPermission: NotificationPermission | null }) {
+function SuccessScreen({ notifPermission, justInstalled }: { notifPermission: NotificationPermission | null; justInstalled: boolean }) {
     useEffect(() => {
         // Attempt to auto-close the browser after a short delay.
         // Works when the tab was opened programmatically; silently fails otherwise.
@@ -263,10 +270,12 @@ function SuccessScreen({ notifPermission }: { notifPermission: NotificationPermi
                 <span style={{ fontSize: 52 }}>✅</span>
             </div>
 
-            <h1 style={{ ...styles.appName, marginTop: 28 }}>Welcome to the Family! 🎉</h1>
+            <h1 style={{ ...styles.appName, marginTop: 28 }}>{justInstalled ? 'Welcome to the Family! 🎉' : 'ClassMeet is Ready 🎓'}</h1>
 
             <p style={{ fontSize: 16, color: '#94a3b8', maxWidth: 320, margin: '12px auto 36px', lineHeight: 1.7, textAlign: 'center' }}>
-                We're so proud to have you with us — teacher or student. We will work hard every day so that great education happens here.
+                {justInstalled
+                    ? "We're so proud to have you with us — teacher or student. We will work hard every day so that great education happens here."
+                    : 'The app is installed on your device. Close this browser and open ClassMeet from your home screen.'}
             </p>
 
             {/* Notification permission result */}
