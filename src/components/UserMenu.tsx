@@ -27,13 +27,19 @@ export default function UserMenu({ userRole }: UserMenuProps) {
 
     useEffect(() => { setAvatarLoadFailed(false); }, [user?.profile?.avatar_url]);
 
-    // Close when clicking outside
+    // Close when clicking/touching outside — mousedown alone misses iOS Safari tap events
+    // on non-interactive elements, so we listen to touchstart as well.
     useEffect(() => {
-        const handler = (e: MouseEvent) => {
-            if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
+        const handler = (e: MouseEvent | TouchEvent) => {
+            const target = e instanceof TouchEvent ? e.touches[0]?.target : (e as MouseEvent).target;
+            if (menuRef.current && !menuRef.current.contains(target as Node)) setOpen(false);
         };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
+        document.addEventListener('mousedown', handler as EventListener);
+        document.addEventListener('touchstart', handler as EventListener, { passive: true });
+        return () => {
+            document.removeEventListener('mousedown', handler as EventListener);
+            document.removeEventListener('touchstart', handler as EventListener);
+        };
     }, []);
 
     const handleSignOut = async () => {
@@ -191,31 +197,43 @@ export default function UserMenu({ userRole }: UserMenuProps) {
                 <button
                     onClick={() => setOpen(o => !o)}
                     title={displayName}
+                    aria-label={`Profile menu for ${displayName}`}
                     style={{
-                        width: 36, height: 36, borderRadius: '50%', border: '2px solid rgba(99,102,241,0.5)',
-                        background: showAvatarImg ? 'transparent' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                        color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'border-color 0.2s, box-shadow 0.2s', flexShrink: 0,
-                        boxShadow: open ? '0 0 0 3px rgba(99,102,241,0.3)' : 'none',
-                        padding: 0, overflow: 'hidden',
+                        // 44×44 touch target as recommended by Apple/Google HIG;
+                        // the avatar circle itself is 36×36 via inner sizing.
+                        width: 44, height: 44, borderRadius: '50%', border: 'none',
+                        background: 'transparent',
+                        cursor: 'pointer', display: 'flex', alignItems: 'center',
+                        justifyContent: 'center', flexShrink: 0, padding: 0,
+                        WebkitTapHighlightColor: 'transparent',
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.9)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.2)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = open ? 'rgba(99,102,241,0.9)' : 'rgba(99,102,241,0.5)'; e.currentTarget.style.boxShadow = open ? '0 0 0 3px rgba(99,102,241,0.3)' : 'none'; }}
                 >
-                    {showAvatarImg ? (
-                        <img src={avatarUrl} alt={displayName} onError={() => setAvatarLoadFailed(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                        initials
-                    )}
+                    <span style={{
+                        width: 36, height: 36, borderRadius: '50%',
+                        border: `2px solid ${open ? 'rgba(99,102,241,0.9)' : 'rgba(99,102,241,0.5)'}`,
+                        background: showAvatarImg ? 'transparent' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                        color: '#fff', fontWeight: 700, fontSize: 13,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        boxShadow: open ? '0 0 0 3px rgba(99,102,241,0.3)' : 'none',
+                        overflow: 'hidden', transition: 'border-color 0.2s, box-shadow 0.2s',
+                        pointerEvents: 'none', // clicks handled by the outer button
+                    }}>
+                        {showAvatarImg ? (
+                            <img src={avatarUrl} alt={displayName} onError={() => setAvatarLoadFailed(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                            initials
+                        )}
+                    </span>
                 </button>
 
-            {/* Dropdown */}
+            {/* Dropdown — right-anchored so it never overflows off the left edge on mobile */}
             {open && (
                 <div style={{
-                    position: 'absolute', top: 'calc(100% + 10px)', right: 0, zIndex: 1000,
+                    position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 1000,
                     background: 'var(--surface-2, #18181f)', border: '1px solid rgba(99,102,241,0.2)',
-                    borderRadius: 14, padding: '8px', minWidth: 220,
+                    borderRadius: 14, padding: '8px',
+                    // On very narrow screens, keep the menu inside the viewport
+                    minWidth: 220, maxWidth: 'min(280px, calc(100vw - 24px))',
                     boxShadow: '0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)',
                     animation: 'fadeInDown 0.15s ease',
                 }}>
@@ -260,11 +278,11 @@ export default function UserMenu({ userRole }: UserMenuProps) {
                                 setOpen(false);
                             }}
                             style={{
-                                width: '100%', padding: '9px 12px', border: 'none', borderRadius: 10,
+                                width: '100%', padding: '11px 12px', border: 'none', borderRadius: 10,
                                 background: 'transparent', color: 'var(--text, #e8e8f0)',
                                 fontSize: 13, fontWeight: 600, cursor: 'pointer',
                                 display: 'flex', alignItems: 'center', gap: 8, transition: 'background 0.15s',
-                                textAlign: 'left', marginBottom: 4,
+                                textAlign: 'left', marginBottom: 4, minHeight: 44,
                             }}
                             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.1)'; }}
                             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
@@ -286,11 +304,11 @@ export default function UserMenu({ userRole }: UserMenuProps) {
                             setOpen(false);
                         }}
                         style={{
-                            width: '100%', padding: '9px 12px', border: 'none', borderRadius: 10,
+                            width: '100%', padding: '11px 12px', border: 'none', borderRadius: 10,
                             background: 'transparent', color: 'var(--text, #e8e8f0)',
                             fontSize: 13, fontWeight: 600, cursor: 'pointer',
                             display: 'flex', alignItems: 'center', gap: 8, transition: 'background 0.15s',
-                            textAlign: 'left', marginBottom: 4,
+                            textAlign: 'left', marginBottom: 4, minHeight: 44,
                         }}
                         onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.1)'; }}
                         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
@@ -307,11 +325,11 @@ export default function UserMenu({ userRole }: UserMenuProps) {
                     <button
                         onClick={() => { setShowDeleteConfirm(true); setOpen(false); }}
                         style={{
-                            width: '100%', padding: '9px 12px', border: 'none', borderRadius: 10,
+                            width: '100%', padding: '11px 12px', border: 'none', borderRadius: 10,
                             background: 'transparent', color: '#f87171',
                             fontSize: 13, fontWeight: 600, cursor: 'pointer',
                             display: 'flex', alignItems: 'center', gap: 8, transition: 'background 0.15s',
-                            textAlign: 'left', marginBottom: 4,
+                            textAlign: 'left', marginBottom: 4, minHeight: 44,
                         }}
                         onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; }}
                         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
@@ -330,11 +348,11 @@ export default function UserMenu({ userRole }: UserMenuProps) {
                         onClick={handleSignOut}
                         disabled={signingOut}
                         style={{
-                            width: '100%', padding: '9px 12px', border: 'none', borderRadius: 10,
+                            width: '100%', padding: '11px 12px', border: 'none', borderRadius: 10,
                             background: 'transparent', color: signingOut ? 'var(--text-muted, #7b7b99)' : '#f87171',
                             fontSize: 13, fontWeight: 600, cursor: signingOut ? 'not-allowed' : 'pointer',
                             display: 'flex', alignItems: 'center', gap: 8, transition: 'background 0.15s',
-                            textAlign: 'left',
+                            textAlign: 'left', minHeight: 44,
                         }}
                         onMouseEnter={e => { if (!signingOut) e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; }}
                         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}

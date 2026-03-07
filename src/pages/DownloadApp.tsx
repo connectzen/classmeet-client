@@ -364,7 +364,7 @@ function SuccessScreen({ notifPermission, justInstalled, onDone }: {
             {/* Primary CTA — "Start" in standalone, "Close Browser" in browser tab */}
             {isStandalone ? (
                 <button
-                    onClick={() => { window.location.href = '/'; if (onDone) onDone(); }}
+                    onClick={() => { if (onDone) { onDone(); } else { window.location.href = '/'; } }}
                     style={{ marginTop: 20, padding: '14px 32px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg,#6366f1,#4f46e5)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', letterSpacing: 0.3, boxShadow: '0 6px 32px rgba(99,102,241,0.55)' }}
                 >
                     🚀 &nbsp;Start Using ClassMeet
