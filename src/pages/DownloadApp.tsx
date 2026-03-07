@@ -82,8 +82,8 @@ export default function DownloadApp() {
             {/* Thank-you note */}
             <p style={styles.thankYou}>🙏 Thank you for visiting ClassMeet!</p>
 
-            <h1 style={styles.appName}>Welcome, Scholar! 🎓</h1>
-            <p style={styles.tagline}>We're so happy you're here. Your learning journey starts today.</p>
+            <h1 style={styles.appName}>Welcome! 🎓</h1>
+            <p style={styles.tagline}>Whether you teach or you learn — we built this for you. Your journey with ClassMeet starts right here.</p>
 
             {/* ── Welcome messages ── */}
             <div style={styles.featureList}>
@@ -148,8 +148,8 @@ function InstallModal({ installing, onConfirm, onClose }: {
 
                 <h2 style={styles.modalTitle}>You're Almost In! 🌟</h2>
                 <p style={styles.modalSubtitle}>
-                    Install ClassMeet for free and join thousands of students
-                    already learning and growing together every day.
+                    Install ClassMeet for free and join a growing community of
+                    teachers and students learning together every day.
                 </p>
 
                 {/* Benefits */}
@@ -250,7 +250,7 @@ function SuccessScreen() {
             <h1 style={{ ...styles.appName, marginTop: 28 }}>Welcome to the Family! 🎉</h1>
 
             <p style={{ fontSize: 16, color: '#94a3b8', maxWidth: 320, margin: '12px auto 36px', lineHeight: 1.7, textAlign: 'center' }}>
-                We're so proud to have you with us. We will work hard every day to help you grow and succeed in your education.
+                We're so proud to have you with us — teacher or student. We will work hard every day so that great education happens here.
             </p>
 
             {/* Instruction card */}
@@ -267,7 +267,7 @@ function SuccessScreen() {
             <div style={{ ...styles.successCard, marginTop: 12, background: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.25)' }}>
                 <div style={{ fontSize: 28, marginBottom: 10 }}>✏️</div>
                 <p style={{ margin: 0, fontSize: 15, color: '#6ee7b7', lineHeight: 1.7 }}>
-                    Once inside, create your free account — your learning adventure begins the moment you sign up!
+                    Create your free account inside the app — then start teaching or studying. Your adventure begins now!
                 </p>
             </div>
         </div>
@@ -281,10 +281,10 @@ function AlreadyInstalledScreen() {
         <div style={styles.fullPage}>
             <div style={{ fontSize: 72, marginBottom: 16 }}>🎓</div>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: '#e0e7ff', margin: '0 0 12px', textAlign: 'center' }}>
-                Welcome Back, Scholar!
+                Welcome Back!
             </h1>
             <p style={{ fontSize: 15, color: '#94a3b8', maxWidth: 320, textAlign: 'center', lineHeight: 1.7 }}>
-                Thank you for choosing ClassMeet. You already have the app — simply open it and dive back into your learning journey. We're delighted to have you with us! 🌟
+                Thank you for choosing ClassMeet. You already have the app — open it to teach or to learn. We're delighted to have you with us! 🌟
             </p>
         </div>
     );
@@ -293,17 +293,17 @@ function AlreadyInstalledScreen() {
 // ── Static Data ───────────────────────────────────────────────────────────────
 
 const FEATURES = [
-    { icon: '🤝', text: 'We are here for you — let\'s learn and grow together' },
-    { icon: '📚', text: 'Live classes with real teachers, right at your fingertips' },
-    { icon: '💡', text: 'Quizzes, courses, and tools designed to make you shine' },
-    { icon: '🌍', text: 'Join a community of students working hard for a better future' },
+    { icon: '🤝', text: 'For teachers & students — everyone belongs here' },
+    { icon: '📺', text: 'Host or join live classes from anywhere, on any device' },
+    { icon: '💡', text: 'Quizzes, courses, and real-time tools — all in one place' },
+    { icon: '🌍', text: 'A community growing together toward a brighter future' },
 ];
 
 const MODAL_BENEFITS = [
-    'Connect with your teacher anytime, anywhere',
-    'Join live classes and never miss a lesson',
-    'Take quizzes and track your own progress',
-    'It\'s completely free — built for students like you',
+    'Teachers: host live classes and manage your students',
+    'Students: join sessions, take quizzes, and grow',
+    'Real-time chat, courses, and collaboration tools',
+    'Completely free — built for educators and learners alike',
 ];
 
 const IOS_STEPS = [
