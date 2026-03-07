@@ -785,7 +785,20 @@ export default function PlayModePanel({
 
     useEffect(() => () => stopInterval(), [stopInterval]);
 
-    // ── Global mousedown → stop when playing, unless click is inside this panel ───
+    // ── Global mousedown → stop when playing, unless click is inside this panel ──
+    const panelRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        const onMouseDown = (e: MouseEvent) => {
+            if (panelRef.current?.contains(e.target as Node)) return;
+            const ps = playStateRef.current;
+            if (ps === 'playing' || ps === 'ready-next' || ps === 'paused') {
+                handleStop();
+            }
+        };
+        document.addEventListener('mousedown', onMouseDown);
+        return () => document.removeEventListener('mousedown', onMouseDown);
+    }, [handleStop]);
+
     // ── Keyboard shortcut: ArrowRight → Next (or Resume when stopped) ──────────
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
@@ -890,7 +903,7 @@ export default function PlayModePanel({
     ];
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#111827", color: "#e2e8f0", fontSize: 13, overflow: "hidden" }}>
+        <div ref={panelRef} style={{ display: "flex", flexDirection: "column", height: "100%", background: "#111827", color: "#e2e8f0", fontSize: 13, overflow: "hidden" }}>
 
             {/* ── TOP: Lines / Per line / Per fly (replaces editor toolbar) ── */}
             <div style={{ display: "flex", gap: 6, alignItems: "center", padding: "4px 8px", borderBottom: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)", flexShrink: 0, flexWrap: "wrap" }}>
