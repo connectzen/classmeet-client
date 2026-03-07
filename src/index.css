@@ -3056,43 +3056,47 @@ button:active:not(:disabled),
   }
 }
 
-/* ── MEDIUM / TABLET (600–1024px): two fixed columns, thumbnail strip at top ── */
+/* ── MEDIUM / TABLET (600–1024px): students left, host right, chat in controls ── */
 @media (min-width: 600px) and (max-width: 1024px) {
   :root {
-    /* Cap each column at half viewport so both always fit side by side */
-    --tiktok-col-w: min(calc((100vh - 52px) * 9 / 20), calc(50vw - 4px));
+    /* Host takes at most 55vw so students always get at least 45vw */
+    --tiktok-col-w: min(calc((100vh - 52px) * 9 / 20), calc(55vw - 4px));
   }
 
-  /* Override mobile's column layout — row with two fixed columns centered */
+  /* Row layout: students LEFT, host RIGHT */
   .room-body {
     flex-direction: row !important;
-    justify-content: center;
   }
 
-  /* Host column — fixed width */
+  /* Students LEFT — fills remaining space, scrollable */
+  .room-participants-sidebar {
+    display: flex !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+    overflow-y: auto !important;
+  }
+
+  /* Host RIGHT — fixed width column */
   .room-center {
     flex: 0 0 auto !important;
     width: var(--tiktok-col-w) !important;
     min-height: 0 !important;
   }
 
-  /* Show chat/play sidebar (overrides desktop-only: none from mobile block) */
-  .room-chat-sidebar {
-    display: flex !important;
-    flex-direction: column;
-    width: var(--tiktok-col-w);
-    flex-shrink: 0;
+  /* Hide chat sidebar — chat accessible via button in controls bar */
+  .room-chat-sidebar { display: none !important; }
+  .room-right-sidebar { display: none !important; }
+
+  /* Hide thumbnail strip — students are shown in the left panel */
+  .mobile-thumbnail-strip { display: none !important; }
+
+  /* Show Chat / Play buttons in controls bar */
+  .mobile-only { display: flex !important; }
+
+  /* Student grid: 2-column, fills full height, scroll if overflow */
+  .rps-list {
+    overflow-y: auto !important;
   }
-
-  /* Hide student sidebars — no room for them at this width */
-  .room-participants-sidebar { display: none !important; }
-  .room-right-sidebar        { display: none !important; }
-
-  /* Keep thumbnail strip — students scroll horizontally at top of host column */
-  .mobile-thumbnail-strip { display: flex !important; }
-
-  /* Hide mobile-only chat/play buttons — chat sidebar is now directly visible */
-  .mobile-only { display: none !important; }
 }
 
 /* Quill editor dark theme (CourseEditor) */
