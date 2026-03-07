@@ -4,8 +4,15 @@ import { registerRoute } from 'workbox-routing';
 import { NetworkOnly, CacheFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
+import { skipWaiting, clientsClaim } from 'workbox-core';
 
 declare const self: ServiceWorkerGlobalScope;
+
+// Activate the new SW immediately when it installs — don't wait for all
+// existing tabs to close first. This ensures deployed code changes are
+// picked up on the next page navigation without a hard refresh.
+skipWaiting();
+clientsClaim();
 
 // ── Precaching ────────────────────────────────────────────────────────────────
 cleanupOutdatedCaches();
