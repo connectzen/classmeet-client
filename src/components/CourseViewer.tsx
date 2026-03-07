@@ -166,10 +166,12 @@ function QuizModal({ quizId, userId, userName, onClose }: {
             @keyframes slideInLeft  { from { transform: translateX(-60px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         `}</style>
         <div
+            className="qm-backdrop"
             style={{ position: 'fixed', inset: 0, zIndex: 100001, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '50px 24px 40px', overflowY: 'auto' }}
             onClick={onClose}
         >
             <div
+                className="qm-modal"
                 style={{ background: 'linear-gradient(160deg,#1e2130 0%,#181c2a 100%)', borderRadius: 18, width: '100%', maxWidth: 620, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.1)', display: 'flex', flexDirection: 'column' }}
                 onClick={e => e.stopPropagation()}
             >
@@ -346,16 +348,29 @@ export default function CourseViewer({ course, userId, userName, onClose }: Prop
 
     return (
         <>
+            <style>{`
+                @media (max-width: 600px) {
+                    .cv-backdrop { padding: 8px 8px 20px !important; }
+                    .cv-modal { border-radius: 10px !important; }
+                    .cv-modal-header { padding: 12px 14px !important; }
+                    .cv-modal-header h2 { font-size: 15px !important; }
+                    .cv-modal-body { padding: 10px !important; max-height: calc(100vh - 90px) !important; }
+                    .qm-backdrop { padding: 8px 8px 20px !important; }
+                    .qm-modal { border-radius: 12px !important; }
+                }
+            `}</style>
             <div
+                className="cv-backdrop"
                 style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '50px 20px 40px', overflowY: 'auto' }}
                 onClick={onClose}
             >
                 <div
+                    className="cv-modal"
                     style={{ background: 'var(--surface-2, #18181f)', borderRadius: 16, width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.08)' }}
                     onClick={e => e.stopPropagation()}
                 >
                     {/* Header */}
-                    <div style={{ padding: '18px 24px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div className="cv-modal-header" style={{ padding: '18px 24px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div>
                             <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700, color: '#e2e8f0' }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(course.title) }} />
                             <div style={{ fontSize: 12, color: '#64748b' }}>{topics.length} topic{topics.length !== 1 ? 's' : ''} · {totalItems} item{totalItems !== 1 ? 's' : ''}</div>
@@ -364,7 +379,7 @@ export default function CourseViewer({ course, userId, userName, onClose }: Prop
                     </div>
 
                     {/* Body */}
-                    <div style={{ padding: 18, overflowY: 'auto', maxHeight: 'calc(100vh - 180px)' }}>
+                    <div className="cv-modal-body" style={{ padding: 18, overflowY: 'auto', maxHeight: 'calc(100vh - 180px)' }}>
                         {loading ? (
                             <div style={{ padding: 48, textAlign: 'center', color: '#64748b' }}>Loading course…</div>
                         ) : topics.length === 0 ? (
