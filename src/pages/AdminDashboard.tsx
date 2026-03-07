@@ -1107,11 +1107,11 @@ export default function AdminDashboard({ onJoinRoom }: Props) {
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                                         <div>
                                             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600, textTransform: 'uppercase' }}>Title *</div>
-                                            <Input placeholder="e.g. Class starting now!" value={campaignForm.title} onChange={v => setCampaignForm(f => ({ ...f, title: v }))} />
+                                            <Input placeholder="e.g. Class starting now!" value={campaignForm.title} onChange={e => setCampaignForm(f => ({ ...f, title: e.target.value }))} />
                                         </div>
                                         <div>
                                             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600, textTransform: 'uppercase' }}>Link (optional)</div>
-                                            <Input placeholder="https://... or /" value={campaignForm.url} onChange={v => setCampaignForm(f => ({ ...f, url: v }))} />
+                                            <Input placeholder="https://... or /" value={campaignForm.url} onChange={e => setCampaignForm(f => ({ ...f, url: e.target.value }))} />
                                         </div>
                                     </div>
 
