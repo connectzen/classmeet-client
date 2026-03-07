@@ -1865,9 +1865,10 @@ button:active:not(:disabled),
   overflow: hidden;
 }
 
-/* ── Right: Chat sidebar — TikTok portrait ratio ── */
+/* ── Right: Chat sidebar — same fixed width as host column ── */
 .room-chat-sidebar {
-  flex: 1;
+  flex-shrink: 0;
+  width: var(--tiktok-col-w);
   display: flex;
   flex-direction: column;
   background: var(--surface);
@@ -1886,15 +1887,36 @@ button:active:not(:disabled),
   border-right: 1px solid var(--border);
 }
 
-/* ── Left: Student video grid — fills remaining space ── */
+/* ── Left: Student video grid — fills 2/3 of remaining space ── */
 .room-participants-sidebar {
-  flex: 1;
-  min-width: 200px;
+  flex: 2;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   background: var(--surface);
   border-right: 1px solid var(--border);
   overflow: hidden;
+}
+
+/* ── Far right: Extra 2 student slots — fills 1/3 of remaining space ── */
+.room-right-sidebar {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.rrs-list {
+  flex: 1;
+  overflow: hidden;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 6px;
 }
 
 .rps-header {
@@ -2285,6 +2307,21 @@ button:active:not(:disabled),
 .control-btn-leave:hover {
   background: rgba(99, 102, 241, 0.1);
   border-color: var(--primary);
+}
+
+.control-btn-on {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #86efac;
+}
+
+.control-btn-on .control-label {
+  color: #86efac;
+}
+
+.control-btn-on:hover {
+  background: rgba(34, 197, 94, 0.18);
+  border-color: rgba(34, 197, 94, 0.6);
 }
 
 .control-label {
@@ -3687,7 +3724,8 @@ input[type="radio"] {
   .dashboard-panel { padding: 22px 24px; }
   .classes-grid { grid-template-columns: repeat(2, 1fr); }
   :root { --tiktok-col-w: calc((100vh - 52px) * 9 / 20); }
-  .room-participants-sidebar { min-width: 160px; }
+  .room-participants-sidebar { min-width: 0; }
+  .room-right-sidebar { display: none; }
   .admin-sidebar { width: 180px; }
   .admin-stats-grid { grid-template-columns: repeat(3, 1fr); }
   .admin-content { padding: 20px 24px; }

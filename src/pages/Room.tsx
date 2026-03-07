@@ -768,6 +768,27 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
         </div>
     );
 
+    // Build 6 participant slots: left sidebar uses 0–3, right sidebar uses 4–5
+    const _localTeacher: ParticipantState = { socketId: '__local__', name, role, isMuted: !micOn, isCamOff: !camOn };
+    const _students = allParticipants.filter(p => p.role !== 'teacher');
+    const _spotlightedStudent = spotlightId !== '__local__'
+        ? allParticipants.find(p => p.socketId === spotlightId) ?? null
+        : null;
+    const bigSlots: (ParticipantState | null)[] = Array(6).fill(null);
+    if (_spotlightedStudent) {
+        const naturalIdx = Math.min(_students.findIndex(p => p.socketId === spotlightId), 5);
+        const teacherSlot = naturalIdx >= 0 ? naturalIdx : 0;
+        bigSlots[teacherSlot] = _localTeacher;
+        const others = _students.filter(p => p.socketId !== spotlightId && p.socketId !== '__local__');
+        let si = 0;
+        for (let i = 0; i < 6; i++) {
+            if (bigSlots[i] !== null) continue;
+            bigSlots[i] = others[si++] ?? null;
+        }
+    } else {
+        _students.filter(s => s.socketId !== '__local__').slice(0, 6).forEach((s, i) => { bigSlots[i] = s; });
+    }
+
     return (
         <div className="room-container">
             {/* Teacher disconnected countdown */}
@@ -944,89 +965,61 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
             {/* ── MAIN BODY ──────────────────────────────────────────────── */}
             <div className="room-body">
 
-                {/* LEFT: Participants sidebar (desktop only) */}
+                {/* LEFT: Participants sidebar (desktop only) — slots 0–3 */}
                 <div className="room-participants-sidebar desktop-only">
                     <div className="rps-list">
-                        {(() => {
-                            const localTeacher: ParticipantState = { socketId: '__local__', name, role, isMuted: !micOn, isCamOff: !camOn };
-                            const students = allParticipants.filter(p => p.role !== 'teacher');
-                            const spotlightedStudent = spotlightId !== '__local__'
-                                ? allParticipants.find(p => p.socketId === spotlightId) ?? null
-                                : null;
-
-                            // Build exactly 4 display slots
-                            const gridSlots: (ParticipantState | null)[] = Array(4).fill(null);
-
-                            if (spotlightedStudent) {
-                                // Student is on main screen — put teacher in that student's natural slot
-                                const naturalIdx = Math.min(students.findIndex(p => p.socketId === spotlightId), 3);
-                                const teacherSlot = naturalIdx >= 0 ? naturalIdx : 0;
-                                gridSlots[teacherSlot] = localTeacher;
-                                // Fill remaining slots with other students (exclude spotlighted + local user already placed)
-                                const others = students.filter(p => p.socketId !== spotlightId && p.socketId !== '__local__');
-                                let si = 0;
-                                for (let i = 0; i < 4; i++) {
-                                    if (gridSlots[i] !== null) continue;
-                                    gridSlots[i] = others[si++] ?? null;
-                                }
-                            } else {
-                                // Teacher/local user is on main screen — show remote students in slots only
-                                students.filter(s => s.socketId !== '__local__').slice(0, 4).forEach((s, i) => { gridSlots[i] = s; });
-                            }
-
-                            return gridSlots.map((p, i) => {
-                                if (!p) {
-                                    return (
-                                        <div key={`slot-${i}`} className="rps-tile rps-empty-slot">
-                                            <span className="rps-slot-label">Room {i + 1}</span>
-                                        </div>
-                                    );
-                                }
-                                const isLocal = p.socketId === '__local__';
-                                const stream = isLocal ? localStream : (remoteStreams.get(p.socketId) || null);
-                                const isSpotlit = spotlightId === p.socketId;
-                                const isTeacherViewing = role === 'teacher';
+                        {bigSlots.slice(0, 4).map((p, i) => {
+                            if (!p) {
                                 return (
-                                    <div
-                                        key={p.socketId}
-                                        className={`rps-tile ${isSpotlit ? 'rps-tile-spotlit' : ''} ${isTeacherViewing && !isSpotlit ? 'rps-tile-clickable' : ''}`}
-                                        onClick={isTeacherViewing ? () => handleSpotlightClick(p.socketId) : undefined}
-                                        title={isTeacherViewing ? (isLocal ? 'Return to host view' : `Spotlight ${p.name}`) : undefined}
-                                    >
-                                        <VideoTileInline stream={stream} name={p.name} muted={isLocal} isCamOff={p.isCamOff} />
-                                        <div className="rps-overlay">
-                                            <span className="rps-name">{p.name}{isLocal ? ' (you)' : ''}</span>
-                                            <div className="rps-badges">
-                                                {p.isMuted && <span className="rps-badge-muted">🔇</span>}
-                                                {p.isCamOff && <span className="rps-badge-muted">🚫</span>}
-                                                {isSpotlit && <span className="rps-badge-spotlight">✨</span>}
-                                            </div>
-                                        </div>
-                                        {isTeacherViewing && !isLocal && (
-                                            <>
-                                                <button
-                                                    className={`rps-mute-btn ${p.isMuted ? 'rps-mute-btn-on' : ''}`}
-                                                    onClick={(e) => { e.stopPropagation(); handleMuteParticipant(p.socketId, !p.isMuted); }}
-                                                    title={p.isMuted ? 'Unmute' : 'Mute'}
-                                                    style={{ top: 4 }}
-                                                >
-                                                    {p.isMuted ? '🔊' : '🔇'}
-                                                </button>
-                                                <button
-                                                    className={`rps-mute-btn ${p.isCamOff ? 'rps-mute-btn-on' : ''}`}
-                                                    onClick={(e) => { e.stopPropagation(); handleCamParticipant(p.socketId, !!p.isCamOff); }}
-                                                    title={p.isCamOff ? 'Turn camera on' : 'Turn camera off'}
-                                                    style={{ top: 30 }}
-                                                >
-                                                    {p.isCamOff ? '📷' : '🚫'}
-                                                </button>
-                                            </>
-                                        )}
-                                        <span className={`rps-role-tag rps-role-${p.role}`}>{p.role}</span>
+                                    <div key={`slot-${i}`} className="rps-tile rps-empty-slot">
+                                        <span className="rps-slot-label">Room {i + 1}</span>
                                     </div>
                                 );
-                            });
-                        })()}
+                            }
+                            const isLocal = p.socketId === '__local__';
+                            const stream = isLocal ? localStream : (remoteStreams.get(p.socketId) || null);
+                            const isSpotlit = spotlightId === p.socketId;
+                            const isTeacherViewing = role === 'teacher';
+                            return (
+                                <div
+                                    key={p.socketId}
+                                    className={`rps-tile ${isSpotlit ? 'rps-tile-spotlit' : ''} ${isTeacherViewing && !isSpotlit ? 'rps-tile-clickable' : ''}`}
+                                    onClick={isTeacherViewing ? () => handleSpotlightClick(p.socketId) : undefined}
+                                    title={isTeacherViewing ? (isLocal ? 'Return to host view' : `Spotlight ${p.name}`) : undefined}
+                                >
+                                    <VideoTileInline stream={stream} name={p.name} muted={isLocal} isCamOff={p.isCamOff} />
+                                    <div className="rps-overlay">
+                                        <span className="rps-name">{p.name}{isLocal ? ' (you)' : ''}</span>
+                                        <div className="rps-badges">
+                                            {p.isMuted && <span className="rps-badge-muted">🔇</span>}
+                                            {p.isCamOff && <span className="rps-badge-muted">🚫</span>}
+                                            {isSpotlit && <span className="rps-badge-spotlight">✨</span>}
+                                        </div>
+                                    </div>
+                                    {isTeacherViewing && !isLocal && (
+                                        <>
+                                            <button
+                                                className={`rps-mute-btn ${p.isMuted ? 'rps-mute-btn-on' : ''}`}
+                                                onClick={(e) => { e.stopPropagation(); handleMuteParticipant(p.socketId, !p.isMuted); }}
+                                                title={p.isMuted ? 'Unmute' : 'Mute'}
+                                                style={{ top: 4 }}
+                                            >
+                                                {p.isMuted ? '🔊' : '🔇'}
+                                            </button>
+                                            <button
+                                                className={`rps-mute-btn ${p.isCamOff ? 'rps-mute-btn-on' : ''}`}
+                                                onClick={(e) => { e.stopPropagation(); handleCamParticipant(p.socketId, !!p.isCamOff); }}
+                                                title={p.isCamOff ? 'Turn camera on' : 'Turn camera off'}
+                                                style={{ top: 30 }}
+                                            >
+                                                {p.isCamOff ? '📷' : '🚫'}
+                                            </button>
+                                        </>
+                                    )}
+                                    <span className={`rps-role-tag rps-role-${p.role}`}>{p.role}</span>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -1230,7 +1223,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                 </div>
 
                 {/* RIGHT: Chat / Play sidebar (desktop only) */}
-                <div className="room-chat-sidebar desktop-only" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div className="room-chat-sidebar desktop-only">
                     {/* Tab header — Play tab visible only to teacher when course is on */}
                     <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
                         <button onClick={() => setRightTab('chat')}
@@ -1270,6 +1263,63 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                     </div>
                 </div>
 
+                {/* FAR RIGHT: Extra 2 student slots (desktop only) — slots 4–5 */}
+                <div className="room-right-sidebar desktop-only">
+                    <div className="rrs-list">
+                        {bigSlots.slice(4, 6).map((p, i) => {
+                            if (!p) {
+                                return (
+                                    <div key={`rslot-${i}`} className="rps-tile rps-empty-slot">
+                                        <span className="rps-slot-label">Room {5 + i}</span>
+                                    </div>
+                                );
+                            }
+                            const isLocal = p.socketId === '__local__';
+                            const stream = isLocal ? localStream : (remoteStreams.get(p.socketId) || null);
+                            const isSpotlit = spotlightId === p.socketId;
+                            const isTeacherViewing = role === 'teacher';
+                            return (
+                                <div
+                                    key={p.socketId}
+                                    className={`rps-tile ${isSpotlit ? 'rps-tile-spotlit' : ''} ${isTeacherViewing && !isSpotlit ? 'rps-tile-clickable' : ''}`}
+                                    onClick={isTeacherViewing ? () => handleSpotlightClick(p.socketId) : undefined}
+                                    title={isTeacherViewing ? (isLocal ? 'Return to host view' : `Spotlight ${p.name}`) : undefined}
+                                >
+                                    <VideoTileInline stream={stream} name={p.name} muted={isLocal} isCamOff={p.isCamOff} />
+                                    <div className="rps-overlay">
+                                        <span className="rps-name">{p.name}{isLocal ? ' (you)' : ''}</span>
+                                        <div className="rps-badges">
+                                            {p.isMuted && <span className="rps-badge-muted">🔇</span>}
+                                            {p.isCamOff && <span className="rps-badge-muted">🚫</span>}
+                                            {isSpotlit && <span className="rps-badge-spotlight">✨</span>}
+                                        </div>
+                                    </div>
+                                    {isTeacherViewing && !isLocal && (
+                                        <>
+                                            <button
+                                                className={`rps-mute-btn ${p.isMuted ? 'rps-mute-btn-on' : ''}`}
+                                                onClick={(e) => { e.stopPropagation(); handleMuteParticipant(p.socketId, !p.isMuted); }}
+                                                title={p.isMuted ? 'Unmute' : 'Mute'}
+                                                style={{ top: 4 }}
+                                            >
+                                                {p.isMuted ? '🔊' : '🔇'}
+                                            </button>
+                                            <button
+                                                className={`rps-mute-btn ${p.isCamOff ? 'rps-mute-btn-on' : ''}`}
+                                                onClick={(e) => { e.stopPropagation(); handleCamParticipant(p.socketId, !!p.isCamOff); }}
+                                                title={p.isCamOff ? 'Turn camera on' : 'Turn camera off'}
+                                                style={{ top: 30 }}
+                                            >
+                                                {p.isCamOff ? '📷' : '🚫'}
+                                            </button>
+                                        </>
+                                    )}
+                                    <span className={`rps-role-tag rps-role-${p.role}`}>{p.role}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
 
             </div>
 
@@ -1293,6 +1343,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                     {role === 'teacher' && (
                         <CtrlToggle
                             label="Quiz"
+                            icon="📝"
                             on={quizToggleOn}
                             onChange={() => {
                                 const next = !quizToggleOn;
@@ -1307,6 +1358,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                     {role === 'teacher' && sessionCourseIds.length > 0 && (
                         <CtrlToggle
                             label="Course"
+                            icon="📚"
                             on={courseToggleOn}
                             onChange={() => {
                                 const next = !courseToggleOn;
@@ -1321,6 +1373,7 @@ export default function Room({ roomCode, roomId, roomName, name, role, isGuestRo
                     {role === 'teacher' && (
                         <CtrlToggle
                             label="Blackboard"
+                            icon="✏️"
                             on={blackboardOn}
                             onChange={() => {
                                 const next = !blackboardOn;
@@ -1378,18 +1431,14 @@ function SpotlightVideo({ stream, name, isLocal, isCamOff }: { stream: MediaStre
     );
 }
 
-function CtrlToggle({ label, on, onChange }: { label: string; on: boolean; onChange: () => void; color?: string }) {
-    const trackColor = on ? '#22c55e' : 'rgba(255,255,255,0.1)';
-    const borderColor = on ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.12)';
+function CtrlToggle({ label, on, onChange, icon }: { label: string; on: boolean; onChange: () => void; icon: string }) {
     return (
         <button
             onClick={onChange}
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', padding: '4px clamp(4px, 1vw, 12px)', flex: '0 0 auto', minWidth: 0, boxSizing: 'border-box' }}
+            className={`control-btn ${on ? 'control-btn-on' : ''}`}
         >
-            <span style={{ fontSize: 'clamp(7px, 1.5vw, 9px)', fontWeight: 700, letterSpacing: '0.06em', color: on ? '#e2e8f0' : 'var(--text-muted)', textTransform: 'uppercase', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{label}</span>
-            <div style={{ width: 'clamp(28px, 5vw, 40px)', height: 'clamp(16px, 3vw, 22px)', borderRadius: 11, background: trackColor, border: `1.5px solid ${borderColor}`, position: 'relative', transition: 'background 0.2s, border-color 0.2s', flexShrink: 0 }}>
-                <div style={{ position: 'absolute', top: 2, left: on ? 'calc(100% - 15px)' : 3, width: 'clamp(9px, 2vw, 13px)', height: 'clamp(9px, 2vw, 13px)', borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.3)', transition: 'left 0.18s' }} />
-            </div>
+            {icon}
+            <span className="control-label">{label}</span>
         </button>
     );
 }
